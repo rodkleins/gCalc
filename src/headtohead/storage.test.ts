@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STORAGE_KEY } from '../model/storage';
+import { STORAGE_KEY, storageKeys } from '../model/storage';
 import { exampleDraft } from './model';
 import { HEADTOHEAD_STORAGE_KEY, loadDraft, saveDraft } from './storage';
 
@@ -26,7 +26,9 @@ describe('rascunho head-to-head no navegador', () => {
     draft.fictional = false;
     saveDraft(storage, draft);
 
+    expect(HEADTOHEAD_STORAGE_KEY).toBe(storageKeys(false).headtohead);
     expect(HEADTOHEAD_STORAGE_KEY).not.toBe(STORAGE_KEY);
+    expect(storageKeys(true).headtohead).not.toBe(HEADTOHEAD_STORAGE_KEY);
     expect(storage.getItem(STORAGE_KEY)).toBe('{"version":2,"draft":"atual"}');
     const loaded = loadDraft(storage);
     expect(loaded.storeName).toBe('Rede Norte');

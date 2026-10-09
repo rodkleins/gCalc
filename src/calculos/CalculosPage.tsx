@@ -1,3 +1,4 @@
+import { PreviewNotice } from '../components/PreviewNotice';
 import conteudo from './conteudo.md?raw';
 import { renderMarkdown } from './render';
 
@@ -16,6 +17,7 @@ export function CalculosPage() {
         ))}
       </nav>
       <article className="doc-body">
+        <PreviewNotice />
         <p className="doc-links">
           <a className="btn" data-testid="doc-back" href={base}>
             Calculadora

@@ -5,6 +5,7 @@ import {
   STORAGE_KEY,
   STORAGE_VERSION,
   LEGACY_STORAGE_KEY,
+  storageKeys,
   clearSession,
   deleteSimulation,
   duplicateSimulation,
@@ -63,6 +64,28 @@ function sessionWith(patch?: Partial<PersistedSession['draft']>): PersistedSessi
     ],
   };
 }
+
+describe('chaves de armazenamento', () => {
+  it('mantém a calculadora publicada e isola a prévia', () => {
+    expect(storageKeys(false)).toEqual({
+      library: 'gcalc.library.v2',
+      legacy: 'gcalc.inputs.v1',
+      headtohead: 'gcalc.headtohead.v1',
+    });
+    expect(storageKeys(true)).toEqual({
+      library: 'gcalc.preview.library.v2',
+      legacy: 'gcalc.preview.inputs.v1',
+      headtohead: 'gcalc.preview.headtohead.v1',
+    });
+    expect(STORAGE_KEY).toBe('gcalc.library.v2');
+    expect(LEGACY_STORAGE_KEY).toBe('gcalc.inputs.v1');
+    for (const key of Object.values(storageKeys(true))) {
+      expect(key.startsWith('gcalc.preview.')).toBe(true);
+      expect(key).not.toBe(STORAGE_KEY);
+      expect(key).not.toBe(LEGACY_STORAGE_KEY);
+    }
+  });
+});
 
 describe('serialização da sessão', () => {
   it('preserva premissas, cenário, tipo de loja, benefícios e módulo', () => {

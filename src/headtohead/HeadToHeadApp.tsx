@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NumberField, PercentField, Switch } from '../components/Fields';
+import { PreviewNotice } from '../components/PreviewNotice';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, parseLocaleNumber } from '../model/format';
 import {
   blankIndicator,
@@ -54,6 +55,7 @@ export function HeadToHeadApp({ initialDraft }: { initialDraft?: HeadToHeadDraft
 
   return (
     <div className="hh">
+      <PreviewNotice />
       <header className="hh-top">
         <div className="hh-title">
           <p className="eyebrow">Rascunho · comparação head-to-head</p>

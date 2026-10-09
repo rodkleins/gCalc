@@ -347,6 +347,13 @@ th { position: sticky; top: 0; background: #f7f3ea; text-align: left; font-size:
   .choice-row.pair { grid-template-columns: 1fr 1fr; }
   .choice-row.trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+.preview-notice {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.preview-notice a { color: inherit; }
+
 @media (min-width: 1100px) {
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .chart-grid.two { grid-template-columns: 1.05fr 0.95fr; }

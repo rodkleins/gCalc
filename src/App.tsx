@@ -3,6 +3,7 @@ import { AuditPanel } from './components/AuditPanel';
 import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
 import { PremiseFocus } from './components/Fields';
+import { PreviewNotice } from './components/PreviewNotice';
 import { InvestmentForm } from './components/InvestmentForm';
 import { LibraryPanel, downloadJson } from './components/LibraryPanel';
 import { LogisticsForm } from './components/LogisticsForm';
@@ -280,6 +281,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
       </aside>
 
       <main className="main">
+        <PreviewNotice />
         <header className="top">
           <div>
             <p className="eyebrow">
