@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Confidence } from '../model/types';
 import { formatNumber, parseLocaleNumber } from '../model/format';
 import type { ModelResult } from '../model/types';
 import { formatBRL } from '../model/format';
+
+const PremiseFocusContext = createContext<string | null>(null);
+
+export function PremiseFocus({ field, children }: { field: string | null; children: React.ReactNode }) {
+  return <PremiseFocusContext.Provider value={field}>{children}</PremiseFocusContext.Provider>;
+}
 
 export function NumberField({
   label,
@@ -11,6 +17,8 @@ export function NumberField({
   suffix,
   hint,
   min,
+  fieldId,
+  testId,
 }: {
   label: string;
   value: number;
@@ -18,14 +26,25 @@ export function NumberField({
   suffix?: string;
   hint?: string;
   min?: number;
+  fieldId?: string;
+  testId?: string;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const focused = useContext(PremiseFocusContext);
+  const active = fieldId !== undefined && focused === fieldId;
+  const root = useRef<HTMLLabelElement>(null);
   const shown = draft ?? (Number.isInteger(value) ? formatNumber(value) : formatNumber(value, 2));
+  useEffect(() => {
+    if (!active || !root.current) return;
+    root.current.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    root.current.querySelector('input')?.focus();
+  }, [active]);
   return (
-    <label className="field">
+    <label className={`field${active ? ' is-target' : ''}`} ref={root} data-field={fieldId}>
       <span>{label}</span>
       <span className="control">
         <input
+          data-testid={testId}
           inputMode="decimal"
           value={shown}
           onFocus={(event) => {
@@ -56,11 +75,15 @@ export function PercentField({
   value,
   onChange,
   hint,
+  fieldId,
+  testId,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   hint?: string;
+  fieldId?: string;
+  testId?: string;
 }) {
   return (
     <NumberField
@@ -68,6 +91,8 @@ export function PercentField({
       value={Math.round(value * 10000) / 100}
       suffix="%"
       hint={hint}
+      fieldId={fieldId}
+      testId={testId}
       onChange={(next) => onChange(next / 100)}
     />
   );

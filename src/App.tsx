@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuditPanel } from './components/AuditPanel';
 import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
+import { PremiseFocus } from './components/Fields';
 import { InvestmentForm } from './components/InvestmentForm';
 import { LibraryPanel, downloadJson } from './components/LibraryPanel';
 import { LogisticsForm } from './components/LogisticsForm';
@@ -29,6 +30,7 @@ import {
   type SectionId,
   type SimulationRecord,
 } from './model/storage';
+import { reanchor, sectionForField } from './model/premises';
 import type { Inputs, ScenarioId } from './model/types';
 import { wizardSeed } from './model/wizard';
 
@@ -51,25 +53,36 @@ interface BootState {
   scenario: ScenarioId;
   section: SectionId;
   wizardStep: number;
+  adjustAnchor: Inputs;
   simulations: SimulationRecord[];
 }
 
 function boot(initialInputs?: Inputs): BootState {
   if (initialInputs) {
-    return { inputs: initialInputs, scenario: 'base', section: 'dashboard', wizardStep: 0, simulations: [] };
+    return {
+      inputs: initialInputs,
+      scenario: 'base',
+      section: 'dashboard',
+      wizardStep: 0,
+      adjustAnchor: structuredClone(initialInputs),
+      simulations: [],
+    };
   }
   const loaded = readSession(localStorage);
+  const fallbackInputs = exampleInputs();
   const draft = loaded.draft ?? {
-    inputs: exampleInputs(),
+    inputs: fallbackInputs,
     scenario: 'base' as const,
     section: 'dashboard' as const,
     wizardStep: 0,
+    adjustAnchor: structuredClone(fallbackInputs),
   };
   return {
     inputs: draft.inputs,
     scenario: draft.scenario,
     section: draft.section,
     wizardStep: draft.wizardStep,
+    adjustAnchor: draft.adjustAnchor,
     simulations: loaded.simulations,
   };
 }
@@ -80,6 +93,8 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   const [scenario, setScenario] = useState<ScenarioId>(booted.scenario);
   const [section, setSection] = useState<SectionId>(booted.section);
   const [wizardStep, setWizardStep] = useState(booted.wizardStep);
+  const [adjustAnchor, setAdjustAnchor] = useState(booted.adjustAnchor);
+  const [focusField, setFocusField] = useState<string | null>(null);
   const [simulations, setSimulations] = useState<SimulationRecord[]>(booted.simulations);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
@@ -90,10 +105,10 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     if (initialInputs) return;
     writeSession(localStorage, {
       version: STORAGE_VERSION,
-      draft: { inputs, scenario, section, wizardStep },
+      draft: { inputs, scenario, section, wizardStep, adjustAnchor },
       simulations,
     });
-  }, [initialInputs, inputs, scenario, section, wizardStep, simulations]);
+  }, [initialInputs, inputs, scenario, section, wizardStep, adjustAnchor, simulations]);
 
   const summary = [
     inputs.fictional ? 'DADOS FICTÍCIOS' : 'Simulação',
@@ -115,9 +130,25 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     }
   }
 
+  function commitInputs(next: Inputs) {
+    setAdjustAnchor((anchor) => reanchor(anchor, inputs, next));
+    setInputs(next);
+  }
+
+  function resetDraft(next: Inputs) {
+    setInputs(next);
+    setAdjustAnchor(structuredClone(next));
+    setFocusField(null);
+  }
+
+  function openPremise(fieldId: string) {
+    setSection(sectionForField(fieldId));
+    setFocusField(fieldId);
+  }
+
   function restoreExample() {
     const example = exampleInputs();
-    setInputs(example);
+    resetDraft(example);
     setScenario('base');
     setSection('dashboard');
     setWizardStep(0);
@@ -129,7 +160,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   function clearSaved() {
     clearSession(localStorage);
     const example = exampleInputs();
-    setInputs(example);
+    resetDraft(example);
     setScenario('base');
     setSection('dashboard');
     setWizardStep(0);
@@ -161,7 +192,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
 
   function loadSimulation(simulation: SimulationRecord) {
     const snapshot = structuredClone(simulation.inputs);
-    setInputs(snapshot);
+    resetDraft(snapshot);
     setScenario(simulation.scenario);
     setSection(simulation.section === 'wizard' ? 'dashboard' : simulation.section);
     setWizardStep(0);
@@ -189,7 +220,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   function exportLibrary() {
     downloadJson('gcalc-biblioteca.json', {
       version: STORAGE_VERSION,
-      draft: { inputs, scenario, section, wizardStep },
+      draft: { inputs, scenario, section, wizardStep, adjustAnchor },
       simulations,
     });
   }
@@ -203,6 +234,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         return;
       }
       if (imported.draft) {
+        resetDraft(structuredClone(imported.draft.adjustAnchor ?? imported.draft.inputs));
         setInputs(structuredClone(imported.draft.inputs));
         setScenario(imported.draft.scenario);
         setSection(imported.draft.section);
@@ -235,7 +267,10 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
               type="button"
               className={section === item.id ? 'is-active' : ''}
               aria-current={section === item.id ? 'page' : undefined}
-              onClick={() => setSection(item.id)}
+              onClick={() => {
+                setSection(item.id);
+                setFocusField(null);
+              }}
             >
               {item.label}
             </button>
@@ -266,14 +301,14 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
               <button
                 type="button"
                 className={inputs.profile.storeType === 'nova' ? 'is-active' : ''}
-                onClick={() => setInputs({ ...inputs, profile: { ...inputs.profile, storeType: 'nova' } })}
+                onClick={() => commitInputs({ ...inputs, profile: { ...inputs.profile, storeType: 'nova' } })}
               >
                 Nova
               </button>
               <button
                 type="button"
                 className={inputs.profile.storeType === 'existente' ? 'is-active' : ''}
-                onClick={() => setInputs({ ...inputs, profile: { ...inputs.profile, storeType: 'existente' } })}
+                onClick={() => commitInputs({ ...inputs, profile: { ...inputs.profile, storeType: 'existente' } })}
               >
                 Existente
               </button>
@@ -294,7 +329,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             data-testid="new-simulation"
             onClick={() => {
               const seed = wizardSeed();
-              setInputs(seed);
+              resetDraft(seed);
               setScenario('base');
               setSection('wizard');
               setWizardStep(0);
@@ -320,28 +355,42 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           {status ? ` ${status}` : ''}
         </p>
 
+        <PremiseFocus field={focusField}>
         {section === 'wizard' ? (
           <Wizard
             inputs={inputs}
             scenario={scenario}
             step={wizardStep}
             result={result}
-            onInputs={setInputs}
+            onInputs={commitInputs}
             onScenario={setScenario}
             onStep={setWizardStep}
-            onExit={() => setSection('dashboard')}
+            onExit={() => {
+              setSection('dashboard');
+              setFocusField(null);
+            }}
           />
         ) : null}
         {section === 'dashboard' ? (
-          <Dashboard inputs={inputs} result={result} scenario={scenario} onScenario={setScenario} onInputs={setInputs} />
+          <Dashboard
+            inputs={inputs}
+            anchor={adjustAnchor}
+            result={result}
+            scenario={scenario}
+            onScenario={setScenario}
+            onInputs={commitInputs}
+            onAdjust={setInputs}
+            onUndo={() => setInputs(structuredClone(adjustAnchor))}
+            onOpenPremise={openPremise}
+          />
         ) : null}
-        {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={setInputs} /> : null}
-        {section === 'pessoas' ? <PeopleForm inputs={inputs} result={result} onChange={setInputs} /> : null}
-        {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={setInputs} /> : null}
-        {section === 'estoque' ? <StockForm inputs={inputs} result={result} onChange={setInputs} /> : null}
-        {section === 'investimento' ? <InvestmentForm inputs={inputs} result={result} onChange={setInputs} /> : null}
+        {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'pessoas' ? <PeopleForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'estoque' ? <StockForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'investimento' ? <InvestmentForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'cenarios' ? (
-          <ScenarioPanel inputs={inputs} scenario={scenario} onScenario={setScenario} onChange={setInputs} />
+          <ScenarioPanel inputs={inputs} scenario={scenario} onScenario={setScenario} onChange={commitInputs} />
         ) : null}
         {section === 'sensibilidade' ? <SensitivityPanel inputs={inputs} scenario={scenario} /> : null}
         {section === 'fluxo' ? <CashflowTable result={result} /> : null}
@@ -368,6 +417,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onImport={importFile}
           />
         ) : null}
+        </PremiseFocus>
       </main>
     </div>
   );

@@ -28,6 +28,7 @@ export interface DraftState {
   scenario: ScenarioId;
   section: SectionId;
   wizardStep: number;
+  adjustAnchor: Inputs;
 }
 
 export interface SimulationRecord {
@@ -97,12 +98,19 @@ export function defaultSimulationName(inputs: Inputs, scenario: ScenarioId): str
   return `${client} — ${store} — ${scenarioLabel(scenario)}`;
 }
 
-function draftFrom(inputs: Inputs, scenario: unknown, section: unknown, wizardStep?: unknown): DraftState {
+function draftFrom(
+  inputs: Inputs,
+  scenario: unknown,
+  section: unknown,
+  wizardStep?: unknown,
+  adjustAnchor?: unknown,
+): DraftState {
   return {
     inputs,
     scenario: isScenarioId(scenario) ? scenario : 'base',
     section: isSectionId(section) ? section : 'dashboard',
     wizardStep: normalizeWizardStep(wizardStep),
+    adjustAnchor: isInputs(adjustAnchor) ? adjustAnchor : structuredClone(inputs),
   };
 }
 
@@ -156,7 +164,13 @@ export function parseSession(raw: string): LoadedSession {
     return { draft: null, simulations, source: 'current' };
   }
   return {
-    draft: draftFrom(value.draft.inputs, value.draft.scenario, value.draft.section, value.draft.wizardStep),
+    draft: draftFrom(
+      value.draft.inputs,
+      value.draft.scenario,
+      value.draft.section,
+      value.draft.wizardStep,
+      value.draft.adjustAnchor,
+    ),
     simulations,
     source: 'current',
   };
@@ -249,7 +263,13 @@ export function importPayload(raw: unknown): ImportedPayload | null {
 
   const simulations = parseSimulations(value.simulations);
   const draft = isRecord(value.draft) && isInputs(value.draft.inputs)
-    ? draftFrom(value.draft.inputs, value.draft.scenario, value.draft.section, value.draft.wizardStep)
+    ? draftFrom(
+        value.draft.inputs,
+        value.draft.scenario,
+        value.draft.section,
+        value.draft.wizardStep,
+        value.draft.adjustAnchor,
+      )
     : null;
   if (!draft && simulations.length === 0) return null;
   return { draft, simulations };

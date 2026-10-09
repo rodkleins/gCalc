@@ -44,7 +44,7 @@ O preview também fica em `/gCalc/`.
 1. A aplicação abre no exemplo fictício. O aviso âmbar deixa isso explícito.
 2. Percorra os módulos: perfil, pessoas, logística, estoque e investimento. Cada benefício pode ser ligado ou desligado.
 3. Troque o cenário (conservador, base, otimista) e o tipo de loja (nova ou existente) no topo. O dashboard recalcula na hora.
-4. Use **Resultados** para payback, ROI, VPL, TIR, gráficos e a comparação entre os dois tipos de loja.
+4. Use **Resultados** para payback, ROI, VPL, TIR, gráficos e a comparação entre os dois tipos de loja. Cada premissa exibida — investimento, OPEX, taxa de desconto e cada benefício que entrou no caixa — abre o campo correspondente, já focado. O painel **Ajuste rápido** varia investimento do robô, OPEX, salários, turnover, volume, vendas e taxa de desconto de −30% a +30% do valor original, mostra a variação de payback, ROI, VPL e TIR, e **Desfazer ajuste** volta ao original. O ajuste fica neste navegador.
 5. Use **Sensibilidade** para variar investimento, mão de obra, turnover, vendas e volume.
 6. Use **Fluxo** para os 60 meses e **Auditoria** para ver o que entrou no caixa e o que ficou de fora.
 7. **Nova simulação** abre o assistente: tipo de loja e cenário, depois uma tela curta por tema, com valores sugeridos, validação e resumo antes do dashboard. **Pular** segue sem validar. **Ir para o modo completo** abre os módulos. **Assistente** volta ao preenchimento guiado. **Restaurar exemplo** volta ao caso do escopo. **Limpar dados salvos** apaga o rascunho e as simulações nomeadas deste navegador.

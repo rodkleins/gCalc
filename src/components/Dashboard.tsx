@@ -15,23 +15,33 @@ import {
 import { evaluate } from '../model/calculate';
 import { matchesIllustrativeExample } from '../model/example';
 import { formatBRL, formatCompactBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { fieldForAudit } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
 import { Callout, PercentField, Switch } from './Fields';
+import { QuickAdjust } from './QuickAdjust';
 
 const SCENARIOS: ScenarioId[] = ['conservador', 'base', 'otimista'];
 
 export function Dashboard({
   inputs,
+  anchor,
   result,
   scenario,
   onScenario,
   onInputs,
+  onAdjust,
+  onUndo,
+  onOpenPremise,
 }: {
   inputs: Inputs;
+  anchor: Inputs;
   result: ModelResult;
   scenario: ScenarioId;
   onScenario: (scenario: ScenarioId) => void;
   onInputs: (inputs: Inputs) => void;
+  onAdjust: (inputs: Inputs) => void;
+  onUndo: () => void;
+  onOpenPremise: (fieldId: string) => void;
 }) {
   const illustrative = matchesIllustrativeExample(result);
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
@@ -51,6 +61,9 @@ export function Dashboard({
     })),
   ];
   const steady = result.months[59];
+  const premiseLines = result.audit.filter(
+    (line) => line.includedInCashFlow && (line.monthlyValue !== 0 || line.oneTimeValue !== 0) && fieldForAudit(line.id),
+  );
 
   return (
     <div className="stack">
@@ -71,19 +84,40 @@ export function Dashboard({
         </div>
       )}
 
+      <QuickAdjust
+        inputs={inputs}
+        anchor={anchor}
+        scenario={scenario}
+        onAdjust={onAdjust}
+        onUndo={onUndo}
+        onOpen={onOpenPremise}
+      />
+
       <section className="kpis">
         <article className="kpi">
           <span>Investimento líquido</span>
-          <strong data-testid="kpi-investment">{formatBRL(result.netInvestment)}</strong>
+          <PremiseValue fieldId="robot.capex.equipment" testId="open-premise-investment" onOpen={onOpenPremise}>
+            <strong data-testid="kpi-investment">{formatBRL(result.netInvestment)}</strong>
+          </PremiseValue>
           <em>
-            Bruto {formatBRL(result.grossCapex)} − evitado {formatBRL(result.avoidedCapex)}
+            Bruto{' '}
+            <PremiseValue fieldId="robot.capex.equipment" onOpen={onOpenPremise}>
+              {formatBRL(result.grossCapex)}
+            </PremiseValue>{' '}
+            − evitado{' '}
+            <PremiseValue fieldId="logistics.shelving.avoidedAcquisition" onOpen={onOpenPremise}>
+              {formatBRL(result.avoidedCapex)}
+            </PremiseValue>
           </em>
         </article>
         <article className="kpi">
           <span>Benefício líquido no mês 60</span>
           <strong data-testid="kpi-net">{formatBRL(result.steadyNet)}</strong>
           <em>
-            {formatBRL(result.steadyBenefit)} − OPEX {formatBRL(result.monthlyOpex)}
+            {formatBRL(result.steadyBenefit)} − OPEX{' '}
+            <PremiseValue fieldId="robot.opexMonthly.maintenance" testId="open-premise-opex" onOpen={onOpenPremise}>
+              {formatBRL(result.monthlyOpex)}
+            </PremiseValue>
           </em>
         </article>
         <article className="kpi accent">
@@ -101,7 +135,12 @@ export function Dashboard({
           <em>Não é a TIR. Usa o run-rate do mês 60.</em>
         </article>
         <article className="kpi">
-          <span>VPL a {formatPercent(result.discountRateAnnual)}</span>
+          <span>
+            VPL a{' '}
+            <PremiseValue fieldId="robot.discountRateAnnual" testId="open-premise-discount" onOpen={onOpenPremise}>
+              {formatPercent(result.discountRateAnnual)}
+            </PremiseValue>
+          </span>
           <strong data-testid="kpi-npv">{formatBRL(result.npv)}</strong>
           <em>Taxa efetiva anual, equivalente mensal</em>
         </article>
@@ -119,14 +158,21 @@ export function Dashboard({
             Benefício operacional bruto no mês 60: <b>{formatBRL(result.steadyBenefit)}</b>
           </li>
           <li>
-            OPEX do robô: <b>{formatBRL(result.monthlyOpex)}</b>
+            OPEX do robô:{' '}
+            <PremiseValue fieldId="robot.opexMonthly.maintenance" onOpen={onOpenPremise}>
+              {formatBRL(result.monthlyOpex)}
+            </PremiseValue>
           </li>
           <li>
             Benefício líquido: <b>{formatBRL(result.steadyNet)}</b> por mês, <b>{formatBRL(result.annualSteadyNet)}</b>{' '}
             ao ano
           </li>
           <li>
-            ROI = {formatBRL(result.annualSteadyNet)} / {formatBRL(result.netInvestment)} = <b>{formatPercent(result.roi)}</b>
+            ROI = {formatBRL(result.annualSteadyNet)} /{' '}
+            <PremiseValue fieldId="robot.capex.equipment" onOpen={onOpenPremise}>
+              {formatBRL(result.netInvestment)}
+            </PremiseValue>{' '}
+            = <b>{formatPercent(result.roi)}</b>
           </li>
           <li>
             Payback descontado: <b>{formatPayback(result.discountedPayback)}</b>
@@ -160,6 +206,25 @@ export function Dashboard({
           </ul>
         </Callout>
       ) : null}
+
+      <section className="card">
+        <h2>Premissas deste resultado</h2>
+        <p className="lede">Cada valor abre o campo em que a premissa é editada. O cálculo continua na hora.</p>
+        <ul className="premise-list">
+          {premiseLines.map((line) => {
+            const fieldId = fieldForAudit(line.id) ?? '';
+            const amount = line.monthlyValue !== 0 ? line.monthlyValue : line.oneTimeValue;
+            return (
+              <li key={line.id}>
+                <PremiseValue fieldId={fieldId} testId={`open-premise-audit-${line.id}`} onOpen={onOpenPremise}>
+                  {line.label}: {formatBRL(amount)}
+                  {line.monthlyValue !== 0 ? '/mês' : ''}
+                </PremiseValue>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <div className="chart-grid two">
         <section className="card chart-card">
@@ -304,5 +369,29 @@ export function Dashboard({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function PremiseValue({
+  fieldId,
+  testId,
+  onOpen,
+  children,
+}: {
+  fieldId: string;
+  testId?: string;
+  onOpen: (fieldId: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="premise-link"
+      data-field={fieldId}
+      data-testid={testId}
+      onClick={() => onOpen(fieldId)}
+    >
+      {children}
+    </button>
   );
 }

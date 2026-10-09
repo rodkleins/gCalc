@@ -36,6 +36,7 @@ export function PeopleForm({
           onChange={(positionsReduced) => setPeople({ ...people, payroll: { ...people.payroll, positionsReduced } })}
         />
         <NumberField
+          fieldId="people.payroll.monthlyCostPerPosition"
           label="Custo completo por vaga"
           value={people.payroll.monthlyCostPerPosition}
           suffix="R$"
@@ -119,6 +120,7 @@ export function PeopleForm({
                 }}
               />
               <NumberField
+                fieldId={index === 0 ? 'people.futureHires.monthlyCost' : undefined}
                 label="Custo mensal"
                 value={hire.monthlyCost}
                 suffix="R$"
@@ -175,6 +177,7 @@ export function PeopleForm({
         onConfidence={(confidence) => setPeople({ ...people, recruitment: { ...people.recruitment, confidence } })}
       >
         <NumberField
+          fieldId="people.recruitment.costPerHire"
           label="Custo por contratação"
           value={people.recruitment.costPerHire}
           suffix="R$"
@@ -204,6 +207,7 @@ export function PeopleForm({
         onConfidence={(confidence) => setPeople({ ...people, training: { ...people.training, confidence } })}
       >
         <NumberField
+          fieldId="people.training.costPerPerson"
           label="Custo por pessoa"
           value={people.training.costPerPerson}
           suffix="R$"
@@ -233,6 +237,7 @@ export function PeopleForm({
         onConfidence={(confidence) => setPeople({ ...people, turnover: { ...people.turnover, confidence } })}
       >
         <PercentField
+          fieldId="people.turnover.annualRate"
           label="Taxa anual de turnover"
           value={people.turnover.annualRate}
           onChange={(annualRate) => setPeople({ ...people, turnover: { ...people.turnover, annualRate } })}
@@ -257,6 +262,7 @@ export function PeopleForm({
         onConfidence={(confidence) => setPeople({ ...people, supervision: { ...people.supervision, confidence } })}
       >
         <NumberField
+          fieldId="people.supervision.hoursSavedPerMonth"
           label="Horas economizadas por mês"
           value={people.supervision.hoursSavedPerMonth}
           suffix="h"
@@ -304,6 +310,7 @@ export function PeopleForm({
           }
         />
         <NumberField
+          fieldId="people.consultativeSales.marginPerHour"
           label="Margem por hora"
           value={people.consultativeSales.marginPerHour}
           suffix="R$"

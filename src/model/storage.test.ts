@@ -48,6 +48,7 @@ function sessionWith(patch?: Partial<PersistedSession['draft']>): PersistedSessi
       scenario: 'otimista',
       section: 'pessoas',
       wizardStep: 0,
+      adjustAnchor: structuredClone(inputs),
       ...patch,
     },
     simulations: [
@@ -86,6 +87,10 @@ describe('serialização da sessão', () => {
     const kept = parseSession(JSON.stringify(raw));
     expect(kept.draft?.section).toBe('wizard');
     expect(kept.draft?.wizardStep).toBe(4);
+    expect(kept.draft?.adjustAnchor.robot.capex.equipment).toBe(kept.draft?.inputs.robot.capex.equipment);
+
+    delete (raw.draft as { adjustAnchor?: unknown }).adjustAnchor;
+    expect(parseSession(JSON.stringify(raw)).draft?.adjustAnchor.people.payroll.enabled).toBe(false);
 
     delete raw.draft.wizardStep;
     expect(parseSession(JSON.stringify(raw)).draft?.wizardStep).toBe(0);
@@ -227,7 +232,7 @@ describe('biblioteca de simulações', () => {
     ];
     const session: PersistedSession = {
       version: STORAGE_VERSION,
-      draft: { inputs: nova, scenario: 'base', section: 'dashboard', wizardStep: 0 },
+      draft: { inputs: nova, scenario: 'base', section: 'dashboard', wizardStep: 0, adjustAnchor: nova },
       simulations: records,
     };
     const loaded = parseSession(serializeSession(session));

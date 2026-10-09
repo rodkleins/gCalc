@@ -30,6 +30,7 @@ export function LogisticsForm({
         onConfidence={(confidence) => setLogistics({ ...logistics, boxes: { ...logistics.boxes, confidence } })}
       >
         <NumberField
+          fieldId="logistics.boxes.cyclesAvoidedPerMonth"
           label="Ciclos evitados por mês"
           value={logistics.boxes.cyclesAvoidedPerMonth}
           onChange={(cyclesAvoidedPerMonth) =>
@@ -63,6 +64,7 @@ export function LogisticsForm({
         onConfidence={(confidence) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, confidence } })}
       >
         <NumberField
+          fieldId="logistics.shelving.avoidedAcquisition"
           label="Aquisição evitada"
           value={logistics.shelving.avoidedAcquisition}
           suffix="R$"
@@ -72,6 +74,7 @@ export function LogisticsForm({
           }
         />
         <NumberField
+          fieldId="logistics.shelving.resaleValue"
           label="Revenda ou reaproveitamento"
           value={logistics.shelving.resaleValue}
           suffix="R$"
@@ -79,6 +82,7 @@ export function LogisticsForm({
           onChange={(resaleValue) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, resaleValue } })}
         />
         <NumberField
+          fieldId="logistics.shelving.avoidedMaintenanceMonthly"
           label="Manutenção evitada"
           value={logistics.shelving.avoidedMaintenanceMonthly}
           suffix="R$/mês"
@@ -113,6 +117,7 @@ export function LogisticsForm({
           ]}
         />
         <NumberField
+          fieldId="logistics.space.occupancyCostPerM2"
           label="Custo de ocupação"
           value={logistics.space.occupancyCostPerM2}
           suffix="R$/m²"
@@ -121,6 +126,7 @@ export function LogisticsForm({
           }
         />
         <NumberField
+          fieldId="logistics.space.contributionPerM2Month"
           label="Margem por m²"
           value={logistics.space.contributionPerM2Month}
           suffix="R$/m²"
@@ -139,6 +145,7 @@ export function LogisticsForm({
         onConfidence={(confidence) => setLogistics({ ...logistics, movement: { ...logistics.movement, confidence } })}
       >
         <NumberField
+          fieldId="logistics.movement.hoursSavedPerMonth"
           label="Horas por mês"
           value={logistics.movement.hoursSavedPerMonth}
           suffix="h"
@@ -178,6 +185,7 @@ export function LogisticsForm({
         }
       >
         <NumberField
+          fieldId="logistics.inventoryCount.hoursSavedPerMonth"
           label="Horas por mês"
           value={logistics.inventoryCount.hoursSavedPerMonth}
           suffix="h"

@@ -44,7 +44,7 @@ describe('aplicação', () => {
     inputs.meta.storeName = 'Loja Salva';
     writeSession(localStorage, {
       version: STORAGE_VERSION,
-      draft: { inputs, scenario: 'conservador', section: 'pessoas', wizardStep: 0 },
+      draft: { inputs, scenario: 'conservador', section: 'pessoas', wizardStep: 0, adjustAnchor: inputs },
       simulations: [
         {
           id: 'salva',
@@ -148,7 +148,7 @@ describe('aplicação', () => {
     inputs.meta.storeName = 'Loja no meio';
     writeSession(localStorage, {
       version: STORAGE_VERSION,
-      draft: { inputs, scenario: 'base', section: 'wizard', wizardStep: 4 },
+      draft: { inputs, scenario: 'base', section: 'wizard', wizardStep: 4, adjustAnchor: inputs },
       simulations: [],
     });
     const host = document.createElement('div');
@@ -160,5 +160,94 @@ describe('aplicação', () => {
     expect(host.querySelector('#wizard-title')?.textContent).toBe('Estoque');
     expect(host.textContent).toContain('Passo 5 de 7');
     act(() => root.unmount());
+  });
+
+  it('abre a premissa no campo focado e desfaz o ajuste rápido', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App initialInputs={exampleInputs()} />);
+    });
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="open-premise-investment"]')?.click();
+    });
+    expect(host.querySelector('nav .is-active')?.textContent).toBe('Investimento');
+    const investment = host.querySelector<HTMLLabelElement>('.field.is-target');
+    expect(investment?.textContent).toContain('Robô');
+    expect(document.activeElement).toBe(investment?.querySelector('input'));
+
+    const resultados = () =>
+      [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Resultados') as HTMLButtonElement;
+    await act(async () => {
+      resultados().click();
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="open-premise-opex"]')?.click();
+    });
+    expect(host.querySelector('.field.is-target')?.textContent).toContain('Manutenção e peças');
+
+    await act(async () => {
+      resultados().click();
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="open-premise-audit-payroll"]')?.click();
+    });
+    expect(host.querySelector('nav .is-active')?.textContent).toBe('Pessoas');
+    expect(host.querySelector('.field.is-target')?.textContent).toContain('Custo completo por vaga');
+
+    await act(async () => {
+      resultados().click();
+    });
+    const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
+    });
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.109.000');
+    expect(text('[data-testid="quick-kpi-payback"]')).toContain('vs original');
+    expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
+    expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
+    expect(text('[data-testid="quick-kpi-irr"]')).toContain('vs original');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
+    });
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
+    expect(text('[data-testid="quick-kpi-payback"]')).toContain('igual ao original');
+    act(() => root.unmount());
+  });
+
+  it('persiste o ajuste rápido e o valor original', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App />);
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
+    });
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    expect(saved.draft.adjustAnchor.robot.capex.equipment).toBe(1_750_000);
+    expect(saved.draft.inputs.robot.capex.equipment).toBe(1_837_500);
+    act(() => root.unmount());
+
+    const next = document.createElement('div');
+    document.body.appendChild(next);
+    const restored = createRoot(next);
+    await act(async () => {
+      restored.render(<App />);
+    });
+    const text = (selector: string) => next.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.109.000');
+    await act(async () => {
+      next.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
+    });
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
+    act(() => restored.unmount());
   });
 });

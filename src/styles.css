@@ -31,7 +31,7 @@ h3 { font-size: 1.15rem; }
 p { margin: 0; }
 
 .app { min-height: 100vh; display: grid; grid-template-columns: 232px minmax(0, 1fr); }
-.main, .card, .chart-card, .plot, .kpis, .kpi, .compare, .compare-card, .table-wrap, .top, .toolbar, .scenario-grid, .wizard, .choice, .wizard-card {
+.main, .card, .chart-card, .plot, .kpis, .kpi, .compare, .compare-card, .table-wrap, .top, .toolbar, .scenario-grid, .wizard, .choice, .wizard-card, .quick-adjust, .premise-list, .lever {
   min-width: 0;
   max-width: 100%;
 }
@@ -71,7 +71,7 @@ p { margin: 0; }
 }
 .nav button.is-active { background: #f3efe4; color: var(--forest); }
 .rail-note { margin-top: auto; color: #d9cbb6; font-size: 0.82rem; padding: 0 8px; }
-.main { padding: 28px 28px 72px; max-width: 1180px; }
+.main { padding: 28px 28px 120px; max-width: 1180px; }
 .top { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 16px; }
 .top-controls, .toolbar, .inline-controls, .seg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .eyebrow { color: var(--gold); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
@@ -110,6 +110,62 @@ p { margin: 0; }
   background: white;
 }
 .advanced summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 650; }
+.premise-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(165, 107, 36, 0.75);
+  cursor: pointer;
+}
+.kpi .premise-link { align-self: flex-start; }
+.kpi em .premise-link, .memory .premise-link { display: inline; font-weight: 650; }
+.premise-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.premise-list .premise-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  text-decoration: none;
+}
+.field.is-target { background: var(--gold-soft); border-radius: 14px; outline: 2px solid var(--gold); padding: 8px; }
+.quick-adjust { display: flex; flex-direction: column; gap: 12px; }
+.quick-head, .lever-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.quick-dock {
+  position: fixed;
+  z-index: 6;
+  left: 248px;
+  right: 16px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--forest);
+  color: #f6f1e6;
+  border-radius: 16px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+}
+.quick-dock .btn { background: #f3efe4; color: var(--forest); }
+.quick-dock .btn:disabled { opacity: 0.55; }
+.quick-kpis { display: contents; }
+.quick-kpis article, .lever { min-width: 0; }
+.quick-kpis strong, .quick-dock strong { display: block; font-family: var(--serif); font-size: 1.25rem; font-weight: 560; }
+.quick-dock em, .quick-dock span { color: #d9cbb6; }
+.lever-delta { color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; }
+.quick-levers { display: flex; flex-direction: column; gap: 12px; max-height: 46vh; overflow: auto; }
+.lever { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
+.lever-controls input[type="range"] { flex: 1 1 140px; min-width: 0; accent-color: var(--forest); }
 .save-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
 .field.grow { flex: 1 1 220px; }
 .library-list { display: flex; flex-direction: column; gap: 10px; }
@@ -301,8 +357,9 @@ th { position: sticky; top: 0; background: #f7f3ea; text-align: left; font-size:
   .nav { flex-direction: row; overflow-x: auto; min-width: 0; max-width: 100%; }
   .nav button { white-space: nowrap; }
   .rail-note { display: none; }
-  .main { padding: 18px 16px 56px; }
+  .main { padding: 18px 16px 120px; }
   .top { flex-direction: column; align-items: stretch; }
+  .quick-dock { left: 12px; right: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }

@@ -45,6 +45,7 @@ export function InvestmentForm({
           {CAPEX_FIELDS.map((field) => (
             <NumberField
               key={field.key}
+              fieldId={`robot.capex.${field.key}`}
               label={field.label}
               value={robot.capex[field.key]}
               suffix="R$"
@@ -61,6 +62,7 @@ export function InvestmentForm({
           {OPEX_FIELDS.map((field) => (
             <NumberField
               key={field.key}
+              fieldId={`robot.opexMonthly.${field.key}`}
               label={field.label}
               value={robot.opexMonthly[field.key]}
               suffix="R$"
@@ -110,6 +112,7 @@ export function InvestmentForm({
             onChange={(taxRate) => setRobot({ ...robot, taxRate })}
           />
           <PercentField
+            fieldId="robot.discountRateAnnual"
             label="Taxa de desconto anual efetiva"
             value={robot.discountRateAnnual}
             hint="Vira taxa mensal equivalente: (1 + i) elevado a 1/12, menos 1."

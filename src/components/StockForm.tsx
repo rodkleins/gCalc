@@ -32,6 +32,7 @@ export function StockForm({
         onConfidence={(confidence) => setStock({ ...stock, losses: { ...stock.losses, confidence } })}
       >
         <NumberField
+          fieldId="profile.historicalLossesMonthly"
           label="Perdas históricas"
           value={inputs.profile.historicalLossesMonthly}
           suffix="R$/mês"
@@ -41,6 +42,7 @@ export function StockForm({
           }
         />
         <NumberField
+          fieldId="stock.losses.projectedLossesMonthly"
           label="Perdas projetadas com o robô"
           value={stock.losses.projectedLossesMonthly}
           suffix="R$/mês"
@@ -59,6 +61,7 @@ export function StockForm({
         onConfidence={(confidence) => setStock({ ...stock, shrinkage: { ...stock.shrinkage, confidence } })}
       >
         <NumberField
+          fieldId="stock.shrinkage.avoidedMonthly"
           label="Valor evitado"
           value={stock.shrinkage.avoidedMonthly}
           suffix="R$/mês"
@@ -75,6 +78,7 @@ export function StockForm({
         onConfidence={(confidence) => setStock({ ...stock, ruptures: { ...stock.ruptures, confidence } })}
       >
         <NumberField
+          fieldId="stock.ruptures.additionalMonthlySales"
           label="Vendas adicionais"
           value={stock.ruptures.additionalMonthlySales}
           suffix="R$/mês"
@@ -104,6 +108,7 @@ export function StockForm({
         onConfidence={(confidence) => setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, confidence } })}
       >
         <NumberField
+          fieldId="stock.serviceSpeed.additionalMonthlySales"
           label="Vendas adicionais"
           value={stock.serviceSpeed.additionalMonthlySales}
           suffix="R$/mês"
@@ -151,6 +156,7 @@ export function StockForm({
         onConfidence={(confidence) => setStock({ ...stock, workingCapital: { ...stock.workingCapital, confidence } })}
       >
         <NumberField
+          fieldId="stock.workingCapital.inventoryAfter"
           label="Estoque médio com o robô"
           value={stock.workingCapital.inventoryAfter}
           suffix="R$"
@@ -181,6 +187,7 @@ export function StockForm({
           ]}
         />
         <PercentField
+          fieldId="stock.workingCapital.costOfCapitalAnnual"
           label="Custo de capital"
           value={stock.workingCapital.costOfCapitalAnnual}
           hint="Usado na leitura do custo financeiro. Não substitui a taxa de desconto do VPL."

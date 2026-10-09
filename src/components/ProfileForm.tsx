@@ -77,6 +77,7 @@ export function ProfileForm({
           />
           <NumberField label="Atendimentos por dia" value={profile.attendancesPerDay} onChange={(attendancesPerDay) => setProfile({ attendancesPerDay })} />
           <NumberField
+            fieldId="profile.dispensationsPerDay"
             label="Dispensações por dia"
             value={profile.dispensationsPerDay}
             onChange={(dispensationsPerDay) => setProfile({ dispensationsPerDay })}
@@ -102,6 +103,7 @@ export function ProfileForm({
           <NumberField label="Giro do estoque" value={profile.inventoryTurnsPerYear} suffix="x/ano" onChange={(inventoryTurnsPerYear) => setProfile({ inventoryTurnsPerYear })} />
           <NumberField label="SKUs" value={profile.skuCount} onChange={(skuCount) => setProfile({ skuCount })} />
           <NumberField
+            fieldId="profile.historicalLossesMonthly"
             label="Perdas históricas"
             value={profile.historicalLossesMonthly}
             suffix="R$/mês"
