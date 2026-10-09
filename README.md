@@ -91,7 +91,9 @@ A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 2.000.000
 
 ## Publicar no GitHub Pages
 
-O build usa o caminho base `/gCalc/` e gera duas páginas no mesmo `dist`: a calculadora atual (`index.html`) e o rascunho head-to-head (`headtohead/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere os dois arquivos e publica os dois no Pages a cada push na branch `main`.
+O build usa o caminho base `/gCalc/` e gera três páginas no mesmo `dist`: a calculadora atual (`index.html`), o rascunho head-to-head (`headtohead/index.html`) e a documentação dos cálculos (`calculos/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere os três arquivos e publica os três no Pages a cada push na branch `main`.
+
+A página de cálculos fica em [https://rodkleins.github.io/gCalc/calculos/](https://rodkleins.github.io/gCalc/calculos/) e descreve o motor da calculadora atual.
 
 Para o endereço [https://rodkleins.github.io/gCalc/](https://rodkleins.github.io/gCalc/) passar a responder:
 

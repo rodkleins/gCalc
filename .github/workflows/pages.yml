@@ -36,10 +36,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Conferir a calculadora atual e o rascunho head-to-head
+      - name: Conferir a calculadora, o rascunho e a página de cálculos
         run: |
           test -f dist/index.html
           test -f dist/headtohead/index.html
+          test -f dist/calculos/index.html
 
       - name: Upload do artefato
         uses: actions/upload-pages-artifact@v3

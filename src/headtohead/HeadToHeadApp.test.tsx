@@ -33,6 +33,9 @@ describe('tela head-to-head', () => {
     expect(text('[data-testid="hh-npv"]')).not.toMatch(/NaN/);
     expect(text('[data-testid="hh-irr"]')).not.toBe('Indefinida');
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
+    expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-calculos"]')?.getAttribute('href')).toBe(
+      '/gCalc/calculos/',
+    );
     expect(localStorage.getItem(HEADTOHEAD_STORAGE_KEY)).toBeNull();
     act(() => root.unmount());
   });

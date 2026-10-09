@@ -1,0 +1,91 @@
+.doc {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 28px;
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 22px 0 64px;
+  align-items: start;
+}
+.doc-toc {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+.doc-toc p {
+  margin: 0 0 6px;
+  color: var(--gold);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.doc-toc a {
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 6px 8px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+.doc-toc a.lvl3 { padding-left: 16px; color: var(--muted); font-size: 0.92rem; }
+.doc-toc a:hover { background: var(--gold-soft); }
+.doc-body { min-width: 0; }
+.doc-body h1 { margin: 8px 0 12px; }
+.doc-body h2 { margin: 28px 0 10px; padding-top: 8px; }
+.doc-body h3 { margin: 20px 0 8px; }
+.doc-body p, .doc-body li { font-size: 1.02rem; }
+.doc-body p { margin: 0 0 12px; }
+.doc-body ul { margin: 0 0 14px; padding-left: 1.2rem; display: grid; gap: 6px; }
+.doc-body code {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.92em;
+  background: #efe8da;
+  border-radius: 6px;
+  padding: 0 4px;
+}
+.doc-body pre {
+  overflow-x: auto;
+  background: var(--forest);
+  color: #f6f1e6;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 0 0 16px;
+}
+.doc-body pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  white-space: pre;
+}
+.doc-table { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 16px; background: white; }
+.doc-table table { width: 100%; min-width: 520px; border-collapse: collapse; }
+.doc-table th, .doc-table td { text-align: left; vertical-align: top; }
+.doc-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+
+@media (max-width: 1099px) {
+  .doc { grid-template-columns: minmax(0, 1fr); width: min(1120px, calc(100% - 20px)); padding-top: 12px; }
+  .doc-toc {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    border-radius: 0 0 16px 16px;
+    margin: 0 -10px;
+    width: calc(100% + 20px);
+  }
+  .doc-toc p { display: none; }
+  .doc-toc a { white-space: nowrap; }
+  .doc-toc a.lvl3 { display: none; }
+}

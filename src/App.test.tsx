@@ -36,6 +36,9 @@ describe('aplicação', () => {
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-headtohead"]')?.getAttribute('href')).toBe(
       '/gCalc/headtohead/',
     );
+    expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-calculos"]')?.getAttribute('href')).toBe(
+      '/gCalc/calculos/',
+    );
     act(() => root.unmount());
   });
 

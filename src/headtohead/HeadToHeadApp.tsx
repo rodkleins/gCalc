@@ -60,9 +60,14 @@ export function HeadToHeadApp({ initialDraft }: { initialDraft?: HeadToHeadDraft
           <h1>{draft.storeName || 'Loja sem nome'}</h1>
           <p className="sub">A loja de hoje ao lado da mesma loja com o robô. A última linha é o que sobra.</p>
         </div>
-        <a className="btn hh-back" data-testid="back-to-current" href={import.meta.env.BASE_URL}>
-          Voltar à calculadora atual
-        </a>
+        <div className="hh-links">
+          <a className="btn hh-back" data-testid="open-calculos" href={`${import.meta.env.BASE_URL}calculos/`}>
+            Cálculos
+          </a>
+          <a className="btn hh-back" data-testid="back-to-current" href={import.meta.env.BASE_URL}>
+            Voltar à calculadora atual
+          </a>
+        </div>
       </header>
 
       {draft.fictional ? (

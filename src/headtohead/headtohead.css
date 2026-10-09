@@ -3,7 +3,7 @@
   margin: 0 auto;
   padding: 22px 0 48px;
 }
-.hh-top, .hh-actions, .hh-kpis {
+.hh-top, .hh-actions, .hh-kpis, .hh-links {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;

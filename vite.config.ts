@@ -13,6 +13,7 @@ export default defineConfig({
       input: {
         main: resolve(rootDir, 'index.html'),
         headtohead: resolve(rootDir, 'headtohead/index.html'),
+        calculos: resolve(rootDir, 'calculos/index.html'),
       },
     },
   },
