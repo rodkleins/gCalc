@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NumberField, PercentField, Switch } from '../components/Fields';
+import { PageNav } from '../components/PageNav';
 import { PreviewNotice } from '../components/PreviewNotice';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, parseLocaleNumber } from '../model/format';
 import {
@@ -56,19 +57,12 @@ export function HeadToHeadApp({ initialDraft }: { initialDraft?: HeadToHeadDraft
   return (
     <div className="hh">
       <PreviewNotice />
+      <PageNav current="headtohead" />
       <header className="hh-top">
         <div className="hh-title">
           <p className="eyebrow">Rascunho · comparação head-to-head</p>
           <h1>{draft.storeName || 'Loja sem nome'}</h1>
           <p className="sub">A loja de hoje ao lado da mesma loja com o robô. A última linha é o que sobra.</p>
-        </div>
-        <div className="hh-links">
-          <a className="btn hh-back" data-testid="open-calculos" href={`${import.meta.env.BASE_URL}calculos/`}>
-            Cálculos
-          </a>
-          <a className="btn hh-back" data-testid="back-to-current" href={import.meta.env.BASE_URL}>
-            Voltar à calculadora atual
-          </a>
         </div>
       </header>
 

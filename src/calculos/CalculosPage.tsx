@@ -1,3 +1,4 @@
+import { PageNav } from '../components/PageNav';
 import { PreviewNotice } from '../components/PreviewNotice';
 import conteudo from './conteudo.md?raw';
 import { renderMarkdown } from './render';
@@ -5,7 +6,6 @@ import { renderMarkdown } from './render';
 const { html, toc } = renderMarkdown(conteudo);
 
 export function CalculosPage() {
-  const base = import.meta.env.BASE_URL;
   return (
     <div className="doc">
       <nav className="doc-toc" aria-label="Índice">
@@ -18,14 +18,7 @@ export function CalculosPage() {
       </nav>
       <article className="doc-body">
         <PreviewNotice />
-        <p className="doc-links">
-          <a className="btn" data-testid="doc-back" href={base}>
-            Calculadora
-          </a>
-          <a className="btn" data-testid="doc-headtohead" href={`${base}headtohead/`}>
-            Comparação head-to-head
-          </a>
-        </p>
+        <PageNav current="calculos" />
         <div data-testid="doc-content" dangerouslySetInnerHTML={{ __html: html }} />
       </article>
     </div>
