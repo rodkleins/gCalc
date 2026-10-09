@@ -85,7 +85,7 @@ npm test
 npm run build
 ```
 
-O build gera `dist/index.html`, `dist/headtohead/index.html` e `dist/calculos/index.html`. Este branch não deve ser mesclado nem publicado até a revisão.
+O build gera `dist/index.html`, `dist/headtohead/index.html` e `dist/calculos/index.html`. A versão publicada usa as chaves `gcalc.library.v2`, `gcalc.inputs.v1` e `gcalc.headtohead.v1`. Simulações da versão 2 continuam válidas: os campos novos recebem padrão neutro e o conteúdo salvo não é apagado.
 
 ## Testes
 
