@@ -317,6 +317,9 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         </header>
 
         <div className="toolbar">
+          <a className="btn" data-testid="open-headtohead" href={`${import.meta.env.BASE_URL}headtohead/`}>
+            Comparação head-to-head
+          </a>
           <button type="button" className="btn" data-testid="restore-example" onClick={restoreExample}>
             Restaurar exemplo
           </button>

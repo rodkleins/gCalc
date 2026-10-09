@@ -32,6 +32,8 @@ npm run dev
 
 Abra [http://localhost:5173/gCalc/](http://localhost:5173/gCalc/). O `base` do Vite é `/gCalc/`, o mesmo caminho usado no GitHub Pages.
 
+O rascunho de comparação head-to-head fica em [http://localhost:5173/gCalc/headtohead/](http://localhost:5173/gCalc/headtohead/). Ele não substitui a calculadora atual. No Pages, o endereço é [https://rodkleins.github.io/gCalc/headtohead/](https://rodkleins.github.io/gCalc/headtohead/).
+
 ```bash
 npm run build
 npm run preview
@@ -89,7 +91,7 @@ A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 2.000.000
 
 ## Publicar no GitHub Pages
 
-O build usa o caminho base `/gCalc/`. O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist` e publica no Pages a cada push na branch `main`.
+O build usa o caminho base `/gCalc/` e gera duas páginas no mesmo `dist`: a calculadora atual (`index.html`) e o rascunho head-to-head (`headtohead/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere os dois arquivos e publica os dois no Pages a cada push na branch `main`.
 
 Para o endereço [https://rodkleins.github.io/gCalc/](https://rodkleins.github.io/gCalc/) passar a responder:
 
@@ -101,6 +103,12 @@ Para o endereço [https://rodkleins.github.io/gCalc/](https://rodkleins.github.i
 ## Stack
 
 Vite, React e TypeScript. Gráficos com Recharts. Testes com Vitest. Não há servidor de aplicação: o cálculo inteiro roda no browser. O build estático serve no GitHub Pages, na Vercel ou na Netlify, desde que o caminho base `/gCalc/` seja respeitado. Num host na raiz do domínio, altere `base` em `vite.config.ts`.
+
+## Rascunho head-to-head
+
+A página `/gCalc/headtohead/` é um rascunho para discutir com a rede, não uma substituição da calculadora. A tabela coloca a loja **Hoje** ao lado da mesma loja **Com robô** e termina na linha **Resultado que sobra**, com a diferença de cada linha.
+
+O exemplo fictício é uma loja de R$ 1 milhão de receita por mês. Dá para editar receita, CMV, pessoal por função, ocupação, logística, perdas, outras despesas e o custo do robô, criar indicadores de produtividade e acrescentar linhas da rede. Embaixo, payback, ROI, VPL e TIR usam a diferença mensal de resultado e o investimento, na mesma convenção de 60 meses da calculadora atual. O rascunho fica na chave `gcalc.headtohead.v1`, separada da sessão da versão atual.
 
 ## Fora deste MVP
 

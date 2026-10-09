@@ -33,6 +33,9 @@ describe('aplicação', () => {
     expect(text('[data-testid="kpi-payback"]')).toContain('30,8');
     expect(text('[data-testid="kpi-roi"]')).toBe('39%');
     expect(host.querySelector('[data-testid="example-check"]')).not.toBeNull();
+    expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-headtohead"]')?.getAttribute('href')).toBe(
+      '/gCalc/headtohead/',
+    );
     act(() => root.unmount());
   });
 
