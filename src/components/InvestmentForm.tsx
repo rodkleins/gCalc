@@ -13,7 +13,7 @@ const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string }
 ];
 
 const OPEX_FIELDS: Array<{ key: keyof Inputs['robot']['opexMonthly']; label: string }> = [
-  { key: 'maintenance', label: 'Manutenção e peças' },
+  { key: 'maintenance', label: 'Manutenção e suporte' },
   { key: 'software', label: 'Software, conectividade e monitoramento' },
   { key: 'energy', label: 'Energia e consumíveis' },
   { key: 'downtime', label: 'Indisponibilidade e contingência' },

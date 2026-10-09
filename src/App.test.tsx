@@ -220,7 +220,7 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="open-premise-opex"]')?.click();
     });
-    expect(host.querySelector('.field.is-target')?.textContent).toContain('Manutenção e peças');
+    expect(host.querySelector('.field.is-target')?.textContent).toContain('Manutenção e suporte');
 
     await act(async () => {
       resultados().click();
