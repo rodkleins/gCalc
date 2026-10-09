@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent } from '../model/format';
 import {
@@ -12,6 +13,7 @@ import {
   type LeverId,
 } from '../model/premises';
 import type { Inputs, ScenarioId } from '../model/types';
+import { QUICK_DOCK_OPEN_KEY, initialQuickDockOpen, writeUiFlag } from '../model/uiChrome';
 import { NumberField, PercentField } from './Fields';
 
 export function QuickAdjust({
@@ -32,6 +34,28 @@ export function QuickAdjust({
   const current = evaluate(inputs, { scenario });
   const base = evaluate(anchor, { scenario });
   const changed = leversDiffer(inputs, anchor);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(() => initialQuickDockOpen(localStorage));
+
+  useEffect(() => {
+    writeUiFlag(localStorage, QUICK_DOCK_OPEN_KEY, open);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!dockRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   function setAbsolute(id: LeverId, absolute: number) {
     onAdjust(withLeverValue(inputs, anchor, id, absolute));
@@ -55,34 +79,70 @@ export function QuickAdjust({
           </p>
         </div>
       </header>
-      <div className="quick-dock">
-        <article data-testid="quick-kpi-payback">
-          <span>Payback</span>
-          <strong>{formatPayback(current.payback)}</strong>
-          <em>{signedMonths(current.payback, base.payback)}</em>
-        </article>
-        <article data-testid="quick-kpi-roi">
-          <span>ROI</span>
-          <strong>{formatPercent(current.roi)}</strong>
-          <em>{signedPercent(current.roi !== null && base.roi !== null ? current.roi - base.roi : null)}</em>
-        </article>
-        <article data-testid="quick-kpi-npv">
-          <span>VPL</span>
-          <strong>{formatBRL(current.npv)}</strong>
-          <em>{signedMoney(current.npv - base.npv)}</em>
-        </article>
-        <article data-testid="quick-kpi-irr">
-          <span>TIR</span>
-          <strong>{formatIrr(current.irrAnnual)}</strong>
-          <em>
-            {current.irrAnnual === null
-              ? 'Sem troca de sinal'
-              : signedPercent(base.irrAnnual === null ? null : current.irrAnnual - base.irrAnnual)}
-          </em>
-        </article>
-        <button type="button" className="btn" data-testid="quick-undo" disabled={!changed} onClick={onUndo}>
-          Desfazer ajuste
+      <div
+        className={open ? 'quick-dock is-open' : 'quick-dock'}
+        data-testid="quick-dock"
+        ref={dockRef}
+      >
+        <button
+          type="button"
+          className="quick-dock-chip"
+          data-testid="quick-dock-toggle"
+          aria-expanded={open}
+          aria-controls="quick-dock-panel"
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span>
+            <small>Payback</small>
+            <strong>{formatPayback(current.payback)}</strong>
+          </span>
+          <span>
+            <small>ROI</small>
+            <strong>{formatPercent(current.roi)}</strong>
+          </span>
+          <span className="chip-extra">
+            <small>VPL</small>
+            <strong>{formatBRL(current.npv)}</strong>
+          </span>
+          <span className="chip-extra">
+            <small>TIR</small>
+            <strong>{formatIrr(current.irrAnnual)}</strong>
+          </span>
         </button>
+        <div
+          className="quick-dock-panel"
+          id="quick-dock-panel"
+          data-testid="quick-dock-panel"
+          hidden={!open}
+        >
+          <article data-testid="quick-kpi-payback">
+            <span>Payback</span>
+            <strong>{formatPayback(current.payback)}</strong>
+            <em>{signedMonths(current.payback, base.payback)}</em>
+          </article>
+          <article data-testid="quick-kpi-roi">
+            <span>ROI</span>
+            <strong>{formatPercent(current.roi)}</strong>
+            <em>{signedPercent(current.roi !== null && base.roi !== null ? current.roi - base.roi : null)}</em>
+          </article>
+          <article data-testid="quick-kpi-npv">
+            <span>VPL</span>
+            <strong>{formatBRL(current.npv)}</strong>
+            <em>{signedMoney(current.npv - base.npv)}</em>
+          </article>
+          <article data-testid="quick-kpi-irr">
+            <span>TIR</span>
+            <strong>{formatIrr(current.irrAnnual)}</strong>
+            <em>
+              {current.irrAnnual === null
+                ? 'Sem troca de sinal'
+                : signedPercent(base.irrAnnual === null ? null : current.irrAnnual - base.irrAnnual)}
+            </em>
+          </article>
+          <button type="button" className="btn" data-testid="quick-undo" disabled={!changed} onClick={onUndo}>
+            Desfazer ajuste
+          </button>
+        </div>
       </div>
       <div className="quick-levers">
         {QUICK_LEVERS.map((lever) => {

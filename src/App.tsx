@@ -37,8 +37,15 @@ import { reanchor, sectionForField } from './model/premises';
 import type { Inputs, ScenarioId } from './model/types';
 import { wizardSeed } from './model/wizard';
 import type { StorePreset } from './model/presets';
+import {
+  NARROW_VIEWPORT_QUERY,
+  RAIL_COLLAPSED_KEY,
+  initialRailCollapsed,
+  readUiFlag,
+  writeUiFlag,
+} from './model/uiChrome';
 
-const SECTIONS: Array<{ id: SectionId; label: string }> = [
+const SECTIONS = [
   { id: 'dashboard', label: 'Resultados' },
   { id: 'perfil', label: 'Perfil' },
   { id: 'pessoas', label: 'Pessoas' },
@@ -50,7 +57,36 @@ const SECTIONS: Array<{ id: SectionId; label: string }> = [
   { id: 'fluxo', label: 'Fluxo' },
   { id: 'auditoria', label: 'Auditoria' },
   { id: 'simulacoes', label: 'Simulações' },
-];
+] as const satisfies readonly { id: Exclude<SectionId, 'wizard'>; label: string }[];
+
+const NAV_ICONS: Record<Exclude<SectionId, 'wizard'>, string> = {
+  dashboard: 'M5 19V11M10 19V6M15 19V9M20 19V4',
+  perfil: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6',
+  pessoas: 'M12 11a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM5.5 19.5c.8-2.8 2.8-4.2 6.5-4.2s5.7 1.4 6.5 4.2',
+  logistica: 'M3 8l9-4 9 4-9 4-9-4ZM3 8v8l9 4 9-4V8M12 12v8',
+  estoque: 'M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12',
+  investimento: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 8v8M9.5 10.2h3.2a1.6 1.6 0 0 1 0 3.2H9.5',
+  cenarios: 'M4 7h16M4 12h12M4 17h8',
+  sensibilidade: 'M4 8h16M4 16h16M9 8v.01M15 16v.01',
+  fluxo: 'M5 6h14M5 12h14M5 18h9',
+  auditoria: 'M8 3.5h8v17H8zM10.5 9h3M10.5 13h3M10.5 17h2',
+  simulacoes: 'M8 7h12v12H8zM4 5h12v12',
+};
+
+function NavIcon({ id }: { id: Exclude<SectionId, 'wizard'> }) {
+  return (
+    <svg className="nav-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path
+        d={NAV_ICONS[id]}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 interface BootState {
   inputs: Inputs;
@@ -103,7 +139,30 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
   const [status, setStatus] = useState<string | null>(null);
+  const [railCollapsed, setRailCollapsed] = useState(() => initialRailCollapsed(localStorage));
   const result = useMemo(() => evaluate(inputs, { scenario }), [inputs, scenario]);
+
+  useEffect(() => {
+    let media: MediaQueryList;
+    try {
+      media = window.matchMedia(NARROW_VIEWPORT_QUERY);
+    } catch {
+      return;
+    }
+    const apply = () => {
+      const stored = readUiFlag(localStorage, RAIL_COLLAPSED_KEY);
+      setRailCollapsed(stored ?? media.matches);
+    };
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+
+  function toggleRail() {
+    const next = !railCollapsed;
+    writeUiFlag(localStorage, RAIL_COLLAPSED_KEY, next);
+    setRailCollapsed(next);
+  }
 
   useEffect(() => {
     if (initialInputs) return;
@@ -266,14 +325,37 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   }
 
   return (
-    <div className="app">
-      <aside className="rail">
-        <div className="brand">
-          <span className="mark" aria-hidden="true" />
-          <div>
-            <strong>gCalc</strong>
-            <small>ROI Gollmann</small>
+    <div className={railCollapsed ? 'app is-rail-collapsed' : 'app'}>
+      <aside className={railCollapsed ? 'rail is-collapsed' : 'rail'} data-testid="rail">
+        <div className="rail-top">
+          <div className="brand">
+            <span className="mark" aria-hidden="true" />
+            <div className="brand-copy">
+              <strong>gCalc</strong>
+              <small>ROI Gollmann</small>
+            </div>
           </div>
+          <button
+            type="button"
+            className="rail-toggle"
+            data-testid="rail-toggle"
+            aria-expanded={!railCollapsed}
+            aria-label={railCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            title={railCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            onClick={toggleRail}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+              <path
+                d={railCollapsed ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="rail-toggle-label">{railCollapsed ? 'Expandir' : 'Recolher'}</span>
+          </button>
         </div>
         <nav className="nav" aria-label="Módulos">
           {SECTIONS.map((item) => (
@@ -282,13 +364,13 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
               type="button"
               className={section === item.id ? 'is-active' : ''}
               aria-current={section === item.id ? 'page' : undefined}
+              title={item.label}
+              data-tooltip={item.label}
               onClick={() => {
                 setSection(item.id);
                 setFocusField(null);
               }}
-            >
-              {item.label}
-            </button>
+            ><NavIcon id={item.id} /><span className="nav-label">{item.label}</span></button>
           ))}
         </nav>
         <p className="rail-note">Premissas editáveis. O cálculo roda no navegador, sem enviar dados.</p>

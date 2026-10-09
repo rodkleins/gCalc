@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import App from './App';
 import { exampleInputs } from './model/example';
 import { STORAGE_KEY, STORAGE_VERSION, writeSession } from './model/storage';
+import { QUICK_DOCK_OPEN_KEY, RAIL_COLLAPSED_KEY } from './model/uiChrome';
 import { WIZARD_STEPS } from './model/wizard';
 
 class ResizeObserverStub {
@@ -17,6 +18,7 @@ describe('aplicação', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     localStorage.clear();
+    setViewport(1024);
   });
 
   it('mostra o exemplo ilustrativo no dashboard', async () => {
@@ -363,7 +365,118 @@ describe('aplicação', () => {
     expect(host.textContent).toMatch(/fictícios/i);
     act(() => root.unmount());
   });
+
+  it('resume a faixa de resultados num chip e lembra se o painel está aberto', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App initialInputs={exampleInputs()} />);
+    });
+    const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+    expect(host.querySelector('[data-testid="quick-dock"]')?.classList.contains('is-open')).toBe(false);
+    expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(true);
+    expect(host.querySelector('[data-testid="quick-dock-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('Payback');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('30,8');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('ROI');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('39%');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="quick-dock-toggle"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="quick-dock"]')?.classList.contains('is-open')).toBe(true);
+    expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(false);
+    expect(text('[data-testid="quick-kpi-npv"]')).toContain('VPL');
+    expect(text('[data-testid="quick-kpi-irr"]')).toContain('TIR');
+    expect(localStorage.getItem(QUICK_DOCK_OPEN_KEY)).toBe('1');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="quick-dock-toggle"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(true);
+    expect(localStorage.getItem(QUICK_DOCK_OPEN_KEY)).toBe('0');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="quick-dock-toggle"]')?.click();
+    });
+    await act(async () => {
+      host.querySelector('h1')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+    expect(host.querySelector('[data-testid="quick-dock"]')?.classList.contains('is-open')).toBe(false);
+    expect(localStorage.getItem(QUICK_DOCK_OPEN_KEY)).toBe('0');
+    act(() => root.unmount());
+
+    localStorage.setItem(QUICK_DOCK_OPEN_KEY, '1');
+    const next = document.createElement('div');
+    document.body.appendChild(next);
+    const restored = createRoot(next);
+    await act(async () => {
+      restored.render(<App initialInputs={exampleInputs()} />);
+    });
+    expect(next.querySelector('[data-testid="quick-dock"]')?.classList.contains('is-open')).toBe(true);
+    expect(next.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(false);
+    act(() => restored.unmount());
+  });
+
+  it('recolhe o menu em ícones, amplia o conteúdo e lembra a escolha', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    setViewport(1280);
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App initialInputs={exampleInputs()} />);
+    });
+    expect(host.querySelector('[data-testid="rail"]')?.classList.contains('is-collapsed')).toBe(false);
+    expect(host.querySelector('.app')?.classList.contains('is-rail-collapsed')).toBe(false);
+    expect(host.querySelector('[data-testid="rail-toggle"]')?.getAttribute('aria-expanded')).toBe('true');
+    const pessoas = () =>
+      [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Pessoas') as HTMLButtonElement;
+    expect(pessoas().getAttribute('data-tooltip')).toBe('Pessoas');
+    expect(pessoas().getAttribute('title')).toBe('Pessoas');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="rail-toggle"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="rail"]')?.classList.contains('is-collapsed')).toBe(true);
+    expect(host.querySelector('.app')?.classList.contains('is-rail-collapsed')).toBe(true);
+    expect(host.querySelector('[data-testid="rail-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
+    expect(host.querySelector('[data-testid="rail-toggle"]')?.getAttribute('title')).toBe('Expandir menu');
+    expect(localStorage.getItem(RAIL_COLLAPSED_KEY)).toBe('1');
+    expect(pessoas().textContent).toBe('Pessoas');
+    act(() => root.unmount());
+
+    const remembered = document.createElement('div');
+    document.body.appendChild(remembered);
+    const rememberedRoot = createRoot(remembered);
+    await act(async () => {
+      rememberedRoot.render(<App initialInputs={exampleInputs()} />);
+    });
+    expect(remembered.querySelector('[data-testid="rail"]')?.classList.contains('is-collapsed')).toBe(true);
+    act(() => rememberedRoot.unmount());
+
+    localStorage.removeItem(RAIL_COLLAPSED_KEY);
+    setViewport(800);
+    const narrow = document.createElement('div');
+    document.body.appendChild(narrow);
+    const narrowRoot = createRoot(narrow);
+    await act(async () => {
+      narrowRoot.render(<App initialInputs={exampleInputs()} />);
+    });
+    expect(narrow.querySelector('[data-testid="rail"]')?.classList.contains('is-collapsed')).toBe(true);
+    expect(narrow.querySelector('[data-testid="rail-toggle"]')?.getAttribute('aria-label')).toBe('Expandir menu');
+    act(() => narrowRoot.unmount());
+  });
 });
+
+function setViewport(width: number, height = 800) {
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({
+    width,
+    height,
+  });
+}
 
 function setNativeValue(element: HTMLInputElement, value: string) {
   const prototype = Object.getPrototypeOf(element);
