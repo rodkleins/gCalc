@@ -47,7 +47,9 @@ O preview também fica em `/gCalc/`.
 4. Use **Resultados** para payback, ROI, VPL, TIR, gráficos e a comparação entre os dois tipos de loja.
 5. Use **Sensibilidade** para variar investimento, mão de obra, turnover, vendas e volume.
 6. Use **Fluxo** para os 60 meses e **Auditoria** para ver o que entrou no caixa e o que ficou de fora.
-7. **Restaurar exemplo fictício** volta ao caso do escopo. **Nova simulação** zera os valores. Dá para baixar e recarregar o JSON. A simulação atual também fica no navegador.
+7. **Restaurar exemplo** volta ao caso do escopo. **Nova simulação** zera os valores. **Limpar dados salvos** apaga o rascunho e as simulações nomeadas deste navegador.
+8. Tudo que você edita — premissas, cenário, tipo de loja, benefícios ligados ou desligados e o módulo aberto — é gravado automaticamente. Os dados ficam só neste navegador.
+9. Em **Simulações**, dê um nome para guardar cliente, loja e cenário. Dá para listar, carregar, duplicar, renomear, excluir e comparar duas simulações pelos indicadores principais. A mesma tela exporta e importa JSON.
 
 Quando os dados forem de uma loja real, desmarque **Marcar esta simulação como dados fictícios** no perfil.
 

@@ -78,6 +78,24 @@ p { margin: 0; }
 .sub, .lede, .hint-block, .cell-note { color: var(--muted); }
 .sub { margin-top: 4px; }
 .toolbar { margin-bottom: 18px; }
+.toolbar.compact { margin: 12px 0 0; }
+.storage-note { color: var(--muted); font-size: 0.85rem; margin: -6px 0 16px; }
+.save-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.field.grow { flex: 1 1 220px; }
+.library-list { display: flex; flex-direction: column; gap: 10px; }
+.library-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  background: white;
+}
+.library-item.is-active { outline: 2px solid var(--forest-2); }
+.library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn.danger { color: var(--danger); }
 .seg { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
 .seg button.is-active { background: var(--forest); color: white; }
 .seg.wrap { width: fit-content; max-width: 100%; }

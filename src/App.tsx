@@ -3,6 +3,7 @@ import { AuditPanel } from './components/AuditPanel';
 import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
 import { InvestmentForm } from './components/InvestmentForm';
+import { LibraryPanel, downloadJson } from './components/LibraryPanel';
 import { LogisticsForm } from './components/LogisticsForm';
 import { PeopleForm } from './components/PeopleForm';
 import { ProfileForm } from './components/ProfileForm';
@@ -12,11 +13,24 @@ import { StockForm } from './components/StockForm';
 import { evaluate } from './model/calculate';
 import { blankInputs, exampleInputs } from './model/example';
 import { formatBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from './model/format';
+import {
+  STORAGE_VERSION,
+  clearSession,
+  createId,
+  defaultSimulationName,
+  deleteSimulation,
+  importPayload,
+  insertDuplicate,
+  mergeSimulations,
+  readSession,
+  renameSimulation,
+  writeSession,
+  type SectionId,
+  type SimulationRecord,
+} from './model/storage';
 import type { Inputs, ScenarioId } from './model/types';
 
-const STORAGE_KEY = 'gcalc.inputs.v1';
-
-const SECTIONS = [
+const SECTIONS: Array<{ id: SectionId; label: string }> = [
   { id: 'dashboard', label: 'Resultados' },
   { id: 'perfil', label: 'Perfil' },
   { id: 'pessoas', label: 'Pessoas' },
@@ -27,32 +41,44 @@ const SECTIONS = [
   { id: 'sensibilidade', label: 'Sensibilidade' },
   { id: 'fluxo', label: 'Fluxo' },
   { id: 'auditoria', label: 'Auditoria' },
-] as const;
+  { id: 'simulacoes', label: 'Simulações' },
+];
 
-type SectionId = (typeof SECTIONS)[number]['id'];
+interface BootState {
+  inputs: Inputs;
+  scenario: ScenarioId;
+  section: SectionId;
+  simulations: SimulationRecord[];
+}
 
-function readStorage(): Inputs | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Inputs;
-    if (!parsed?.profile || !parsed.people || !parsed.robot || !parsed.scenarios) return null;
-    return parsed;
-  } catch {
-    return null;
+function boot(initialInputs?: Inputs): BootState {
+  if (initialInputs) {
+    return { inputs: initialInputs, scenario: 'base', section: 'dashboard', simulations: [] };
   }
+  const loaded = readSession(localStorage);
+  const draft = loaded.draft ?? { inputs: exampleInputs(), scenario: 'base' as const, section: 'dashboard' as const };
+  return { inputs: draft.inputs, scenario: draft.scenario, section: draft.section, simulations: loaded.simulations };
 }
 
 export default function App({ initialInputs }: { initialInputs?: Inputs }) {
-  const [inputs, setInputs] = useState<Inputs>(() => initialInputs ?? readStorage() ?? exampleInputs());
-  const [scenario, setScenario] = useState<ScenarioId>('base');
-  const [section, setSection] = useState<SectionId>('dashboard');
+  const [booted] = useState(() => boot(initialInputs));
+  const [inputs, setInputs] = useState(booted.inputs);
+  const [scenario, setScenario] = useState<ScenarioId>(booted.scenario);
+  const [section, setSection] = useState<SectionId>(booted.section);
+  const [simulations, setSimulations] = useState<SimulationRecord[]>(booted.simulations);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
+  const [status, setStatus] = useState<string | null>(null);
   const result = useMemo(() => evaluate(inputs, { scenario }), [inputs, scenario]);
 
   useEffect(() => {
     if (initialInputs) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs));
-  }, [initialInputs, inputs]);
+    writeSession(localStorage, {
+      version: STORAGE_VERSION,
+      draft: { inputs, scenario, section },
+      simulations,
+    });
+  }, [initialInputs, inputs, scenario, section, simulations]);
 
   const summary = [
     inputs.fictional ? 'DADOS FICTÍCIOS' : 'Simulação',
@@ -74,26 +100,101 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     }
   }
 
-  function downloadJson() {
-    const blob = new Blob([JSON.stringify(inputs, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'gcalc-simulacao.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
+  function restoreExample() {
+    const example = exampleInputs();
+    setInputs(example);
+    setScenario('base');
+    setSection('dashboard');
+    setActiveId(null);
+    setDraftName(defaultSimulationName(example, 'base'));
+    setStatus('Exemplo fictício restaurado. As simulações nomeadas continuam neste navegador.');
   }
 
-  function loadJson(file: File) {
+  function clearSaved() {
+    clearSession(localStorage);
+    const example = exampleInputs();
+    setInputs(example);
+    setScenario('base');
+    setSection('dashboard');
+    setSimulations([]);
+    setActiveId(null);
+    setDraftName(defaultSimulationName(example, 'base'));
+    setStatus('Dados salvos apagados deste navegador.');
+  }
+
+  function saveNamed() {
+    const name = draftName.trim() || defaultSimulationName(inputs, scenario);
+    const savedAt = new Date().toISOString();
+    const snapshot = structuredClone(inputs);
+    if (activeId && simulations.some((simulation) => simulation.id === activeId)) {
+      setSimulations((current) =>
+        current.map((simulation) =>
+          simulation.id === activeId ? { ...simulation, name, savedAt, inputs: snapshot, scenario, section } : simulation,
+        ),
+      );
+      setStatus(`Simulação “${name}” atualizada neste navegador.`);
+    } else {
+      const id = createId();
+      setSimulations((current) => [...current, { id, name, savedAt, inputs: snapshot, scenario, section }]);
+      setActiveId(id);
+      setStatus(`Simulação “${name}” salva neste navegador.`);
+    }
+    setDraftName(name);
+  }
+
+  function loadSimulation(simulation: SimulationRecord) {
+    const snapshot = structuredClone(simulation.inputs);
+    setInputs(snapshot);
+    setScenario(simulation.scenario);
+    setSection(simulation.section);
+    setActiveId(simulation.id);
+    setDraftName(simulation.name);
+    setStatus(`“${simulation.name}” carregada.`);
+  }
+
+  function exportCurrent() {
+    downloadJson('gcalc-simulacao.json', {
+      version: STORAGE_VERSION,
+      simulations: [
+        {
+          id: activeId ?? createId(),
+          name: draftName.trim() || defaultSimulationName(inputs, scenario),
+          savedAt: new Date().toISOString(),
+          inputs,
+          scenario,
+          section,
+        },
+      ],
+    });
+  }
+
+  function exportLibrary() {
+    downloadJson('gcalc-biblioteca.json', {
+      version: STORAGE_VERSION,
+      draft: { inputs, scenario, section },
+      simulations,
+    });
+  }
+
+  function importFile(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result)) as Inputs;
-        if (!parsed?.profile || !parsed.people || !parsed.robot || !parsed.scenarios) return;
-        setInputs(parsed);
-      } catch {
-        window.alert('Não foi possível ler este JSON.');
+      const imported = importPayload(String(reader.result));
+      if (!imported) {
+        setStatus('Não foi possível ler este JSON.');
+        return;
       }
+      if (imported.draft) {
+        setInputs(structuredClone(imported.draft.inputs));
+        setScenario(imported.draft.scenario);
+        setSection(imported.draft.section);
+        setActiveId(null);
+        setDraftName(defaultSimulationName(imported.draft.inputs, imported.draft.scenario));
+      }
+      if (imported.simulations.length > 0) {
+        setSimulations((current) => mergeSimulations(current, imported.simulations));
+      }
+      setStatus('JSON importado para este navegador.');
     };
     reader.readAsText(file);
   }
@@ -132,9 +233,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
               {inputs.fictional ? ' · exemplo fictício' : ''}
             </p>
             <h1>{inputs.meta.storeName || 'Simulação de ROI'}</h1>
-            <p className="sub">
-              {inputs.meta.clientName || 'Farmácia'} · robô de armazenagem e dispensação
-            </p>
+            <p className="sub">{inputs.meta.clientName || 'Farmácia'} · robô de armazenagem e dispensação</p>
           </div>
           <div className="top-controls">
             <div className="seg" aria-label="Cenário">
@@ -164,31 +263,37 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         </header>
 
         <div className="toolbar">
-          <button type="button" className="btn" onClick={() => setInputs(exampleInputs())}>
-            Restaurar exemplo fictício
+          <button type="button" className="btn" data-testid="restore-example" onClick={restoreExample}>
+            Restaurar exemplo
           </button>
-          <button type="button" className="btn ghost" onClick={() => setInputs(blankInputs())}>
+          <button type="button" className="btn ghost" data-testid="clear-storage" onClick={clearSaved}>
+            Limpar dados salvos
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              const blank = blankInputs();
+              setInputs(blank);
+              setScenario('base');
+              setActiveId(null);
+              setDraftName(defaultSimulationName(blank, 'base'));
+              setStatus(null);
+            }}
+          >
             Nova simulação
           </button>
           <button type="button" className="btn ghost" onClick={() => void copySummary()}>
             Copiar resumo
           </button>
-          <button type="button" className="btn ghost" onClick={downloadJson}>
-            Baixar JSON
+          <button type="button" className="btn ghost" onClick={() => setSection('simulacoes')}>
+            Simulações
           </button>
-          <label className="btn ghost file">
-            Carregar JSON
-            <input
-              type="file"
-              accept="application/json"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) loadJson(file);
-                event.target.value = '';
-              }}
-            />
-          </label>
         </div>
+        <p className="storage-note" data-testid="storage-note">
+          Os dados ficam só neste navegador.
+          {status ? ` ${status}` : ''}
+        </p>
 
         {section === 'dashboard' ? (
           <Dashboard inputs={inputs} result={result} scenario={scenario} onScenario={setScenario} onInputs={setInputs} />
@@ -204,6 +309,28 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         {section === 'sensibilidade' ? <SensitivityPanel inputs={inputs} scenario={scenario} /> : null}
         {section === 'fluxo' ? <CashflowTable result={result} /> : null}
         {section === 'auditoria' ? <AuditPanel result={result} /> : null}
+        {section === 'simulacoes' ? (
+          <LibraryPanel
+            draftName={draftName}
+            onDraftName={setDraftName}
+            simulations={simulations}
+            activeId={activeId}
+            onSave={saveNamed}
+            onLoad={loadSimulation}
+            onDuplicate={(id) => setSimulations((current) => insertDuplicate(current, id))}
+            onRename={(id, name) => {
+              setSimulations((current) => renameSimulation(current, id, name));
+              if (id === activeId) setDraftName(name.trim());
+            }}
+            onDelete={(id) => {
+              setSimulations((current) => deleteSimulation(current, id));
+              if (id === activeId) setActiveId(null);
+            }}
+            onExportCurrent={exportCurrent}
+            onExportLibrary={exportLibrary}
+            onImport={importFile}
+          />
+        ) : null}
       </main>
     </div>
   );
