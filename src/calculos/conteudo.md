@@ -251,7 +251,7 @@ Imposto(m) = (Antes do imposto(m) − Depreciação(m)) × alíquota
 Operacional líquido(m) = Antes do imposto(m) − Imposto(m)
 ```
 
-A depreciação não sai do caixa; ela só reduz a base do imposto (escudo fiscal). Pelo código, um resultado tributável negativo gera imposto negativo (crédito que aumenta o caixa).
+A depreciação não sai do caixa; ela só reduz a base do imposto (escudo fiscal). Com a política padrão, resultado tributável negativo não gera crédito automático. A alíquota de 34% é só um campo editável e não vale para qualquer regime.
 
 Financiamento (buildFinancing) fica fora dos indicadores:
 
@@ -319,7 +319,7 @@ TIR mensal = taxa que zera o VPL; TIR anual = (1 + TIR mensal)^12 − 1
 Payback simples = primeiro mês t em que o acumulado ≥ 0, interpolado:
                   (t − 1) + (−acumulado anterior / fluxo do mês t)
 Payback descontado = mesma regra aplicada aos fluxos descontados
-ROI anual simples = (operacional líquido do mês 60 × 12) / investimento líquido
+Retorno anual simples estabilizado = (operacional líquido do mês 60 × 12) / investimento líquido
 ```
 
 Detalhes e casos extremos (como o código trata):
@@ -491,12 +491,10 @@ Apenas o que o código mostra (commit c1bfa48):
 - Fatores de cenário não se aplicam a eventos pontuais (rescisão, revenda, recrutamento/treinamento, principal do capital de giro). A liberação de capital de giro também não é reduzida por capture. O custo financeiro do estoque usa benefitFactor, mas não capture.
 - Vendas recebem benefitFactor e salesFactor ao mesmo tempo (no conservador, 0,48 do base).
 - A venda consultiva usa crescimento(m), não volume(m): não reage ao driver "Volume" da sensibilidade e não recebe laborFactor.
-- "Volume" se comporta de forma diferente nas duas telas: o ajuste rápido escala dispensações, perdas, avarias, caixas e movimentação, mas não vendas nem estoque médio; a sensibilidade (volumeFactor) também escala a margem de rupturas/atendimento e a base de capital de giro.
-- "Investimento" também é diferente: o ajuste rápido muda só o CAPEX bruto; a sensibilidade (capexFactor) escala também o CAPEX evitado e o valor residual.
-- "Salários" no ajuste rápido muda só o custo por vaga da folha. "Mão de obra" na sensibilidade muda também turnover, horas e contratações.
-- Com capacidade do robô ≤ 0, a cobertura é 0: todos os benefícios zeram e o OPEX continua.
-- Imposto: resultado tributável negativo gera crédito (imposto negativo) integralmente aproveitado; eventos pontuais não são tributados; a depreciação usa o investimento líquido.
-- TIR: com mais de uma troca de sinal (ex.: reversão do capital de giro no mês 60), o método devolve uma raiz sem indicar que pode haver outras.
+- Volume, mão de obra, investimento, OPEX, vendas, desconto, disponibilidade e cobertura de estoque usam o mesmo driver no ajuste rápido e na sensibilidade. Quinze por cento é o mesmo percentual nas duas telas. Investimento escala CAPEX bruto e prateleira evitada.
+- Com capacidade do robô ≤ 0, a cobertura de dispensação é 0. A folha depende da reorganização efetiva e só zera se a disponibilidade chega a zero. O OPEX continua.
+- Imposto: prejuízo fiscal não vira crédito sozinho. A política é configurável. A depreciação usa o investimento líquido e não sai do caixa.
+- TIR: mais de uma troca de sinal marca o indicador como ambíguo. A decisão usa o VPL.
 - A coluna "descontado" da tabela é arredondada mês a mês, enquanto VPL e payback descontado usam os fluxos sem arredondar; pode haver diferença de centavos.
 - A auditoria mostra o valor mensal também dos itens que ficaram fora do fluxo (ex.: consultiva R$ 1.600/mês), marcados como não incluídos (includedInCashFlow = falso). Quem lê precisa olhar essa marcação, não só o valor.
 - A visão de rede multiplica investimento, líquido e VPL pelo número de lojas (réplica linear); payback e ROI ficam os da loja.
