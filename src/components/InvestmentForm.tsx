@@ -49,6 +49,7 @@ export function InvestmentForm({
               label={field.label}
               value={robot.capex[field.key]}
               suffix="R$"
+              min={0}
               onChange={(value) => setRobot({ ...robot, capex: { ...robot.capex, [field.key]: value } })}
             />
           ))}
@@ -66,6 +67,7 @@ export function InvestmentForm({
               label={field.label}
               value={robot.opexMonthly[field.key]}
               suffix="R$"
+              min={0}
               onChange={(value) => setRobot({ ...robot, opexMonthly: { ...robot.opexMonthly, [field.key]: value } })}
             />
           ))}

@@ -14,7 +14,7 @@ import { StockForm } from './components/StockForm';
 import { Wizard } from './components/Wizard';
 import { evaluate } from './model/calculate';
 import { exampleInputs } from './model/example';
-import { formatBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from './model/format';
+import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from './model/format';
 import {
   STORAGE_VERSION,
   clearSession,
@@ -119,7 +119,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     `Payback simples: ${formatPayback(result.payback)}`,
     `ROI anual simples: ${formatPercent(result.roi)}`,
     `VPL: ${formatBRL(result.npv)}`,
-    `TIR anual: ${formatPercent(result.irrAnnual)}`,
+    `TIR anual: ${formatIrr(result.irrAnnual)}`,
   ].join('\n');
 
   async function copySummary() {

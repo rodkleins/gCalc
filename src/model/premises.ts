@@ -2,7 +2,7 @@ import { round2 } from './round';
 import type { SectionId } from './storage';
 import type { Inputs } from './types';
 
-export const ADJUST_MIN = -0.3;
+export const ADJUST_MIN = -1;
 export const ADJUST_MAX = 0.3;
 export const ADJUST_STEP = 0.05;
 
@@ -105,8 +105,8 @@ export function sectionForField(fieldId: string): SectionId {
 }
 
 export function leverValue(inputs: Inputs, id: LeverId): number {
-  if (id === 'investimento') return sumRecord(inputs.robot.capex);
-  if (id === 'opex') return sumRecord(inputs.robot.opexMonthly);
+  if (id === 'investimento') return round2(sumRecord(inputs.robot.capex));
+  if (id === 'opex') return round2(sumRecord(inputs.robot.opexMonthly));
   if (id === 'salarios') return inputs.people.payroll.monthlyCostPerPosition;
   if (id === 'turnover') return inputs.people.turnover.annualRate;
   if (id === 'volume') return inputs.profile.dispensationsPerDay;
@@ -158,8 +158,11 @@ export function nudgeLever(current: Inputs, anchor: Inputs, id: LeverId, directi
   const base = leverValue(anchor, id);
   if (!(base > 0)) return current;
   const delta = leverDelta(current, anchor, id) ?? 0;
-  const clamped = Math.min(ADJUST_MAX, Math.max(ADJUST_MIN, delta));
-  const next = Math.min(ADJUST_MAX, Math.max(ADJUST_MIN, round2(clamped + direction * ADJUST_STEP)));
+  if (direction === 1 && delta >= ADJUST_MAX - 1e-9) return current;
+  if (direction === -1 && delta <= ADJUST_MIN + 1e-9) return current;
+  let next = round2(delta + direction * ADJUST_STEP);
+  if (direction === 1 && delta < ADJUST_MAX && next > ADJUST_MAX) next = ADJUST_MAX;
+  if (direction === -1 && delta > ADJUST_MIN && next < ADJUST_MIN) next = ADJUST_MIN;
   return withLeverValue(current, anchor, id, base * (1 + next));
 }
 
@@ -175,9 +178,14 @@ function salesTotal(inputs: Inputs): number {
   );
 }
 
-function scaleRecord<T extends Record<string, number>>(record: T, factor: number): T {
+function scaleRecord<T extends Record<string, number>>(record: T, factor: number, target: number): T {
   const next: Record<string, number> = {};
-  for (const key of Object.keys(record)) next[key] = round2(record[key] * factor);
+  const keys = Object.keys(record);
+  for (const key of keys) next[key] = round2(record[key] * factor);
+  if (keys.length === 0) return next as T;
+  const key = keys.reduce((best, current) => (record[current] > record[best] ? current : best), keys[0]);
+  const others = keys.reduce((total, current) => (current === key ? total : total + next[current]), 0);
+  next[key] = Math.max(0, round2(target - others));
   return next as T;
 }
 
@@ -190,7 +198,7 @@ function applyScale(
   const base = sumRecord(anchorRecord);
   const scaled =
     base > 0
-      ? scaleRecord(anchorRecord, target / base)
+      ? scaleRecord(anchorRecord, target / base, target)
       : { ...anchorRecord, [kind === 'capex' ? 'equipment' : 'maintenance']: target };
   if (kind === 'capex') {
     return { ...current, robot: { ...current.robot, capex: scaled as Inputs['robot']['capex'] } };

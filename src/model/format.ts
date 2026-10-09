@@ -26,6 +26,11 @@ export function formatNumber(value: number, digits = 0): string {
   }).format(value);
 }
 
+export function formatIrr(value: number | null, digits?: number): string {
+  if (value === null || !Number.isFinite(value)) return 'Indefinida';
+  return formatPercent(value, digits);
+}
+
 export function formatPercent(value: number | null, digits?: number): string {
   if (value === null || !Number.isFinite(value)) return '—';
   const percent = value * 100;

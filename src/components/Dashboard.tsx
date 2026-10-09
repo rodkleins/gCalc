@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { evaluate } from '../model/calculate';
 import { matchesIllustrativeExample } from '../model/example';
-import { formatBRL, formatCompactBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { formatBRL, formatCompactBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { fieldForAudit } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
 import { Callout, PercentField, Switch } from './Fields';
@@ -124,15 +124,21 @@ export function Dashboard({
           <span>Payback simples</span>
           <strong data-testid="kpi-payback">{formatPayback(result.payback)}</strong>
           <em>
-            {result.firstPositiveMonth
-              ? `Caixa acumulado positivo no mês ${result.firstPositiveMonth}`
-              : 'Não zera em 60 meses'}
+            {result.payback !== null && result.payback <= 0
+              ? 'Sem desembolso a recuperar'
+              : result.firstPositiveMonth
+                ? `Caixa acumulado positivo no mês ${result.firstPositiveMonth}`
+                : 'Não zera em 60 meses'}
           </em>
         </article>
         <article className="kpi accent">
           <span>ROI anual simples</span>
           <strong data-testid="kpi-roi">{formatPercent(result.roi)}</strong>
-          <em>Não é a TIR. Usa o run-rate do mês 60.</em>
+          <em>
+            {result.roi === null
+              ? 'Não se aplica sem investimento positivo.'
+              : 'Não é a TIR. Usa o run-rate do mês 60.'}
+          </em>
         </article>
         <article className="kpi">
           <span>
@@ -146,8 +152,12 @@ export function Dashboard({
         </article>
         <article className="kpi">
           <span>TIR anual efetiva</span>
-          <strong data-testid="kpi-irr">{formatPercent(result.irrAnnual)}</strong>
-          <em>Mensal {formatPercent(result.irrMonthly, 2)}</em>
+          <strong data-testid="kpi-irr">{formatIrr(result.irrAnnual)}</strong>
+          <em>
+            {result.irrAnnual === null
+              ? 'Não há troca de sinal no caixa'
+              : `Mensal ${formatPercent(result.irrMonthly, 2)}`}
+          </em>
         </article>
       </section>
 
@@ -176,9 +186,11 @@ export function Dashboard({
           </li>
           <li>
             Payback descontado: <b>{formatPayback(result.discountedPayback)}</b>
-            {result.firstPositiveDiscountedMonth
-              ? `, positivo no mês ${result.firstPositiveDiscountedMonth}`
-              : ''}
+            {result.discountedPayback !== null && result.discountedPayback <= 0
+              ? ''
+              : result.firstPositiveDiscountedMonth
+                ? `, positivo no mês ${result.firstPositiveDiscountedMonth}`
+                : ''}
           </li>
         </ol>
         <div className="inline-controls">

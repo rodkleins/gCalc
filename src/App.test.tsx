@@ -250,4 +250,74 @@ describe('aplicação', () => {
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
     act(() => restored.unmount());
   });
+
+  it('deixa o investimento do robô ir a zero e não volta pelo slider', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App initialInputs={exampleInputs()} />);
+    });
+    const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+    const investment = host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-value"]');
+    const slider = host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-slider"]');
+    expect(slider?.min).toBe('-100');
+    expect(slider?.max).toBe('30');
+
+    await act(async () => {
+      setNativeValue(investment!, '0');
+      investment?.blur();
+    });
+    expect(host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-value"]')?.value).toBe('0');
+    await act(async () => {
+      slider?.dispatchEvent(new Event('input', { bubbles: true }));
+      slider?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-value"]')?.value).toBe('0');
+    expect(text('[data-testid="kpi-payback"]')).toContain('Imediato');
+    expect(text('[data-testid="kpi-irr"]')).toBe('Indefinida');
+    expect(text('[data-testid="kpi-npv"]')).not.toMatch(/NaN|—/);
+    expect(text('[data-testid="quick-kpi-payback"]')).toContain('Imediato');
+    expect(text('[data-testid="quick-kpi-irr"]')).toContain('Indefinida');
+
+    await act(async () => {
+      const field = host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-value"]');
+      field?.focus();
+      setNativeValue(field!, '5000000');
+      field?.blur();
+    });
+    expect(host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-value"]')?.value.replace(/\u00a0/g, ' ')).toBe(
+      '5.000.000',
+    );
+    await act(async () => {
+      slider?.dispatchEvent(new Event('input', { bubbles: true }));
+      slider?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(host.querySelector<HTMLInputElement>('[data-testid="quick-investimento-value"]')?.value.replace(/\u00a0/g, ' ')).toBe(
+      '5.000.000',
+    );
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="open-premise-investment"]')?.click();
+    });
+    const robot = [...host.querySelectorAll<HTMLLabelElement>('.field')].find((field) =>
+      field.textContent?.includes('Robô'),
+    );
+    const robotInput = robot?.querySelector('input');
+    await act(async () => {
+      robotInput?.focus();
+      setNativeValue(robotInput!, '0');
+      robotInput?.blur();
+    });
+    expect(robot?.querySelector('input')?.value).toBe('0');
+    act(() => root.unmount());
+  });
 });
+
+function setNativeValue(element: HTMLInputElement, value: string) {
+  const prototype = Object.getPrototypeOf(element);
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+  descriptor?.set?.call(element, value);
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+}

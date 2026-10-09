@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBRL, formatPayback, formatPercent, parseLocaleNumber } from './format';
+import { formatBRL, formatIrr, formatPayback, formatPercent, parseLocaleNumber } from './format';
 
 describe('números em português', () => {
   it('entende milhar brasileiro e decimal com vírgula', () => {
@@ -15,6 +15,9 @@ describe('números em português', () => {
     expect(formatBRL(2_000_000).replace(/\u00a0/g, ' ')).toBe('R$ 2.000.000');
     expect(formatBRL(65_000).replace(/\u00a0/g, ' ')).toBe('R$ 65.000');
     expect(formatPayback(2_000_000 / 65_000)).toBe('30,8 meses');
+    expect(formatPayback(0)).toBe('Imediato');
     expect(formatPercent(0.39)).toBe('39%');
+    expect(formatIrr(null)).toBe('Indefinida');
+    expect(formatIrr(0.39)).toBe('39%');
   });
 });

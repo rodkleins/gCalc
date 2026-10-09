@@ -66,6 +66,44 @@ describe('exemplo ilustrativo do escopo', () => {
   });
 });
 
+describe('investimento zero', () => {
+  it('mantém VPL finito, TIR indefinida e payback imediato', () => {
+    const inputs = cloneExample();
+    inputs.profile.storeType = 'existente';
+    for (const key of Object.keys(inputs.robot.capex) as Array<keyof Inputs['robot']['capex']>) {
+      inputs.robot.capex[key] = 0;
+    }
+    const result = evaluate(inputs);
+    expect(result.netInvestment).toBe(0);
+    expect(result.grossCapex).toBe(0);
+    expect(result.payback).toBe(0);
+    expect(result.discountedPayback).toBe(0);
+    expect(result.irrAnnual).toBeNull();
+    expect(result.irrMonthly).toBeNull();
+    expect(result.roi).toBeNull();
+    expect(Number.isFinite(result.npv)).toBe(true);
+    expect(result.cashFlows[0]).toBe(0);
+    expect(result.months.every((month) => Number.isFinite(month.incremental) && Number.isFinite(month.cumulative))).toBe(
+      true,
+    );
+  });
+
+  it('não quebra quando o CAPEX do robô zera e a prateleira evitada permanece', () => {
+    const inputs = cloneExample();
+    for (const key of Object.keys(inputs.robot.capex) as Array<keyof Inputs['robot']['capex']>) {
+      inputs.robot.capex[key] = 0;
+    }
+    const result = evaluate(inputs);
+    expect(result.grossCapex).toBe(0);
+    expect(result.netInvestment).toBe(-180_000);
+    expect(result.payback).toBe(0);
+    expect(result.irrAnnual).toBeNull();
+    expect(result.roi).toBeNull();
+    expect(Number.isFinite(result.npv)).toBe(true);
+    expect(result.warnings.some((warning) => /negativo/i.test(warning))).toBe(true);
+  });
+});
+
 describe('regras anti-dupla-contagem', () => {
   it('não soma treinamento que já está no custo de substituição', () => {
     const blocked = evaluate(cloneExample());

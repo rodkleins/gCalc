@@ -1,5 +1,5 @@
 import { evaluate } from '../model/calculate';
-import { formatBRL, formatNumber, formatPayback, formatPercent } from '../model/format';
+import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent } from '../model/format';
 import {
   ADJUST_MAX,
   ADJUST_MIN,
@@ -49,7 +49,10 @@ export function QuickAdjust({
         <div>
           <p className="eyebrow">Ajuste rápido</p>
           <h2>Premissas-chave</h2>
-          <p className="lede">O slider vai de −30% a +30% do valor original. O número aceita outro valor. O resultado muda na hora.</p>
+          <p className="lede">
+            O slider e os botões vão de −100% a +30% do valor original. O número aceita zero e qualquer valor acima disso.
+            O resultado muda na hora.
+          </p>
         </div>
       </header>
       <div className="quick-dock">
@@ -70,8 +73,12 @@ export function QuickAdjust({
         </article>
         <article data-testid="quick-kpi-irr">
           <span>TIR</span>
-          <strong>{formatPercent(current.irrAnnual)}</strong>
-          <em>{signedPercent(current.irrAnnual !== null && base.irrAnnual !== null ? current.irrAnnual - base.irrAnnual : null)}</em>
+          <strong>{formatIrr(current.irrAnnual)}</strong>
+          <em>
+            {current.irrAnnual === null
+              ? 'Sem troca de sinal'
+              : signedPercent(base.irrAnnual === null ? null : current.irrAnnual - base.irrAnnual)}
+          </em>
         </article>
         <button type="button" className="btn" data-testid="quick-undo" disabled={!changed} onClick={onUndo}>
           Desfazer ajuste
@@ -104,6 +111,7 @@ export function QuickAdjust({
                   label="Valor atual"
                   testId={`quick-${lever.id}-value`}
                   suffix={lever.id === 'volume' ? '/dia' : 'R$'}
+                  min={0}
                   value={leverValue(inputs, lever.id)}
                   onChange={(value) => setAbsolute(lever.id, value)}
                 />
@@ -114,7 +122,7 @@ export function QuickAdjust({
                   className="btn ghost"
                   data-testid={`quick-${lever.id}-down`}
                   aria-label={`Diminuir ${lever.label}`}
-                  disabled={!(origin > 0)}
+                  disabled={!(origin > 0) || (delta !== null && delta <= ADJUST_MIN + 1e-9)}
                   onClick={() => onAdjust(nudgeLever(inputs, anchor, lever.id, -1))}
                 >
                   −
@@ -128,14 +136,17 @@ export function QuickAdjust({
                   disabled={!(origin > 0)}
                   aria-label={`Variação de ${lever.label}`}
                   data-testid={`quick-${lever.id}-slider`}
-                  onChange={(event) => slide(lever.id, Number(event.target.value))}
+                  onChange={(event) => {
+                    if (document.activeElement !== event.currentTarget) return;
+                    slide(lever.id, Number(event.currentTarget.value));
+                  }}
                 />
                 <button
                   type="button"
                   className="btn ghost"
                   data-testid={`quick-${lever.id}-up`}
                   aria-label={`Aumentar ${lever.label}`}
-                  disabled={!(origin > 0)}
+                  disabled={!(origin > 0) || (delta !== null && delta >= ADJUST_MAX - 1e-9)}
                   onClick={() => onAdjust(nudgeLever(inputs, anchor, lever.id, 1))}
                 >
                   +

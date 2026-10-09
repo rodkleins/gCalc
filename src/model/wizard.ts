@@ -153,7 +153,7 @@ export function validateWizardStep(step: number, inputs: Inputs): string | null 
   }
   if (id === 'investimento') {
     const capex = inputs.robot.capex.equipment + otherCapex(inputs);
-    if (!(capex > 0)) return 'Informe o investimento do robô.';
+    if (capex < 0) return 'O investimento do robô não pode ser negativo.';
     if (totalOpex(inputs) < 0) return 'O custo mensal do robô não pode ser negativo.';
     if (inputs.robot.discountRateAnnual < 0 || inputs.robot.discountRateAnnual > 1) {
       return 'A taxa de desconto fica entre 0% e 100% ao ano.';

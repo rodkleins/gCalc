@@ -86,6 +86,23 @@ describe('premissas e ajuste rápido', () => {
 
     const current = nudgeLever(exampleInputs(), exampleInputs(), 'investimento', 1);
     expect(leverValue(current, 'investimento')).toBeCloseTo(2_180_000 * 1.05, 0);
+
+    const zeroed = withLeverValue(exampleInputs(), exampleInputs(), 'investimento', 0);
+    expect(leverValue(zeroed, 'investimento')).toBe(0);
+    expect(Object.values(zeroed.robot.capex).every((value) => value === 0)).toBe(true);
+    expect(zeroed.logistics.shelving.avoidedAcquisition).toBe(exampleInputs().logistics.shelving.avoidedAcquisition);
+
+    let stepped = exampleInputs();
+    const fresh = exampleInputs();
+    for (let step = 0; step < 7; step += 1) stepped = nudgeLever(stepped, fresh, 'investimento', -1);
+    expect(leverValue(stepped, 'investimento')).toBeLessThan(2_180_000 * 0.7);
+    for (let step = 0; step < 13; step += 1) stepped = nudgeLever(stepped, fresh, 'investimento', -1);
+    expect(leverValue(stepped, 'investimento')).toBe(0);
+    expect(leverValue(nudgeLever(stepped, fresh, 'investimento', -1), 'investimento')).toBe(0);
+
+    const typed = withLeverValue(fresh, fresh, 'investimento', 2_180_000 * 1.8);
+    const eased = nudgeLever(typed, fresh, 'investimento', -1);
+    expect(leverValue(eased, 'investimento')).toBeCloseTo(2_180_000 * 1.75, 0);
     const undone = exampleInputs();
     expect(leversDiffer(current, undone)).toBe(true);
     expect(evaluate(undone).netInvestment).toBe(2_000_000);

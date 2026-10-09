@@ -78,6 +78,7 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       ? round2(inputs.logistics.shelving.avoidedAcquisition * capexMultiplier)
       : 0;
   const netInvestment = round2(grossCapex - avoidedCapex);
+  const openingCash = netInvestment === 0 ? 0 : -netInvestment;
 
   const depreciationMonths = Math.max(1, Math.round(inputs.robot.depreciationYears * 12));
 
@@ -499,8 +500,8 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   };
 
   const months: MonthDetail[] = [];
-  let cumulative = -netInvestment;
-  let cumulativeDiscounted = -netInvestment;
+  let cumulative = openingCash;
+  let cumulativeDiscounted = openingCash;
 
   for (let month = 1; month <= HORIZON_MONTHS; month += 1) {
     const salesMargin = salesAmount(month);
@@ -553,7 +554,7 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   }
 
   const steady = months[HORIZON_MONTHS - 1];
-  const cashFlows = [-netInvestment, ...months.map((month) => month.incremental)];
+  const cashFlows = [openingCash, ...months.map((month) => month.incremental)];
   const steadyBenefit = steady.benefit;
   const steadyNet = steady.netOperating;
   const annualSteadyNet = round2(steadyNet * 12);

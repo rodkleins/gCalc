@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import type { Inputs, ModelResult, PlannedHire, ScenarioId, SpaceMode } from '../model/types';
 import {
   otherCapex,
@@ -477,12 +477,14 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
         <NumberField
           label="Equipamento"
           suffix="R$"
+          min={0}
           value={robot.capex.equipment}
           onChange={(equipment) => onInputs({ ...inputs, robot: { ...robot, capex: { ...robot.capex, equipment } } })}
         />
         <NumberField
           label="Demais custos para instalar"
           suffix="R$"
+          min={0}
           value={otherCapex(inputs)}
           hint="Frete, obra, integração e contingência. Editar junta esses itens num só valor."
           onChange={(value) => onInputs(withOtherCapex(inputs, value))}
@@ -490,6 +492,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
         <NumberField
           label="Custo mensal do robô"
           suffix="R$"
+          min={0}
           value={totalOpex(inputs)}
           hint="Manutenção, software, energia e o resto. Editar junta esses itens num só valor."
           onChange={(value) => onInputs(withTotalOpex(inputs, value))}
@@ -609,7 +612,7 @@ function SummaryStep({
         </article>
         <article className="kpi">
           <span>TIR anual</span>
-          <strong data-testid="wizard-kpi-irr">{formatPercent(result.irrAnnual)}</strong>
+          <strong data-testid="wizard-kpi-irr">{formatIrr(result.irrAnnual)}</strong>
         </article>
       </section>
       <p className="hint-block">Financiamento, imposto, vendas sem evidência e o detalhe de cada benefício ficam no modo completo.</p>

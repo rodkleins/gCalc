@@ -53,7 +53,9 @@ describe('assistente', () => {
       integration: 0,
       implementationContingency: 0,
     };
-    expect(validateWizardStep(5, inputs)).toMatch(/investimento/i);
+    expect(validateWizardStep(5, inputs)).toBeNull();
+    inputs.robot.capex.equipment = -1;
+    expect(validateWizardStep(5, inputs)).toMatch(/negativ/i);
   });
 
   it('normaliza passo inválido e concentra CAPEX e OPEX editados no assistente', () => {

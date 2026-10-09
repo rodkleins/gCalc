@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { evaluate } from '../model/calculate';
-import { formatBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import type { SimulationRecord } from '../model/storage';
 
 export function LibraryPanel({
@@ -134,7 +134,7 @@ export function LibraryPanel({
                   <CompareRow label="Payback simples" left={formatPayback(comparison[0]?.payback ?? null)} right={formatPayback(comparison[1]?.payback ?? null)} />
                   <CompareRow label="ROI" left={formatPercent(comparison[0]?.roi ?? null)} right={formatPercent(comparison[1]?.roi ?? null)} />
                   <CompareRow label="VPL" left={money(comparison[0]?.npv)} right={money(comparison[1]?.npv)} />
-                  <CompareRow label="TIR anual" left={formatPercent(comparison[0]?.irrAnnual ?? null)} right={formatPercent(comparison[1]?.irrAnnual ?? null)} />
+                  <CompareRow label="TIR anual" left={formatIrr(comparison[0]?.irrAnnual ?? null)} right={formatIrr(comparison[1]?.irrAnnual ?? null)} />
                 </tbody>
               </table>
             </div>
