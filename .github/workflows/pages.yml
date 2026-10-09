@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout da main
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -34,7 +34,7 @@ jobs:
       - name: Testes
         run: npm test
 
-      - name: Build da calculadora publicada
+      - name: Build
         run: npm run build
 
       - name: Conferir a calculadora, o rascunho e a página de cálculos
@@ -46,27 +46,8 @@ jobs:
             echo "A raiz não pode apontar para /preview/."
             exit 1
           fi
-
-      - name: Build de teste em /preview/
-        run: |
-          if ! git ls-remote --exit-code --heads origin fix/financial-model-audit >/dev/null; then
-            echo "Branch fix/financial-model-audit ausente. Publicando só a main."
-            exit 0
-          fi
-          git fetch --depth 1 origin fix/financial-model-audit
-          git worktree add --detach preview-src FETCH_HEAD
-          npm ci --prefix preview-src
-          npm test --prefix preview-src
-          VITE_PREVIEW=1 VITE_BASE=/gCalc/preview/ npm run build --prefix preview-src
-          mkdir -p dist/preview
-          cp -a preview-src/dist/. dist/preview/
-          test -f dist/index.html
-          test -f dist/preview/index.html
-          test -f dist/preview/headtohead/index.html
-          test -f dist/preview/calculos/index.html
-          grep -q '/gCalc/preview/' dist/preview/index.html
-          if grep -q '/gCalc/preview/' dist/index.html; then
-            echo "A raiz foi contaminada pelo build de teste."
+          if [ -d dist/preview ]; then
+            echo "O artefato não deve incluir /preview/."
             exit 1
           fi
 
