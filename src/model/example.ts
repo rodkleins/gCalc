@@ -7,8 +7,8 @@ export const SUGGESTED_TRAINING_PER_HIRE = 6_000;
 
 /**
  * Exemplo ilustrativo fictício do escopo.
- * Investimento líquido R$ 2.000.000, benefício líquido R$ 65.000/mês,
- * payback interpolado de 30,8 meses e ROI anual simples de 39%.
+ * Investimento líquido R$ 1.980.000, benefício líquido R$ 65.000/mês,
+ * payback interpolado de 30,5 meses e ROI anual simples de 39,4%.
  */
 const EXAMPLE: Inputs = {
   fictional: true,
@@ -240,7 +240,7 @@ const EXAMPLE: Inputs = {
       equipment: 1_750_000,
       freightImportTaxes: 140_000,
       installationTraining: 90_000,
-      civilElectrical: 70_000,
+      civilElectrical: 50_000,
       integration: 50_000,
       implementationContingency: 80_000,
     },
@@ -387,11 +387,11 @@ export function matchesIllustrativeExample(result: ModelResult): boolean {
     result.scenario === 'base' &&
     result.storeType === 'nova' &&
     result.storeCount === 1 &&
-    Math.abs(result.netInvestment - 2_000_000) < 1 &&
+    Math.abs(result.netInvestment - 1_980_000) < 1 &&
     Math.abs(result.steadyNet - 65_000) < 1 &&
     result.payback !== null &&
-    Math.abs(result.payback - 2_000_000 / 65_000) < 0.05 &&
+    Math.abs(result.payback - 1_980_000 / 65_000) < 0.05 &&
     result.roi !== null &&
-    Math.abs(result.roi - 0.39) < 0.000_001
+    Math.abs(result.roi - 780_000 / 1_980_000) < 0.000_001
   );
 }

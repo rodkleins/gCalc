@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import App from './App';
 import { exampleInputs } from './model/example';
 import { STORAGE_KEY, STORAGE_VERSION, writeSession } from './model/storage';
-import { QUICK_DOCK_OPEN_KEY, RAIL_COLLAPSED_KEY } from './model/uiChrome';
+import { QUICK_ADJUST_OPEN_KEY, QUICK_DOCK_OPEN_KEY, RAIL_COLLAPSED_KEY } from './model/uiChrome';
 import { WIZARD_STEPS } from './model/wizard';
 
 class ResizeObserverStub {
@@ -30,11 +30,21 @@ describe('aplicação', () => {
       root.render(<App initialInputs={exampleInputs()} />);
     });
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
     expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
-    expect(text('[data-testid="kpi-payback"]')).toContain('30,8');
-    expect(text('[data-testid="kpi-roi"]')).toBe('39%');
+    expect(text('[data-testid="kpi-payback"]')).toContain('30,5');
+    expect(text('[data-testid="kpi-roi"]')).toBe('39,4%');
+    const charts = host.querySelector('.chart-grid');
     const summary = host.querySelector('[data-testid="executive-summary"]');
+    const comparison = host.querySelector('table');
+    expect(charts).not.toBeNull();
+    expect(summary).not.toBeNull();
+    expect(comparison).not.toBeNull();
+    expect(charts!.compareDocumentPosition(summary!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(charts!.compareDocumentPosition(comparison!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const navLabels = [...host.querySelectorAll('nav button')].map((button) => button.textContent);
+    expect(navLabels[0]).toBe('Perfil');
+    expect(navLabels.at(-1)).toBe('Resultados');
     expect(summary?.querySelectorAll('li')).toHaveLength(5);
     expect(summary?.textContent).toMatch(/payback/i);
     expect(summary?.textContent).toMatch(/ROI/);
@@ -170,10 +180,10 @@ describe('aplicação', () => {
     });
     expect(host.querySelector('[data-testid="wizard"]')).toBeNull();
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
     expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
-    expect(text('[data-testid="kpi-payback"]')).toContain('30,8');
-    expect(text('[data-testid="kpi-roi"]')).toBe('39%');
+    expect(text('[data-testid="kpi-payback"]')).toContain('30,5');
+    expect(text('[data-testid="kpi-roi"]')).toBe('39,4%');
     act(() => root.unmount());
   });
 
@@ -240,7 +250,7 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.100.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.079.000');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
@@ -249,7 +259,7 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
     expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('igual ao original');
     act(() => root.unmount());
@@ -278,11 +288,11 @@ describe('aplicação', () => {
       restored.render(<App />);
     });
     const text = (selector: string) => next.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.100.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.079.000');
     await act(async () => {
       next.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.000.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
     act(() => restored.unmount());
   });
 
@@ -349,7 +359,58 @@ describe('aplicação', () => {
     act(() => root.unmount());
   });
 
-  it('carrega um modelo de loja fictício com um clique', async () => {
+  it('pede confirmação antes de trocar o porte e pode salvar o rascunho', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App />);
+    });
+    expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="preset-loja-1m"]')).not.toBeNull();
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-1m"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="preset-confirm"]')).not.toBeNull();
+    expect(host.querySelector('h1')?.textContent).toBe('Farmácia Aurora — Unidade Centro');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-cancel"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="preset-confirm"]')).toBeNull();
+    expect(host.querySelector('h1')?.textContent).toBe('Farmácia Aurora — Unidade Centro');
+
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-1m"]')?.click();
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-save-then-load"]')?.click();
+    });
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 1 milhão/mês');
+    expect(host.querySelector('[data-testid="store-zero-futureHires"]')).toBeNull();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    expect(saved.simulations).toHaveLength(1);
+    expect(saved.simulations[0].inputs.meta.storeName).toBe('Farmácia Aurora — Unidade Centro');
+
+    const pessoas = [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Pessoas') as HTMLButtonElement;
+    await act(async () => {
+      pessoas.click();
+    });
+    expect(host.querySelector('[data-testid="preset-loja-2m"]')).not.toBeNull();
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-2m"]')?.click();
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-replace"]')?.click();
+    });
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 2 milhões/mês');
+    expect(host.querySelector('nav .is-active')?.textContent).toBe('Resultados');
+    act(() => root.unmount());
+  });
+
+  it('recolhe o ajuste rápido e lembra a escolha', async () => {
     globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
     const host = document.createElement('div');
     document.body.appendChild(host);
@@ -357,13 +418,34 @@ describe('aplicação', () => {
     await act(async () => {
       root.render(<App initialInputs={exampleInputs()} />);
     });
+    const toggle = () => host.querySelector<HTMLButtonElement>('[data-testid="quick-adjust-toggle"]');
+    expect(toggle()?.getAttribute('aria-expanded')).toBe('true');
+    expect(host.querySelector('#quick-adjust-body')?.hasAttribute('hidden')).toBe(false);
+    expect(host.querySelector('[data-testid="quick-dock"]')).not.toBeNull();
+
     await act(async () => {
-      host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-1m"]')?.click();
+      toggle()?.click();
     });
-    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 1 milhão/mês');
-    expect(host.querySelector('[data-testid="store-zero-futureHires"]')).toBeNull();
-    expect(host.textContent).toMatch(/fictícios/i);
+    expect(toggle()?.getAttribute('aria-expanded')).toBe('false');
+    expect(host.querySelector('#quick-adjust-body')?.hasAttribute('hidden')).toBe(true);
+    expect(host.querySelector('[data-testid="quick-dock-toggle"]')).not.toBeNull();
+    expect(localStorage.getItem(QUICK_ADJUST_OPEN_KEY)).toBe('0');
     act(() => root.unmount());
+
+    const next = document.createElement('div');
+    document.body.appendChild(next);
+    const restored = createRoot(next);
+    await act(async () => {
+      restored.render(<App initialInputs={exampleInputs()} />);
+    });
+    expect(next.querySelector('[data-testid="quick-adjust-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
+    expect(next.querySelector('#quick-adjust-body')?.hasAttribute('hidden')).toBe(true);
+    await act(async () => {
+      next.querySelector<HTMLButtonElement>('[data-testid="quick-adjust-toggle"]')?.click();
+    });
+    expect(next.querySelector('#quick-adjust-body')?.hasAttribute('hidden')).toBe(false);
+    expect(localStorage.getItem(QUICK_ADJUST_OPEN_KEY)).toBe('1');
+    act(() => restored.unmount());
   });
 
   it('resume a faixa de resultados num chip e lembra se o painel está aberto', async () => {
@@ -379,9 +461,9 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(true);
     expect(host.querySelector('[data-testid="quick-dock-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('Payback');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('30,8');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('30,5');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('ROI');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('39%');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('39,4%');
 
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-dock-toggle"]')?.click();

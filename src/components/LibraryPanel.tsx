@@ -49,8 +49,8 @@ export function LibraryPanel({
   return (
     <div className="stack">
       <StageNote>
-        Esta tela guarda casos neste navegador e compara dois deles. Os três portes abaixo são modelos fictícios: um
-        clique carrega a loja para você trocar pelos números reais.
+        Esta tela guarda casos neste navegador e compara dois deles. Os três portes também ficam no topo da calculadora.
+        Carregar um modelo pede confirmação e oferece salvar o rascunho atual antes de substituir.
       </StageNote>
       <StorePresets onLoad={onLoadPreset} />
       <section className="card">

@@ -13,7 +13,13 @@ import {
   type LeverId,
 } from '../model/premises';
 import type { Inputs, ScenarioId } from '../model/types';
-import { QUICK_DOCK_OPEN_KEY, initialQuickDockOpen, writeUiFlag } from '../model/uiChrome';
+import {
+  QUICK_ADJUST_OPEN_KEY,
+  QUICK_DOCK_OPEN_KEY,
+  initialQuickAdjustOpen,
+  initialQuickDockOpen,
+  writeUiFlag,
+} from '../model/uiChrome';
 import { NumberField, PercentField } from './Fields';
 
 export function QuickAdjust({
@@ -36,10 +42,15 @@ export function QuickAdjust({
   const changed = leversDiffer(inputs, anchor);
   const dockRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(() => initialQuickDockOpen(localStorage));
+  const [expanded, setExpanded] = useState(() => initialQuickAdjustOpen(localStorage));
 
   useEffect(() => {
     writeUiFlag(localStorage, QUICK_DOCK_OPEN_KEY, open);
   }, [open]);
+
+  useEffect(() => {
+    writeUiFlag(localStorage, QUICK_ADJUST_OPEN_KEY, expanded);
+  }, [expanded]);
 
   useEffect(() => {
     if (!open) return;
@@ -70,15 +81,25 @@ export function QuickAdjust({
   return (
     <section className="card quick-adjust" data-testid="quick-adjust" aria-label="Ajuste rápido">
       <header className="quick-head">
-        <div>
-          <p className="eyebrow">Ajuste rápido</p>
-          <h2>Premissas-chave</h2>
-          <p className="lede">
-            O slider e os botões vão de −100% a +30% do valor original. O número aceita zero e qualquer valor acima disso.
-            O resultado muda na hora.
-          </p>
-        </div>
+        <button
+          type="button"
+          className="quick-head-toggle"
+          data-testid="quick-adjust-toggle"
+          aria-expanded={expanded}
+          aria-controls="quick-adjust-body"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span className="quick-head-copy">
+            <span className="eyebrow">Ajuste rápido</span>
+            <span className="quick-title">Premissas-chave</span>
+          </span>
+          <span className="quick-head-state">{expanded ? 'Recolher' : 'Expandir'}</span>
+        </button>
       </header>
+      <p className="lede" hidden={!expanded}>
+        O slider e os botões vão de −100% a +30% do valor original. O número aceita zero e qualquer valor acima disso. O
+        resultado muda na hora.
+      </p>
       <div
         className={open ? 'quick-dock is-open' : 'quick-dock'}
         data-testid="quick-dock"
@@ -144,7 +165,7 @@ export function QuickAdjust({
           </button>
         </div>
       </div>
-      <div className="quick-levers">
+      <div className="quick-levers" id="quick-adjust-body" hidden={!expanded}>
         {QUICK_LEVERS.map((lever) => {
           const delta = leverDelta(inputs, anchor, lever.id);
           const origin = leverValue(anchor, lever.id);

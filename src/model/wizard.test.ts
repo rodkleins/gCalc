@@ -22,10 +22,10 @@ describe('assistente', () => {
     expect(seed.fictional).toBe(true);
     expect(seed.people.payroll.positionsReduced).toBe(exampleInputs().people.payroll.positionsReduced);
     const result = evaluate(seed);
-    expect(result.netInvestment).toBe(2_000_000);
+    expect(result.netInvestment).toBe(1_980_000);
     expect(result.steadyNet).toBe(65_000);
-    expect(result.payback).toBeCloseTo(2_000_000 / 65_000, 6);
-    expect(result.roi).toBeCloseTo(0.39, 8);
+    expect(result.payback).toBeCloseTo(1_980_000 / 65_000, 6);
+    expect(result.roi).toBeCloseTo(780_000 / 1_980_000, 8);
   });
 
   it('pede o nome da loja e aceita o restante sugerido', () => {
@@ -64,14 +64,14 @@ describe('assistente', () => {
     expect(normalizeWizardStep(99)).toBe(0);
     expect(normalizeWizardStep('2')).toBe(0);
 
-    const inputs = withTotalOpex(withOtherCapex(wizardSeed(), 430_000), 15_000);
+    const inputs = withTotalOpex(withOtherCapex(wizardSeed(), 410_000), 15_000);
     expect(inputs.robot.capex.equipment).toBe(1_750_000);
-    expect(inputs.robot.capex.implementationContingency).toBe(430_000);
+    expect(inputs.robot.capex.implementationContingency).toBe(410_000);
     expect(inputs.robot.capex.freightImportTaxes).toBe(0);
     expect(inputs.robot.opexMonthly.maintenance).toBe(15_000);
     expect(inputs.robot.opexMonthly.software).toBe(0);
     const result = evaluate(inputs);
-    expect(result.netInvestment).toBe(2_000_000);
+    expect(result.netInvestment).toBe(1_980_000);
     expect(result.monthlyOpex).toBe(15_000);
     expect(result.steadyNet).toBe(65_000);
   });

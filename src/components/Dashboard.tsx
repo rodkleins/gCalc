@@ -19,8 +19,6 @@ import { fieldForAudit } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
 import { Callout, PercentField, StageNote, Switch } from './Fields';
 import { QuickAdjust } from './QuickAdjust';
-import { StorePresets } from './StorePresets';
-import type { StorePreset } from '../model/presets';
 
 const SCENARIOS: ScenarioId[] = ['conservador', 'base', 'otimista'];
 
@@ -34,7 +32,6 @@ export function Dashboard({
   onAdjust,
   onUndo,
   onOpenPremise,
-  onLoadPreset,
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -45,7 +42,6 @@ export function Dashboard({
   onAdjust: (inputs: Inputs) => void;
   onUndo: () => void;
   onOpenPremise: (fieldId: string) => void;
-  onLoadPreset: (preset: StorePreset) => void;
 }) {
   const illustrative = matchesIllustrativeExample(result);
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
@@ -78,40 +74,86 @@ export function Dashboard({
       ) : null}
       {illustrative ? (
         <div className="banner ok" data-testid="example-check">
-          Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 2.000.000, benefício líquido de R$
-          65.000 por mês, payback de 30,8 meses e ROI de 39%.
+          Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 1.980.000, benefício líquido de R$
+          65.000 por mês, payback de 30,5 meses e ROI de 39,4%.
         </div>
       ) : (
         <div className="banner">
-          Os números do documento (R$ 2.000.000, R$ 65.000 por mês, payback de 30,8 meses, ROI de 39%) aparecem no
+          Os números do documento (R$ 1.980.000, R$ 65.000 por mês, payback de 30,5 meses, ROI de 39,4%) aparecem no
           exemplo fictício, cenário base e loja nova.
         </div>
       )}
 
-      <section className="card executive" data-testid="executive-summary">
-        <h2>Como chegamos no payback e no ROI</h2>
-        <ol>
-          <li>
-            O investimento líquido é {formatBRL(result.netInvestment)}: o equipamento e a instalação, menos o que a loja
-            deixa de comprar em prateleira.
-          </li>
-          <li>
-            No mês estável a operação deixa {formatBRL(result.steadyBenefit)} e gasta {formatBRL(result.monthlyOpex)} para
-            manter o robô. Sobra {formatBRL(result.steadyNet)} por mês.
-          </li>
-          <li>
-            O payback de {formatPayback(result.payback)} é quantos meses essa sobra leva para devolver o investimento. Ele
-            não usa a taxa de desconto.
-          </li>
-          <li>
-            O ROI de {formatPercent(result.roi)} é essa sobra vezes 12, dividida pelo investimento. É o ritmo de um ano
-            estável, não a soma dos 60 meses.
-          </li>
-          <li>O preço do robô entra só uma vez. O custo mensal é manutenção e suporte, e não repete o valor do equipamento.</li>
-        </ol>
-      </section>
+      <div className="chart-grid two">
+        <section className="card chart-card">
+          <h2>Composição do benefício mensal</h2>
+          <div className="plot">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={composition} layout="vertical" margin={{ left: 8, right: 12, top: 8, bottom: 8 }}>
+                <CartesianGrid stroke="#eadfce" horizontal={false} />
+                <XAxis type="number" tickFormatter={formatCompactBRL} stroke="#6d756e" />
+                <YAxis type="category" dataKey="name" width={148} tick={{ fontSize: 12, fill: '#24302a' }} />
+                <Tooltip formatter={(value) => formatBRL(Number(value))} />
+                <Bar dataKey="valor" name="Benefício" radius={[0, 8, 8, 0]}>
+                  {composition.map((entry) => (
+                    <Cell key={entry.name} fill="#1e4c43" />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+        <section className="card chart-card">
+          <h2>Caixa incremental em 60 meses</h2>
+          <div className="plot">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={cash} margin={{ left: 0, right: 8, top: 12, bottom: 0 }}>
+                <CartesianGrid stroke="#eadfce" />
+                <XAxis dataKey="month" type="number" domain={[0, 60]} ticks={[0, 12, 24, 36, 48, 60]} stroke="#6d756e" />
+                <YAxis tickFormatter={formatCompactBRL} width={72} stroke="#6d756e" />
+                <Tooltip formatter={(value) => formatBRL(Number(value))} labelFormatter={(label) => `Mês ${label}`} />
+                <Legend />
+                <ReferenceLine y={0} stroke="#8c5e1a" />
+                {result.payback !== null ? <ReferenceLine x={result.payback} stroke="#a56b24" /> : null}
+                <Area type="monotone" dataKey="acumulado" name="Acumulado" stroke="#14352f" fill="#1e4c43" fillOpacity={0.2} />
+                <Area
+                  type="monotone"
+                  dataKey="descontado"
+                  name="Acumulado descontado"
+                  stroke="#a56b24"
+                  fill="#d7a15a"
+                  fillOpacity={0.15}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
 
-      <StorePresets onLoad={onLoadPreset} />
+      <section className="card chart-card wide">
+        <h2>Custos relevantes sem robô e com robô</h2>
+        <p className="lede">
+          No mês 60, custos sem robô {formatBRL(steady?.costWithout ?? 0)} e com robô {formatBRL(steady?.costWith ?? 0)}.
+          A diferença, somada à margem incremental de {formatBRL(steady?.salesMargin ?? 0)}, é o benefício líquido.
+        </p>
+        <div className="plot">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={cash.slice(1)} margin={{ left: 0, right: 8, top: 12, bottom: 0 }}>
+              <CartesianGrid stroke="#eadfce" />
+              <XAxis dataKey="month" stroke="#6d756e" />
+              <YAxis tickFormatter={formatCompactBRL} width={72} stroke="#6d756e" />
+              <Tooltip formatter={(value) => formatBRL(Number(value))} labelFormatter={(label) => `Mês ${label}`} />
+              <Legend />
+              <Area type="monotone" dataKey="sem" name="Sem robô" stroke="#8e3030" fill="#8e3030" fillOpacity={0.12} />
+              <Area type="monotone" dataKey="com" name="Com robô" stroke="#1e4c43" fill="#1e4c43" fillOpacity={0.18} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+      <StageNote>
+        O gráfico da esquerda mostra de onde vem a sobra mensal. O da direita mostra quando o caixa acumulado devolve o
+        investimento: é o payback.
+      </StageNote>
 
       <QuickAdjust
         inputs={inputs}
@@ -224,6 +266,29 @@ export function Dashboard({
         </article>
       </section>
 
+      <section className="card executive" data-testid="executive-summary">
+        <h2>Como chegamos no payback e no ROI</h2>
+        <ol>
+          <li>
+            O investimento líquido é {formatBRL(result.netInvestment)}: o equipamento e a instalação, menos o que a loja
+            deixa de comprar em prateleira.
+          </li>
+          <li>
+            No mês estável a operação deixa {formatBRL(result.steadyBenefit)} e gasta {formatBRL(result.monthlyOpex)} para
+            manter o robô. Sobra {formatBRL(result.steadyNet)} por mês.
+          </li>
+          <li>
+            O payback de {formatPayback(result.payback)} é quantos meses essa sobra leva para devolver o investimento. Ele
+            não usa a taxa de desconto.
+          </li>
+          <li>
+            O ROI de {formatPercent(result.roi)} é essa sobra vezes 12, dividida pelo investimento. É o ritmo de um ano
+            estável, não a soma dos 60 meses.
+          </li>
+          <li>O preço do robô entra só uma vez. O custo mensal é manutenção e suporte, e não repete o valor do equipamento.</li>
+        </ol>
+      </section>
+
       <BenefitClasses result={result} />
 
       <section className="card memory">
@@ -301,77 +366,6 @@ export function Dashboard({
             );
           })}
         </ul>
-      </section>
-
-      <StageNote>
-        O gráfico da esquerda mostra de onde vem a sobra mensal. O da direita mostra quando o caixa acumulado devolve o
-        investimento: é o payback.
-      </StageNote>
-      <div className="chart-grid two">
-        <section className="card chart-card">
-          <h2>Composição do benefício mensal</h2>
-          <div className="plot">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={composition} layout="vertical" margin={{ left: 8, right: 12, top: 8, bottom: 8 }}>
-                <CartesianGrid stroke="#eadfce" horizontal={false} />
-                <XAxis type="number" tickFormatter={formatCompactBRL} stroke="#6d756e" />
-                <YAxis type="category" dataKey="name" width={148} tick={{ fontSize: 12, fill: '#24302a' }} />
-                <Tooltip formatter={(value) => formatBRL(Number(value))} />
-                <Bar dataKey="valor" name="Benefício" radius={[0, 8, 8, 0]}>
-                  {composition.map((entry) => (
-                    <Cell key={entry.name} fill="#1e4c43" />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-        <section className="card chart-card">
-          <h2>Caixa incremental em 60 meses</h2>
-          <div className="plot">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={cash} margin={{ left: 0, right: 8, top: 12, bottom: 0 }}>
-                <CartesianGrid stroke="#eadfce" />
-                <XAxis dataKey="month" type="number" domain={[0, 60]} ticks={[0, 12, 24, 36, 48, 60]} stroke="#6d756e" />
-                <YAxis tickFormatter={formatCompactBRL} width={72} stroke="#6d756e" />
-                <Tooltip formatter={(value) => formatBRL(Number(value))} labelFormatter={(label) => `Mês ${label}`} />
-                <Legend />
-                <ReferenceLine y={0} stroke="#8c5e1a" />
-                {result.payback !== null ? <ReferenceLine x={result.payback} stroke="#a56b24" /> : null}
-                <Area type="monotone" dataKey="acumulado" name="Acumulado" stroke="#14352f" fill="#1e4c43" fillOpacity={0.2} />
-                <Area
-                  type="monotone"
-                  dataKey="descontado"
-                  name="Acumulado descontado"
-                  stroke="#a56b24"
-                  fill="#d7a15a"
-                  fillOpacity={0.15}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-      </div>
-
-      <section className="card chart-card wide">
-        <h2>Custos relevantes sem robô e com robô</h2>
-        <p className="lede">
-          No mês 60, custos sem robô {formatBRL(steady?.costWithout ?? 0)} e com robô {formatBRL(steady?.costWith ?? 0)}.
-          A diferença, somada à margem incremental de {formatBRL(steady?.salesMargin ?? 0)}, é o benefício líquido.
-        </p>
-        <div className="plot">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={cash.slice(1)} margin={{ left: 0, right: 8, top: 12, bottom: 0 }}>
-              <CartesianGrid stroke="#eadfce" />
-              <XAxis dataKey="month" stroke="#6d756e" />
-              <YAxis tickFormatter={formatCompactBRL} width={72} stroke="#6d756e" />
-              <Tooltip formatter={(value) => formatBRL(Number(value))} labelFormatter={(label) => `Mês ${label}`} />
-              <Legend />
-              <Area type="monotone" dataKey="sem" name="Sem robô" stroke="#8e3030" fill="#8e3030" fillOpacity={0.12} />
-              <Area type="monotone" dataKey="com" name="Com robô" stroke="#1e4c43" fill="#1e4c43" fillOpacity={0.18} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
       </section>
 
       <section className="card">

@@ -18,22 +18,22 @@ describe('exemplo ilustrativo do escopo', () => {
   const result = evaluate(cloneExample());
 
   it('fecha investimento, benefício, payback e ROI', () => {
-    expect(result.netInvestment).toBe(2_000_000);
-    expect(result.grossCapex - result.avoidedCapex).toBe(2_000_000);
+    expect(result.netInvestment).toBe(1_980_000);
+    expect(result.grossCapex - result.avoidedCapex).toBe(1_980_000);
     expect(result.steadyBenefit).toBe(80_000);
     expect(result.monthlyOpex).toBe(15_000);
     expect(result.steadyNet).toBe(65_000);
     expect(result.annualSteadyNet).toBe(780_000);
-    expect(result.roi).toBeCloseTo(0.39, 10);
-    expect(result.payback).toBeCloseTo(30.769230769, 6);
-    expect(result.payback).toBeCloseTo(2_000_000 / 65_000, 6);
+    expect(result.roi).toBeCloseTo(780_000 / 1_980_000, 10);
+    expect(result.payback).toBeCloseTo(30.4615384615, 6);
+    expect(result.payback).toBeCloseTo(1_980_000 / 65_000, 6);
     expect(result.firstPositiveMonth).toBe(31);
     expect(matchesIllustrativeExample(result)).toBe(true);
   });
 
   it('mantém o fluxo mensal constante por 60 meses', () => {
     expect(result.cashFlows).toHaveLength(61);
-    expect(result.cashFlows[0]).toBe(-2_000_000);
+    expect(result.cashFlows[0]).toBe(-1_980_000);
     expect(result.cashFlows.slice(1).every((value) => value === 65_000)).toBe(true);
     expect(simplePayback(result.cashFlows)).toBeCloseTo(result.payback as number, 8);
   });
@@ -226,14 +226,14 @@ describe('regras anti-dupla-contagem', () => {
     inputs.people.payroll.severanceCost = 18_000;
     inputs.profile.storeType = 'existente';
     const existing = evaluate(inputs);
-    expect(existing.netInvestment).toBe(2_180_000);
+    expect(existing.netInvestment).toBe(2_160_000);
     expect(existing.months[0].incremental).toBe(65_000 - 18_000);
     expect(existing.months[1].incremental).toBe(65_000);
 
     inputs.profile.storeType = 'nova';
     const opened = evaluate(inputs);
     expect(opened.months[0].incremental).toBe(65_000);
-    expect(opened.netInvestment).toBe(2_180_000);
+    expect(opened.netInvestment).toBe(2_160_000);
   });
 
   it('em loja existente troca CAPEX evitado por revenda e manutenção', () => {
@@ -241,7 +241,7 @@ describe('regras anti-dupla-contagem', () => {
     inputs.profile.storeType = 'existente';
     inputs.people.payroll.severanceCost = 0;
     const result = evaluate(inputs);
-    expect(result.netInvestment).toBe(2_180_000);
+    expect(result.netInvestment).toBe(2_160_000);
     expect(result.steadyNet).toBe(65_000 + 1_500);
     expect(result.months[0].resale).toBe(25_000);
     expect(result.months[0].incremental).toBe(65_000 + 1_500 + 25_000);
@@ -255,7 +255,7 @@ describe('imposto, financiamento e sensibilidade', () => {
     inputs.robot.taxRate = 0.34;
     inputs.robot.depreciationYears = 10;
     const result = evaluate(inputs);
-    const depreciation = 2_000_000 / 120;
+    const depreciation = 1_980_000 / 120;
     const tax = Math.round((65_000 - depreciation) * 0.34 * 100) / 100;
     expect(result.steadyNet).toBeCloseTo(65_000 - tax, 2);
     expect(result.months[0].opex).toBe(15_000);
@@ -268,13 +268,13 @@ describe('imposto, financiamento e sensibilidade', () => {
     const financed = evaluate(inputs);
     expect(financed.npv).toBe(baseline.npv);
     expect(financed.payback).toBe(baseline.payback);
-    expect(financed.financing?.financedAmount).toBe(1_400_000);
+    expect(financed.financing?.financedAmount).toBe(1_386_000);
     expect(financed.financing?.monthlyPayment).toBeGreaterThan(0);
   });
 
   it('alonga o payback quando o investimento sobe 30%', () => {
     const point = sensitivity(cloneExample(), 'base').investimento.find((item) => item.delta === 0.3);
-    expect(point?.payback).toBeCloseTo(40, 6);
+    expect(point?.payback).toBeCloseTo(1.3 * 1_980_000 / 65_000, 6);
     expect(point?.steadyNet).toBe(65_000);
   });
 
@@ -283,7 +283,7 @@ describe('imposto, financiamento e sensibilidade', () => {
     for (const points of Object.values(table)) {
       const center = points.find((point) => point.delta === 0);
       expect(center?.steadyNet).toBe(65_000);
-      expect(center?.payback).toBeCloseTo(2_000_000 / 65_000, 6);
+      expect(center?.payback).toBeCloseTo(1_980_000 / 65_000, 6);
     }
   });
 

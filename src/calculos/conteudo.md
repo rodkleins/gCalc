@@ -110,7 +110,7 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 
 | Grupo | Campos | Padrão do exemplo |
 |---|---|---|
-| capex | equipment 1.750.000; freightImportTaxes 140.000; installationTraining 90.000; civilElectrical 70.000; integration 50.000; implementationContingency 80.000 | Bruto R$ 2.180.000 |
+| capex | equipment 1.750.000; freightImportTaxes 140.000; installationTraining 90.000; civilElectrical 50.000; integration 50.000; implementationContingency 80.000 | Bruto R$ 2.160.000 |
 | opexMonthly | manutenção, suporte e demais gastos recorrentes: maintenance 8.000; software 3.200; energy 1.500; downtime 700; insurance 1.100; other 500. Não inclui o preço do equipamento | R$ 15.000/mês |
 | Operação | availabilityPct; capacityDispensationsPerDay; reorganizationEffectiveness; automatedStockShare; serviceLevel; conversionFactor; goLiveMonth | 100%; 1.500/dia; reorganização 100%; estoque automatizado 100%; atendimento 100%; conversão 100%; mês 1 |
 | Curvas | ramp.people, ramp.logistics, ramp.stock, ramp.sales | [1] em cada família (100% no go-live) |
@@ -502,21 +502,21 @@ Cenário base, loja nova. Payback simples. Conferido com `sensitivity(exampleInp
 
 | Driver | −30% | −15% | 0 | +15% | +30% |
 |---|---|---|---|---|---|
-| Investimento | 21,5 m | 26,2 m | 30,8 m | 35,4 m | 40,0 m |
-| OPEX | 28,8 m | 29,7 m | 30,8 m | 31,9 m | 33,1 m |
-| Mão de obra | 42,8 m | 35,8 m | 30,8 m | 27,0 m | 24,0 m |
-| Turnover | 30,9 m | 30,9 m | 30,8 m | 30,7 m | 30,6 m |
-| Volume | 33,3 m | 32,0 m | 30,8 m | 29,6 m | 28,6 m |
-| Vendas | 30,8 m | 30,8 m | 30,8 m | 30,8 m | 30,8 m |
-| Desconto | 30,8 m | 30,8 m | 30,8 m | 30,8 m | 30,8 m |
-| Disponibilidade | 31,0 m | 30,9 m | 30,8 m | 30,8 m | 30,8 m |
-| Cobertura do estoque | 33,2 m | 31,9 m | 30,8 m | 30,8 m | 30,8 m |
+| Investimento | 21,3 m | 25,9 m | 30,5 m | 35,0 m | 39,6 m |
+| OPEX | 28,5 m | 29,4 m | 30,5 m | 31,6 m | 32,7 m |
+| Mão de obra | 42,4 m | 35,5 m | 30,5 m | 26,7 m | 23,8 m |
+| Turnover | 30,6 m | 30,5 m | 30,5 m | 30,4 m | 30,3 m |
+| Volume | 33,0 m | 31,7 m | 30,5 m | 29,3 m | 28,3 m |
+| Vendas | 30,5 m | 30,5 m | 30,5 m | 30,5 m | 30,5 m |
+| Desconto | 30,5 m | 30,5 m | 30,5 m | 30,5 m | 30,5 m |
+| Disponibilidade | 30,7 m | 30,6 m | 30,5 m | 30,5 m | 30,5 m |
+| Cobertura do estoque | 32,9 m | 31,6 m | 30,5 m | 30,5 m | 30,5 m |
 
 Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move VPL e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então +15% e +30% batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas, avarias e inventário.
 
 ## 10. Exemplo numérico ilustrativo
 
-Fonte: `src/model/example.ts` e `calculate.test.ts`. Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto, rede desligada, capturas em 1, encargos e benefícios zero. Por isso os indicadores clássicos continuam os mesmos de antes da auditoria.
+Fonte: `src/model/example.ts` e `calculate.test.ts`. Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto, rede desligada, capturas em 1, encargos e benefícios zero. O benefício líquido continua R$ 65.000. O padrão de obras, elétrica e rede é R$ 50.000, então o investimento líquido é R$ 1.980.000.
 
 Quadro de 16 pessoas, 6 vagas evitadas, jornada 176 h. Horas reivindicadas no exemplo somam 112, abaixo das 1.760 h de quem permanece, então `hourScale = 1`.
 
@@ -536,35 +536,35 @@ Quadro de 16 pessoas, 6 vagas evitadas, jornada 176 h. Horas reivindicadas no ex
 
 | Indicador | Cálculo | Resultado |
 |---|---|---|
-| CAPEX bruto | soma dos 6 itens | R$ 2.180.000 |
+| CAPEX bruto | soma dos 6 itens | R$ 2.160.000 |
 | CAPEX evitado (prateleiras, loja nova) | 180.000 | R$ 180.000 |
-| Investimento líquido | 2.180.000 − 180.000 | R$ 2.000.000 |
+| Investimento líquido | 2.160.000 − 180.000 | R$ 1.980.000 |
 | Benefício operacional anual | 80.000 × 12 | R$ 960.000 |
 | Economia acumulada em 60 meses | 80.000 × 60 | R$ 4.800.000 |
 | Operacional líquido anual (mês 60 × 12) | 65.000 × 12 | R$ 780.000 |
-| Retorno anual simples estabilizado | 780.000 / 2.000.000 | 39% |
-| ROI acumulado em 60 meses | (65.000 × 60) / 2.000.000 | 195% |
-| Caixa acumulado | −2.000.000 + 65.000 × 60 | R$ 1.900.000 |
-| Payback simples | 2.000.000 / 65.000 | 30,8 meses (acumulado positivo no mês 31) |
-| Payback descontado (12% a.a.) | interpolação dos fluxos descontados | 36,6 meses (positivo no mês 37) |
-| VPL (12% a.a.) | Σ fluxos descontados | R$ 963.206,66 |
-| Caixa descontado acumulado | mesma soma, neste exemplo plano | R$ 963.206,66 |
-| TIR | mensal ≈ 2,52% | anual 34,8% |
+| Retorno anual simples estabilizado | 780.000 / 1.980.000 | 39,4% |
+| ROI acumulado em 60 meses | (65.000 × 60) / 1.980.000 | 197% |
+| Caixa acumulado | −1.980.000 + 65.000 × 60 | R$ 1.920.000 |
+| Payback simples | 1.980.000 / 65.000 | 30,5 meses (acumulado positivo no mês 31) |
+| Payback descontado (12% a.a.) | interpolação dos fluxos descontados | 36,1 meses (positivo no mês 37) |
+| VPL (12% a.a.) | Σ fluxos descontados | R$ 983.206,66 |
+| Caixa descontado acumulado | mesma soma, neste exemplo plano | R$ 983.206,66 |
+| TIR | mensal ≈ 2,56% | anual 35,5% |
 
-O retorno de 39% é o run-rate estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 195% porque sessenta meses de R$ 65.000 cobrem o investimento 1,95 vez. Nenhum dos dois é a TIR.
+O retorno de 39,4% é o run-rate estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 197% porque sessenta meses de R$ 65.000 cobrem o investimento 1,97 vez. Nenhum dos dois é a TIR.
 
 Fora do fluxo no exemplo (aparecem na auditoria): venda consultiva (R$ 1.600/mês potencial), rupturas (R$ 6.400/mês = 20.000 × 32%) e atendimento (R$ 3.200/mês), caixas, recrutamento, treinamento, capital de giro e horas realocadas.
 
 | Cenário / loja | Inv. líquido | Líquido/mês | Payback | Retorno estabilizado | VPL | TIR a.a. |
 |---|---|---|---|---|---|---|
-| Conservador / nova | 2.160.000 | 46.750 | 46,2 m | 26,0% | −28.771 | 11,4% |
-| Base / nova | 2.000.000 | 65.000 | 30,8 m | 39,0% | 963.207 | 34,8% |
-| Otimista / nova | 1.940.000 | 75.800 | 25,6 m | 46,9% | 1.515.555 | 48,9% |
-| Conservador / existente | 2.354.400 | 47.950 | 49,0 m | 24,4% | −161.531 | 8,6% |
-| Base / existente | 2.180.000 | 66.500 | 32,7 m | 36,6% | 858.523 | 30,7% |
-| Otimista / existente | 2.114.600 | 77.480 | 27,2 m | 44,0% | 1.424.477 | 43,9% |
+| Conservador / nova | 2.138.400 | 46.750 | 45,7 m | 26,2% | −7.171 | 11,8% |
+| Base / nova | 1.980.000 | 65.000 | 30,5 m | 39,4% | 983.207 | 35,5% |
+| Otimista / nova | 1.920.600 | 75.800 | 25,3 m | 47,4% | 1.534.955 | 49,8% |
+| Conservador / existente | 2.332.800 | 47.950 | 48,5 m | 24,7% | −139.931 | 9,1% |
+| Base / existente | 2.160.000 | 66.500 | 32,4 m | 36,9% | 878.523 | 31,4% |
+| Otimista / existente | 2.095.200 | 77.480 | 27,0 m | 44,4% | 1.443.877 | 44,7% |
 
-Na loja existente base: sem CAPEX evitado (investimento R$ 2.180.000), manutenção de prateleiras +R$ 1.500/mês (líquido R$ 66.500) e, no mês 1, revenda de R$ 25.000 menos rescisão de R$ 18.000 (+R$ 7.000 pontual).
+Na loja existente base: sem CAPEX evitado (investimento R$ 2.160.000), manutenção de prateleiras +R$ 1.500/mês (líquido R$ 66.500) e, no mês 1, revenda de R$ 25.000 menos rescisão de R$ 18.000 (+R$ 7.000 pontual).
 
 ## 11. Limitações e pontos de atenção
 
@@ -581,7 +581,7 @@ O que o código ainda faz, e o que deixou de fazer:
 - O exemplo soma perdas (R$ 10.000) e avarias (R$ 5.000). Há aviso. O caminho sem essa soma é o detalhamento de perdas.
 - Imposto: prejuízo não vira crédito sozinho. A política é configurável e pede validação fiscal. 34% não é premissa de regime.
 - A TIR com mais de uma troca de sinal fica marcada como ambígua. A decisão usa o VPL.
-- A coluna descontada da tabela é arredondada mês a mês. VPL e payback descontado usam os fluxos e só arredondam o resultado. Pode haver diferença de centavos. No exemplo plano os dois fecham em R$ 963.206,66.
+- A coluna descontada da tabela é arredondada mês a mês. VPL e payback descontado usam os fluxos e só arredondam o resultado. Pode haver diferença de centavos. No exemplo plano os dois fecham em R$ 983.206,66.
 - A auditoria mostra valor mensal também do que ficou de fora. A marcação de inclusão é que decide o caixa.
 - Rede desligada replica a loja em linha reta. Rede ligada desloca cada unidade para a data dela e pode produzir paybacks diferentes.
 - No assistente, CAPEX além do robô vai para "Implantação e contingência" e o OPEX total vai para "Manutenção". Os totais não mudam; a distribuição que o ajuste rápido escala muda.

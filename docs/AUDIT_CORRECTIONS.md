@@ -1,6 +1,6 @@
 # Auditoria do motor financeiro
 
-Base comparada: commit `c1bfa48` (auditoria original) e o estado publicado anterior a este branch (`577800a`, que conserva o mesmo motor do exemplo). O exemplo fictício continua em investimento líquido R$ 2.000.000, benefício líquido R$ 65.000/mês, payback 30,8 meses e retorno anual simples estabilizado de 39%.
+Base comparada: commit `c1bfa48` (auditoria original) e o estado publicado anterior a este branch (`577800a`, que conserva o mesmo motor do exemplo). Naquela auditoria o exemplo fictício ficou em investimento líquido R$ 2.000.000, benefício líquido R$ 65.000/mês, payback 30,8 meses e retorno anual simples estabilizado de 39%. O padrão atual de obras, elétrica e rede é R$ 50.000, então o exemplo passa a investimento líquido R$ 1.980.000, o mesmo benefício de R$ 65.000/mês, payback 30,5 meses e retorno de 39,4%.
 
 ## Plano técnico
 
@@ -36,7 +36,7 @@ O motor continua em `evaluate` (`src/model/calculate.ts`), com a aritmética de 
 
 | Tema | Antes | Depois |
 | --- | --- | --- |
-| Exemplo base | 2.000.000 / 65.000 / 30,8 meses / 39% | Igual |
+| Exemplo base | 2.000.000 / 65.000 / 30,8 meses / 39% | Igual na auditoria. Depois, obras/elétrica/rede em R$ 50.000 levaram o líquido a 1.980.000, o payback a 30,5 meses e o retorno a 39,4% |
 | Folha com disponibilidade 80% | Caía 20% junto com a dispensação | Permanece, se a reorganização está efetiva. Zera só com disponibilidade 0 |
 | Imposto negativo | Crédito integral automático | Não. Só com política e capacidade explícitas |
 | ROI na tela | "ROI anual simples" | "Retorno anual simples estabilizado", mais o ROI acumulado |
@@ -73,19 +73,20 @@ Não muda o exemplo fictício. Muda um caso real salvo se:
 
 - Não é um modelo fiscal por regime (Lucro Real, Presumido ou Simples). A política é incremental e precisa de validação.
 - A TIR continua uma raiz numérica. Com mais de uma troca de sinal ela é sinalizada, não enumerada.
-- O exemplo fictício ainda soma perdas históricas e avarias, com aviso de possível sobreposição, para manter o checkpoint de 39%. O detalhamento é o caminho sem dupla contagem.
+- O exemplo fictício ainda soma perdas históricas e avarias, com aviso de possível sobreposição, para manter o benefício de R$ 65.000. O detalhamento é o caminho sem dupla contagem.
 - A rede escalonada reutiliza a premissa da loja modelo e aplica fatores. Não é um orçamento loja a loja completo.
 - Head-to-head continua com a DRE própria e só reaproveita VPL, TIR, payback e ROI.
 
 ## Revisão com o cliente (DPSP)
 
-Depois da publicação, a conversa com o Fabio ajustou a leitura, sem mudar o exemplo de R$ 65.000 e 39%:
+Depois da publicação, a conversa com o Fabio ajustou a leitura, sem mudar naquele momento o exemplo de R$ 65.000 e 39%:
 
 - Custo completo é R$ por pessoa por mês, com encargos e benefícios. A sugestão de farmacêutico passou de R$ 14.500 para R$ 8.500, fictícia e a validar. O treinamento sugerido passou de R$ 2.500 para R$ 6.000 por contratação, também fictício. No exemplo o treinamento continua incluso no turnover, então o caixa não muda.
 - O custo mensal do robô é manutenção e suporte. O equipamento fica só no CAPEX. OPEX anual acima de 20% do CAPEX gera aviso.
 - Rescisão e contratação futura só entram em loja existente. A tela mostra o motivo quando o benefício fica zerado.
 - Capital de giro não presume queda. Simulação antiga sem o campo fica com redução não comprovada.
-- Três modelos fictícios (R$ 1, 2 e 4 milhões/mês) carregam com um clique e aparecem lado a lado.
+- Três modelos fictícios (R$ 1, 2 e 4 milhões/mês) aparecem lado a lado. O seletor fica no topo da calculadora o tempo todo e pede confirmação, com opção de salvar o rascunho, antes de substituir.
+- O padrão de obras, elétrica e rede passou a R$ 50.000 no exemplo e nos três portes. O benefício de R$ 65.000 permanece. O investimento líquido do exemplo foi a R$ 1.980.000, o payback a 30,5 meses e o retorno estabilizado a 39,4%.
 
 ## Como executar
 

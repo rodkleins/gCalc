@@ -77,7 +77,7 @@ export function annualizeMonthlyRate(monthlyRate: number): number {
 /**
  * Payback simples interpolado, em meses de operação.
  * O índice 0 é o investimento (ou outro fluxo) na data zero.
- * Ex.: [-2_000_000, 65_000, ...] devolve aproximadamente 30,769 meses.
+ * Ex.: [-1_980_000, 65_000, ...] devolve aproximadamente 30,462 meses.
  */
 export function simplePayback(cashFlows: number[]): number | null {
   if (cashFlows.length === 0) return null;

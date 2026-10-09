@@ -10,15 +10,15 @@ No cenário **base**, loja **nova**, com as premissas ilustrativas carregadas ao
 
 | Indicador | Valor |
 | --- | --- |
-| Investimento líquido | R$ 2.000.000 |
+| Investimento líquido | R$ 1.980.000 |
 | Benefício líquido | R$ 65.000 por mês |
 | Benefício anual | R$ 780.000 |
-| Payback simples | 30,8 meses |
-| ROI anual simples | 39% |
+| Payback simples | 30,5 meses |
+| ROI anual simples | 39,4% |
 
-O payback de 30,8 meses é a interpolação: `2.000.000 / 65.000`. O caixa acumulado fica positivo no mês 31. O ROI é `780.000 / 2.000.000` e não é a TIR.
+O payback de 30,5 meses é a interpolação: `1.980.000 / 65.000`. O caixa acumulado fica positivo no mês 31. O ROI é `780.000 / 1.980.000` e não é a TIR.
 
-O investimento bruto do exemplo é R$ 2.180.000. Em loja nova, R$ 180.000 de prateleiras evitadas reduzem o CAPEX ao líquido de R$ 2.000.000. O benefício bruto de R$ 80.000 menos o OPEX de R$ 15.000 produz os R$ 65.000.
+O investimento bruto do exemplo é R$ 2.160.000, com R$ 50.000 de obras, elétrica e rede. Em loja nova, R$ 180.000 de prateleiras evitadas reduzem o CAPEX ao líquido de R$ 1.980.000. O benefício bruto de R$ 80.000 menos o OPEX de R$ 15.000 produz os R$ 65.000.
 
 ## Como rodar
 
@@ -46,12 +46,12 @@ O preview também fica em `/gCalc/`.
 1. A aplicação abre no exemplo fictício. O aviso âmbar deixa isso explícito.
 2. Percorra os módulos: perfil, pessoas, logística, estoque e investimento. Cada benefício pode ser ligado ou desligado.
 3. Troque o cenário (conservador, base, otimista) e o tipo de loja (nova ou existente) no topo. O dashboard recalcula na hora.
-4. Use **Resultados** para payback, ROI, VPL, TIR, gráficos e a comparação entre os dois tipos de loja. Cada premissa exibida — investimento, OPEX, taxa de desconto e cada benefício que entrou no caixa — abre o campo correspondente, já focado. O painel **Ajuste rápido** varia investimento do robô, OPEX, salários, turnover, volume, vendas e taxa de desconto. O slider e os botões vão de −100% a +30% do valor original; o número aceita zero e qualquer valor acima disso. O painel mostra a variação de payback, ROI, VPL e TIR, e **Desfazer ajuste** volta ao original. Investimento zero deixa a TIR indefinida e o payback imediato. O ajuste fica neste navegador.
+4. Use **Resultados**, o último item do menu, para payback, ROI, VPL, TIR, gráficos e a comparação entre os dois tipos de loja. Os gráficos abrem a página, antes das tabelas e do texto. Cada premissa exibida — investimento, OPEX, taxa de desconto e cada benefício que entrou no caixa — abre o campo correspondente, já focado. O painel **Ajuste rápido** varia investimento do robô, OPEX, salários, turnover, volume, vendas e taxa de desconto. O cabeçalho recolhe e expande as premissas, e o navegador lembra essa escolha. O slider e os botões vão de −100% a +30% do valor original; o número aceita zero e qualquer valor acima disso. O chip verde mostra a variação de payback, ROI, VPL e TIR, e **Desfazer ajuste** volta ao original. Investimento zero deixa a TIR indefinida e o payback imediato. O ajuste fica neste navegador.
 5. Use **Sensibilidade** para variar investimento, mão de obra, turnover, vendas e volume.
 6. Use **Fluxo** para os 60 meses e **Auditoria** para ver o que entrou no caixa e o que ficou de fora.
 7. **Nova simulação** abre o assistente: tipo de loja e cenário, depois uma tela curta por tema, com valores sugeridos, validação e resumo antes do dashboard. **Pular** segue sem validar. **Ir para o modo completo** abre os módulos. **Assistente** volta ao preenchimento guiado. **Restaurar exemplo** volta ao caso do escopo. **Limpar dados salvos** apaga o rascunho e as simulações nomeadas deste navegador.
 8. Tudo que você edita — premissas, cenário, tipo de loja, benefícios ligados ou desligados, o módulo aberto e o passo do assistente — é gravado automaticamente. Os dados ficam só neste navegador.
-9. Em **Simulações**, dê um nome para guardar cliente, loja e cenário. Dá para listar, carregar, duplicar, renomear, excluir e comparar duas simulações pelos indicadores principais. A mesma tela exporta e importa JSON.
+9. Em **Simulações**, dê um nome para guardar cliente, loja e cenário. Dá para listar, carregar, duplicar, renomear, excluir e comparar duas simulações pelos indicadores principais. A mesma tela exporta e importa JSON. O seletor de porte (R$ 1, 2 e 4 milhões) fica no topo em qualquer tela. Carregar um modelo pede confirmação e oferece salvar a simulação atual antes de substituir.
 
 Quando os dados forem de uma loja real, desmarque **Marcar esta simulação como dados fictícios** no perfil.
 
@@ -87,7 +87,7 @@ O imposto, quando ligado, aplica a alíquota sobre o resultado operacional menos
 npm test
 ```
 
-A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 2.000.000 / R$ 65.000 / 30,8 meses / 39%, as regras de dupla contagem e a presença desses números na tela.
+A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 1.980.000 / R$ 65.000 / 30,5 meses / 39,4%, as regras de dupla contagem e a presença desses números na tela.
 
 ## Publicar no GitHub Pages
 

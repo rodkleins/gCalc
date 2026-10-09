@@ -14,6 +14,7 @@ import { ProfileForm } from './components/ProfileForm';
 import { ScenarioPanel } from './components/ScenarioPanel';
 import { SensitivityPanel } from './components/SensitivityPanel';
 import { StockForm } from './components/StockForm';
+import { StoreSizePicker } from './components/StorePresets';
 import { Wizard } from './components/Wizard';
 import { evaluate } from './model/calculate';
 import { exampleInputs } from './model/example';
@@ -46,7 +47,6 @@ import {
 } from './model/uiChrome';
 
 const SECTIONS = [
-  { id: 'dashboard', label: 'Resultados' },
   { id: 'perfil', label: 'Perfil' },
   { id: 'pessoas', label: 'Pessoas' },
   { id: 'logistica', label: 'Logística' },
@@ -57,6 +57,7 @@ const SECTIONS = [
   { id: 'fluxo', label: 'Fluxo' },
   { id: 'auditoria', label: 'Auditoria' },
   { id: 'simulacoes', label: 'Simulações' },
+  { id: 'dashboard', label: 'Resultados' },
 ] as const satisfies readonly { id: Exclude<SectionId, 'wizard'>; label: string }[];
 
 const NAV_ICONS: Record<Exclude<SectionId, 'wizard'>, string> = {
@@ -140,6 +141,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
   const [status, setStatus] = useState<string | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(() => initialRailCollapsed(localStorage));
+  const [pendingPreset, setPendingPreset] = useState<StorePreset | null>(null);
   const result = useMemo(() => evaluate(inputs, { scenario }), [inputs, scenario]);
 
   useEffect(() => {
@@ -209,6 +211,10 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     setFocusField(fieldId);
   }
 
+  function askPreset(preset: StorePreset) {
+    setPendingPreset(preset);
+  }
+
   function loadPreset(preset: StorePreset) {
     const next = structuredClone(preset.inputs);
     resetDraft(next);
@@ -218,6 +224,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     setActiveId(null);
     setDraftName(preset.name);
     setStatus(`Modelo “${preset.name}” carregado. Números fictícios, prontos para os parâmetros reais.`);
+    window.scrollTo({ top: 0, left: 0 });
   }
 
   function restoreExample() {
@@ -263,6 +270,31 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     }
     setDraftName(name);
   }
+
+  function replaceWithPreset() {
+    if (!pendingPreset) return;
+    const preset = pendingPreset;
+    setPendingPreset(null);
+    loadPreset(preset);
+  }
+
+  function saveThenLoadPreset() {
+    if (!pendingPreset) return;
+    const preset = pendingPreset;
+    saveNamed();
+    setPendingPreset(null);
+    loadPreset(preset);
+    setStatus(`Simulação atual salva. Modelo “${preset.name}” carregado. Números fictícios, prontos para os parâmetros reais.`);
+  }
+
+  useEffect(() => {
+    if (!pendingPreset) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPendingPreset(null);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [pendingPreset]);
 
   function loadSimulation(simulation: SimulationRecord) {
     const snapshot = structuredClone(simulation.inputs);
@@ -369,6 +401,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
               onClick={() => {
                 setSection(item.id);
                 setFocusField(null);
+                window.scrollTo({ top: 0, left: 0 });
               }}
             ><NavIcon id={item.id} /><span className="nav-label">{item.label}</span></button>
           ))}
@@ -475,6 +508,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             <MoreActions onCopy={() => void copySummary()} onRestore={restoreExample} onClear={clearSaved} />
           </div>
         </div>
+        <StoreSizePicker onLoad={askPreset} />
         <p className="storage-note" data-testid="storage-note">
           Os dados ficam só neste navegador.
           {status ? ` ${status}` : ''}
@@ -507,7 +541,6 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onAdjust={setInputs}
             onUndo={() => setInputs(structuredClone(adjustAnchor))}
             onOpenPremise={openPremise}
-            onLoadPreset={loadPreset}
           />
         ) : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
@@ -548,11 +581,39 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onExportCurrent={exportCurrent}
             onExportLibrary={exportLibrary}
             onImport={importFile}
-            onLoadPreset={loadPreset}
+            onLoadPreset={askPreset}
           />
         ) : null}
         </PremiseFocus>
       </main>
+      {pendingPreset ? (
+        <div
+          className="modal-backdrop"
+          data-testid="preset-confirm"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setPendingPreset(null);
+          }}
+        >
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="preset-confirm-title">
+            <h2 id="preset-confirm-title">Carregar {pendingPreset.name}?</h2>
+            <p>
+              Isso substitui a simulação aberta. Você pode guardar o rascunho neste navegador antes, ou seguir sem salvar.
+            </p>
+            <div className="menu-confirm-actions">
+              <button type="button" className="btn ghost" data-testid="preset-cancel" onClick={() => setPendingPreset(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="btn" data-testid="preset-save-then-load" onClick={saveThenLoadPreset}>
+                Salvar atual e carregar
+              </button>
+              <button type="button" className="btn primary" data-testid="preset-replace" onClick={replaceWithPreset}>
+                Substituir
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

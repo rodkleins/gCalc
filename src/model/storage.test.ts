@@ -256,9 +256,9 @@ describe('serialização da sessão', () => {
     expect(loaded.draft?.inputs.meta.storeName).toBe('Farmácia Aurora — Unidade Centro');
     expect(loaded.draft?.inputs.assumptions.viewMode).toBe('avancado');
     const result = evaluate(loaded.simulations[0].inputs);
-    expect(result.netInvestment).toBe(2_000_000);
+    expect(result.netInvestment).toBe(1_980_000);
     expect(result.steadyNet).toBe(65_000);
-    expect(result.roi).toBeCloseTo(0.39);
+    expect(result.roi).toBeCloseTo(780_000 / 1_980_000);
     expect(store.getItem('gcalc.preview.library.v2')).toContain('Só prévia');
 
     writeSession(store, {
@@ -365,9 +365,9 @@ describe('biblioteca de simulações', () => {
     const loaded = parseSession(serializeSession(session));
     const left = evaluate(loaded.simulations[0].inputs, { scenario: loaded.simulations[0].scenario });
     const right = evaluate(loaded.simulations[1].inputs, { scenario: loaded.simulations[1].scenario });
-    expect(left.netInvestment).toBe(2_000_000);
+    expect(left.netInvestment).toBe(1_980_000);
     expect(left.steadyNet).toBe(65_000);
-    expect(right.netInvestment).toBe(2_180_000);
+    expect(right.netInvestment).toBe(2_160_000);
     expect(right.steadyNet).toBe(66_500);
   });
 });

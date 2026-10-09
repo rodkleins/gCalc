@@ -38,10 +38,10 @@ describe('TIR', () => {
 });
 
 describe('payback', () => {
-  it('reproduz o exemplo ilustrativo de 30,8 meses', () => {
-    const flows = [-2_000_000, ...Array.from({ length: 60 }, () => 65_000)];
-    expect(simplePayback(flows)).toBeCloseTo(2_000_000 / 65_000, 8);
-    expect(simplePayback(flows)).toBeCloseTo(30.769230769, 8);
+  it('reproduz o exemplo ilustrativo de 30,5 meses', () => {
+    const flows = [-1_980_000, ...Array.from({ length: 60 }, () => 65_000)];
+    expect(simplePayback(flows)).toBeCloseTo(1_980_000 / 65_000, 8);
+    expect(simplePayback(flows)).toBeCloseTo(30.4615384615, 8);
     expect(firstNonNegativeMonth(flows)).toBe(31);
   });
 
@@ -69,8 +69,8 @@ describe('payback', () => {
 
 describe('ROI anual simples', () => {
   it('é benefício anual dividido pelo investimento, e não a TIR', () => {
-    expect(simpleAnnualRoi(780_000, 2_000_000)).toBeCloseTo(0.39, 10);
-    expect(simpleAnnualRoi(65_000 * 12, 2_000_000)).toBeCloseTo(0.39, 10);
+    expect(simpleAnnualRoi(780_000, 1_980_000)).toBeCloseTo(780_000 / 1_980_000, 10);
+    expect(simpleAnnualRoi(65_000 * 12, 1_980_000)).toBeCloseTo(780_000 / 1_980_000, 10);
   });
 
   it('não divide por investimento nulo ou negativo', () => {

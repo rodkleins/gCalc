@@ -2,12 +2,32 @@ import { evaluate } from '../model/calculate';
 import { formatBRL, formatPayback, formatPercent } from '../model/format';
 import { storePresets, type StorePreset } from '../model/presets';
 
+export function StoreSizePicker({ onLoad }: { onLoad: (preset: StorePreset) => void }) {
+  const presets = storePresets();
+  return (
+    <div className="store-size" data-testid="store-presets" role="group" aria-label="Porte da loja">
+      <span className="store-size-label">Porte da loja</span>
+      {presets.map((preset) => (
+        <button
+          key={preset.id}
+          type="button"
+          className="btn"
+          data-testid={`preset-${preset.id}`}
+          onClick={() => onLoad(preset)}
+        >
+          {preset.name.replace('Loja de ', '')}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function StorePresets({ onLoad }: { onLoad: (preset: StorePreset) => void }) {
   const presets = storePresets();
   const rows = presets.map((preset) => ({ preset, result: evaluate(preset.inputs) }));
 
   return (
-    <section className="card" data-testid="store-presets">
+    <section className="card" data-testid="store-preset-table">
       <h2>Três portes de loja</h2>
       <p className="lede">
         Modelos fictícios de R$ 1, 2 e 4 milhões de faturamento mensal, prontos para os parâmetros reais. O investimento
@@ -19,7 +39,7 @@ export function StorePresets({ onLoad }: { onLoad: (preset: StorePreset) => void
             key={preset.id}
             type="button"
             className="btn"
-            data-testid={`preset-${preset.id}`}
+            data-testid={`preset-table-${preset.id}`}
             onClick={() => onLoad(preset)}
           >
             Carregar {preset.name.replace('Loja de ', '')}

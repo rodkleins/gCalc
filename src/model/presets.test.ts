@@ -47,7 +47,7 @@ describe('modelos de loja', () => {
     expect(benefit).toBe(21_840);
     expect(result.steadyBenefit).toBe(benefit);
     expect(result.steadyNet).toBe(benefit - opex);
-    expect(result.netInvestment).toBe(1_600_000);
+    expect(result.netInvestment).toBe(1_610_000);
     expect(result.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
 
     const asNew = evaluate(preset.inputs, { storeTypeOverride: 'nova' });

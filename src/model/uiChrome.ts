@@ -1,6 +1,7 @@
 /** Preferências da interface, separadas da sessão da simulação. */
 export const RAIL_COLLAPSED_KEY = 'gcalc.ui.railCollapsed';
 export const QUICK_DOCK_OPEN_KEY = 'gcalc.ui.quickDockOpen';
+export const QUICK_ADJUST_OPEN_KEY = 'gcalc.ui.quickAdjustOpen';
 
 export const NARROW_VIEWPORT_QUERY = '(max-width: 1099px)';
 
@@ -40,4 +41,9 @@ export function initialRailCollapsed(storage: Pick<Storage, 'getItem'>): boolean
 
 export function initialQuickDockOpen(storage: Pick<Storage, 'getItem'>): boolean {
   return readUiFlag(storage, QUICK_DOCK_OPEN_KEY) === true;
+}
+
+/** Sem escolha salva, o painel de premissas começa aberto. */
+export function initialQuickAdjustOpen(storage: Pick<Storage, 'getItem'>): boolean {
+  return readUiFlag(storage, QUICK_ADJUST_OPEN_KEY) !== false;
 }
