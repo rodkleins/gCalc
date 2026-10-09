@@ -78,17 +78,19 @@ export function TextField({
   value,
   onChange,
   hint,
+  testId,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   hint?: string;
+  testId?: string;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
       <span className="control">
-        <input value={value} onChange={(event) => onChange(event.target.value)} />
+        <input data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)} />
       </span>
       {hint ? <small>{hint}</small> : null}
     </label>

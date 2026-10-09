@@ -47,6 +47,7 @@ function sessionWith(patch?: Partial<PersistedSession['draft']>): PersistedSessi
       inputs,
       scenario: 'otimista',
       section: 'pessoas',
+      wizardStep: 0,
       ...patch,
     },
     simulations: [
@@ -75,6 +76,22 @@ describe('serialização da sessão', () => {
     expect(loaded.draft?.inputs.robot.capex.equipment).toBe(1_750_000);
     expect(loaded.simulations).toHaveLength(1);
     expect(loaded.simulations[0].name).toBe('Rede Sul — Loja Centro — Otimista');
+    expect(loaded.draft?.wizardStep).toBe(0);
+  });
+
+  it('preserva o passo do assistente e aceita rascunho antigo sem esse campo', () => {
+    const raw = JSON.parse(serializeSession(sessionWith({ section: 'wizard', wizardStep: 4 }))) as {
+      draft: { wizardStep?: number; section: string };
+    };
+    const kept = parseSession(JSON.stringify(raw));
+    expect(kept.draft?.section).toBe('wizard');
+    expect(kept.draft?.wizardStep).toBe(4);
+
+    delete raw.draft.wizardStep;
+    expect(parseSession(JSON.stringify(raw)).draft?.wizardStep).toBe(0);
+
+    raw.draft.wizardStep = 40;
+    expect(parseSession(JSON.stringify(raw)).draft?.wizardStep).toBe(0);
   });
 
   it('rejeita JSON inválido e versão futura', () => {
@@ -210,7 +227,7 @@ describe('biblioteca de simulações', () => {
     ];
     const session: PersistedSession = {
       version: STORAGE_VERSION,
-      draft: { inputs: nova, scenario: 'base', section: 'dashboard' },
+      draft: { inputs: nova, scenario: 'base', section: 'dashboard', wizardStep: 0 },
       simulations: records,
     };
     const loaded = parseSession(serializeSession(session));

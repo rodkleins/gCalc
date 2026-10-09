@@ -10,8 +10,9 @@ import { ProfileForm } from './components/ProfileForm';
 import { ScenarioPanel } from './components/ScenarioPanel';
 import { SensitivityPanel } from './components/SensitivityPanel';
 import { StockForm } from './components/StockForm';
+import { Wizard } from './components/Wizard';
 import { evaluate } from './model/calculate';
-import { blankInputs, exampleInputs } from './model/example';
+import { exampleInputs } from './model/example';
 import { formatBRL, formatPayback, formatPercent, scenarioLabel, storeLabel } from './model/format';
 import {
   STORAGE_VERSION,
@@ -29,6 +30,7 @@ import {
   type SimulationRecord,
 } from './model/storage';
 import type { Inputs, ScenarioId } from './model/types';
+import { wizardSeed } from './model/wizard';
 
 const SECTIONS: Array<{ id: SectionId; label: string }> = [
   { id: 'dashboard', label: 'Resultados' },
@@ -48,16 +50,28 @@ interface BootState {
   inputs: Inputs;
   scenario: ScenarioId;
   section: SectionId;
+  wizardStep: number;
   simulations: SimulationRecord[];
 }
 
 function boot(initialInputs?: Inputs): BootState {
   if (initialInputs) {
-    return { inputs: initialInputs, scenario: 'base', section: 'dashboard', simulations: [] };
+    return { inputs: initialInputs, scenario: 'base', section: 'dashboard', wizardStep: 0, simulations: [] };
   }
   const loaded = readSession(localStorage);
-  const draft = loaded.draft ?? { inputs: exampleInputs(), scenario: 'base' as const, section: 'dashboard' as const };
-  return { inputs: draft.inputs, scenario: draft.scenario, section: draft.section, simulations: loaded.simulations };
+  const draft = loaded.draft ?? {
+    inputs: exampleInputs(),
+    scenario: 'base' as const,
+    section: 'dashboard' as const,
+    wizardStep: 0,
+  };
+  return {
+    inputs: draft.inputs,
+    scenario: draft.scenario,
+    section: draft.section,
+    wizardStep: draft.wizardStep,
+    simulations: loaded.simulations,
+  };
 }
 
 export default function App({ initialInputs }: { initialInputs?: Inputs }) {
@@ -65,6 +79,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   const [inputs, setInputs] = useState(booted.inputs);
   const [scenario, setScenario] = useState<ScenarioId>(booted.scenario);
   const [section, setSection] = useState<SectionId>(booted.section);
+  const [wizardStep, setWizardStep] = useState(booted.wizardStep);
   const [simulations, setSimulations] = useState<SimulationRecord[]>(booted.simulations);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
@@ -75,10 +90,10 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     if (initialInputs) return;
     writeSession(localStorage, {
       version: STORAGE_VERSION,
-      draft: { inputs, scenario, section },
+      draft: { inputs, scenario, section, wizardStep },
       simulations,
     });
-  }, [initialInputs, inputs, scenario, section, simulations]);
+  }, [initialInputs, inputs, scenario, section, wizardStep, simulations]);
 
   const summary = [
     inputs.fictional ? 'DADOS FICTÍCIOS' : 'Simulação',
@@ -105,6 +120,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     setInputs(example);
     setScenario('base');
     setSection('dashboard');
+    setWizardStep(0);
     setActiveId(null);
     setDraftName(defaultSimulationName(example, 'base'));
     setStatus('Exemplo fictício restaurado. As simulações nomeadas continuam neste navegador.');
@@ -116,6 +132,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     setInputs(example);
     setScenario('base');
     setSection('dashboard');
+    setWizardStep(0);
     setSimulations([]);
     setActiveId(null);
     setDraftName(defaultSimulationName(example, 'base'));
@@ -146,7 +163,8 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     const snapshot = structuredClone(simulation.inputs);
     setInputs(snapshot);
     setScenario(simulation.scenario);
-    setSection(simulation.section);
+    setSection(simulation.section === 'wizard' ? 'dashboard' : simulation.section);
+    setWizardStep(0);
     setActiveId(simulation.id);
     setDraftName(simulation.name);
     setStatus(`“${simulation.name}” carregada.`);
@@ -171,7 +189,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   function exportLibrary() {
     downloadJson('gcalc-biblioteca.json', {
       version: STORAGE_VERSION,
-      draft: { inputs, scenario, section },
+      draft: { inputs, scenario, section, wizardStep },
       simulations,
     });
   }
@@ -188,6 +206,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         setInputs(structuredClone(imported.draft.inputs));
         setScenario(imported.draft.scenario);
         setSection(imported.draft.section);
+        setWizardStep(imported.draft.wizardStep);
         setActiveId(null);
         setDraftName(defaultSimulationName(imported.draft.inputs, imported.draft.scenario));
       }
@@ -272,16 +291,22 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           <button
             type="button"
             className="btn ghost"
+            data-testid="new-simulation"
             onClick={() => {
-              const blank = blankInputs();
-              setInputs(blank);
+              const seed = wizardSeed();
+              setInputs(seed);
               setScenario('base');
+              setSection('wizard');
+              setWizardStep(0);
               setActiveId(null);
-              setDraftName(defaultSimulationName(blank, 'base'));
-              setStatus(null);
+              setDraftName(defaultSimulationName(seed, 'base'));
+              setStatus('Assistente aberto com valores sugeridos. Troque pelos dados da loja.');
             }}
           >
             Nova simulação
+          </button>
+          <button type="button" className="btn ghost" data-testid="open-wizard" onClick={() => setSection('wizard')}>
+            Assistente
           </button>
           <button type="button" className="btn ghost" onClick={() => void copySummary()}>
             Copiar resumo
@@ -295,6 +320,18 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           {status ? ` ${status}` : ''}
         </p>
 
+        {section === 'wizard' ? (
+          <Wizard
+            inputs={inputs}
+            scenario={scenario}
+            step={wizardStep}
+            result={result}
+            onInputs={setInputs}
+            onScenario={setScenario}
+            onStep={setWizardStep}
+            onExit={() => setSection('dashboard')}
+          />
+        ) : null}
         {section === 'dashboard' ? (
           <Dashboard inputs={inputs} result={result} scenario={scenario} onScenario={setScenario} onInputs={setInputs} />
         ) : null}

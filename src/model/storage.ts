@@ -1,5 +1,6 @@
 import { scenarioLabel } from './format';
 import type { Inputs, ScenarioId } from './types';
+import { normalizeWizardStep } from './wizard';
 
 export const STORAGE_VERSION = 2;
 export const STORAGE_KEY = 'gcalc.library.v2';
@@ -17,6 +18,7 @@ export const SECTION_IDS = [
   'fluxo',
   'auditoria',
   'simulacoes',
+  'wizard',
 ] as const;
 
 export type SectionId = (typeof SECTION_IDS)[number];
@@ -25,6 +27,7 @@ export interface DraftState {
   inputs: Inputs;
   scenario: ScenarioId;
   section: SectionId;
+  wizardStep: number;
 }
 
 export interface SimulationRecord {
@@ -94,11 +97,12 @@ export function defaultSimulationName(inputs: Inputs, scenario: ScenarioId): str
   return `${client} — ${store} — ${scenarioLabel(scenario)}`;
 }
 
-function draftFrom(inputs: Inputs, scenario: unknown, section: unknown): DraftState {
+function draftFrom(inputs: Inputs, scenario: unknown, section: unknown, wizardStep?: unknown): DraftState {
   return {
     inputs,
     scenario: isScenarioId(scenario) ? scenario : 'base',
     section: isSectionId(section) ? section : 'dashboard',
+    wizardStep: normalizeWizardStep(wizardStep),
   };
 }
 
@@ -141,7 +145,8 @@ export function parseSession(raw: string): LoadedSession {
     if (isInputs(legacyInputs)) {
       const scenario = isRecord(value.draft) ? value.draft.scenario : value.scenario;
       const section = isRecord(value.draft) ? value.draft.section : value.section;
-      return { draft: draftFrom(legacyInputs, scenario, section), simulations: [], source: 'legacy' };
+      const wizardStep = isRecord(value.draft) ? value.draft.wizardStep : value.wizardStep;
+      return { draft: draftFrom(legacyInputs, scenario, section, wizardStep), simulations: [], source: 'legacy' };
     }
     return { draft: null, simulations: [], source: 'invalid' };
   }
@@ -151,7 +156,7 @@ export function parseSession(raw: string): LoadedSession {
     return { draft: null, simulations, source: 'current' };
   }
   return {
-    draft: draftFrom(value.draft.inputs, value.draft.scenario, value.draft.section),
+    draft: draftFrom(value.draft.inputs, value.draft.scenario, value.draft.section, value.draft.wizardStep),
     simulations,
     source: 'current',
   };
@@ -238,12 +243,13 @@ export function importPayload(raw: unknown): ImportedPayload | null {
     if (!isInputs(legacyInputs)) return null;
     const scenario = isRecord(value.draft) ? value.draft.scenario : value.scenario;
     const section = isRecord(value.draft) ? value.draft.section : value.section;
-    return { draft: draftFrom(legacyInputs, scenario, section), simulations: [] };
+    const wizardStep = isRecord(value.draft) ? value.draft.wizardStep : value.wizardStep;
+    return { draft: draftFrom(legacyInputs, scenario, section, wizardStep), simulations: [] };
   }
 
   const simulations = parseSimulations(value.simulations);
   const draft = isRecord(value.draft) && isInputs(value.draft.inputs)
-    ? draftFrom(value.draft.inputs, value.draft.scenario, value.draft.section)
+    ? draftFrom(value.draft.inputs, value.draft.scenario, value.draft.section, value.draft.wizardStep)
     : null;
   if (!draft && simulations.length === 0) return null;
   return { draft, simulations };
