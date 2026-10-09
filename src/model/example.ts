@@ -1,5 +1,10 @@
 import type { Inputs, ModelResult } from './types';
 
+/** Sugestão fictícia de drogaria, a validar. R$ 14.500 foi considerado alto para o cargo. */
+export const SUGGESTED_PHARMACIST_MONTHLY_COST = 8_500;
+/** Sugestão fictícia por contratação, a validar. R$ 2.500 foi considerado baixo para drogaria. */
+export const SUGGESTED_TRAINING_PER_HIRE = 6_000;
+
 /**
  * Exemplo ilustrativo fictício do escopo.
  * Investimento líquido R$ 2.000.000, benefício líquido R$ 65.000/mês,
@@ -15,7 +20,7 @@ const EXAMPLE: Inputs = {
     source: 'Hipóteses do escopo funcional, não são dados de uma loja real',
     owner: 'Time comercial (exemplo)',
     notes:
-      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann.',
+      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja.',
   },
   assumptions: {
     includePotential: false,
@@ -29,7 +34,7 @@ const EXAMPLE: Inputs = {
     dispensationsPerDay: 900,
     operatingDaysPerMonth: 26,
     roles: [
-      { id: 'farmaceutico', role: 'Farmacêutico', headcount: 3, monthlyCost: 14_500, shift: '6x1' },
+      { id: 'farmaceutico', role: 'Farmacêutico', headcount: 3, monthlyCost: SUGGESTED_PHARMACIST_MONTHLY_COST, shift: '6x1' },
       { id: 'auxiliar', role: 'Auxiliar de farmácia', headcount: 10, monthlyCost: 9_200, shift: '6x1' },
       { id: 'estoquista', role: 'Estoquista', headcount: 2, monthlyCost: 6_800, shift: 'Comercial' },
       { id: 'gerente', role: 'Gerente de loja', headcount: 1, monthlyCost: 16_000, shift: 'Comercial' },
@@ -93,7 +98,7 @@ const EXAMPLE: Inputs = {
       enabled: true,
       confidence: 'comprovavel',
       includedInReplacementCost: true,
-      costPerPerson: 2_500,
+      costPerPerson: SUGGESTED_TRAINING_PER_HIRE,
     },
     turnover: {
       enabled: true,
@@ -217,12 +222,12 @@ const EXAMPLE: Inputs = {
     workingCapital: {
       enabled: false,
       confidence: 'comprovavel',
-      inventoryAfter: 350_000,
+      inventoryAfter: 480_000,
       releaseMonth: 3,
       treatment: 'liberacao_caixa',
       costOfCapitalAnnual: 0.12,
       reverseAtHorizon: false,
-      reductionProven: true,
+      reductionProven: false,
     },
   },
   network: {

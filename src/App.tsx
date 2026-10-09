@@ -36,6 +36,7 @@ import {
 import { reanchor, sectionForField } from './model/premises';
 import type { Inputs, ScenarioId } from './model/types';
 import { wizardSeed } from './model/wizard';
+import type { StorePreset } from './model/presets';
 
 const SECTIONS: Array<{ id: SectionId; label: string }> = [
   { id: 'dashboard', label: 'Resultados' },
@@ -147,6 +148,17 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   function openPremise(fieldId: string) {
     setSection(sectionForField(fieldId));
     setFocusField(fieldId);
+  }
+
+  function loadPreset(preset: StorePreset) {
+    const next = structuredClone(preset.inputs);
+    resetDraft(next);
+    setScenario('base');
+    setSection('dashboard');
+    setWizardStep(0);
+    setActiveId(null);
+    setDraftName(preset.name);
+    setStatus(`Modelo “${preset.name}” carregado. Números fictícios, prontos para os parâmetros reais.`);
   }
 
   function restoreExample() {
@@ -413,6 +425,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onAdjust={setInputs}
             onUndo={() => setInputs(structuredClone(adjustAnchor))}
             onOpenPremise={openPremise}
+            onLoadPreset={loadPreset}
           />
         ) : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
@@ -453,6 +466,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onExportCurrent={exportCurrent}
             onExportLibrary={exportLibrary}
             onImport={importFile}
+            onLoadPreset={loadPreset}
           />
         ) : null}
         </PremiseFocus>

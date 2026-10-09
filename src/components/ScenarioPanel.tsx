@@ -1,7 +1,7 @@
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatPayback, formatPercent, scenarioLabel } from '../model/format';
 import type { Inputs, ScenarioId } from '../model/types';
-import { PercentField } from './Fields';
+import { PercentField, StageNote } from './Fields';
 
 const ORDER: ScenarioId[] = ['conservador', 'base', 'otimista'];
 
@@ -18,6 +18,10 @@ export function ScenarioPanel({
 }) {
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela mostra o mesmo caso com premissas mais duras ou mais favoráveis. O cenário base é o número que você
+        defendeu. Conservador e otimista só mudam os fatores, para ver se o payback ainda se sustenta.
+      </StageNote>
       <p className="lede">
         O fator de benefício multiplica ganhos operacionais. Vendas têm um fator extra. CAPEX e OPEX têm fatores próprios.
         O exemplo do escopo corresponde ao cenário base, com todos os fatores em 100%.

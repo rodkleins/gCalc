@@ -119,6 +119,7 @@ describe('casos de referência independentes do exemplo', () => {
 
   it('contratação futura começa no mês previsto', () => {
     const inputs = bare();
+    inputs.profile.storeType = 'existente';
     inputs.people.futureHires.enabled = true;
     inputs.people.futureHires.hires = [{ id: 'h', role: 'Auxiliar', month: 6, headcount: 1, monthlyCost: 3_000 }];
     const result = evaluate(inputs);

@@ -1,4 +1,4 @@
-import { BenefitCard, Callout, ModuleImpact, NumberField, PercentField, SelectField } from './Fields';
+import { BenefitCard, Callout, ModuleImpact, NumberField, PercentField, SelectField, StageNote } from './Fields';
 import { formatBRL } from '../model/format';
 import type { Inputs, ModelResult, WorkingCapitalTreatment } from '../model/types';
 
@@ -17,10 +17,15 @@ export function StockForm({
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela mede perda que deixa de acontecer e, se houver prova, dinheiro que sai do estoque. O robô não reduz
+        estoque sozinho: em muitas drogarias ele até aumenta o estoque, porque guarda mais com menos ruptura. Sem essa
+        prova, o capital de giro fica zerado.
+      </StageNote>
       <ModuleImpact result={result} module="Estoque" />
       <Callout>
-        Capital de giro liberado é caixa, não lucro mensal. Sem premissa operacional comprovada, a queda de estoque não
-        entra. Se o principal entra no fluxo, o custo financeiro fica só como leitura.
+        O padrão não presume queda de estoque. O robô pode até aumentar o estoque. Se uma redução for comprovada, o
+        dinheiro liberado entra uma vez, não como lucro todo mês.
       </Callout>
 
       <BenefitCard
@@ -175,7 +180,10 @@ export function StockForm({
               })
             }
           />
-          <span>A redução de estoque está comprovada operacionalmente. Sem isso o caixa não muda.</span>
+          <span>
+            A redução de estoque está comprovada. Sem esta marca o caixa não muda, mesmo que o estoque “depois” seja
+            menor. O robô pode aumentar o estoque.
+          </span>
         </label>
         <NumberField
           label="Mês da liberação"

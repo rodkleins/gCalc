@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatBRL } from '../model/format';
 import type { ModelResult } from '../model/types';
+import { StageNote } from './Fields';
 
 type Filter = 'todos' | 'incluidos' | 'fora';
 
@@ -14,6 +15,10 @@ export function AuditPanel({ result }: { result: ModelResult }) {
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela explica cada linha que entrou ou ficou de fora do caixa. Se um benefício está zerado, o motivo está
+        na frase da linha — por exemplo, porque a loja é nova ou porque a premissa não foi comprovada.
+      </StageNote>
       <p className="lede">
         Cada linha diz se entrou no fluxo e por quê. Itens fora do fluxo continuam visíveis para a conversa comercial,
         sem somar duas vezes o mesmo real.

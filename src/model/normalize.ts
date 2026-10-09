@@ -78,7 +78,7 @@ export function normalizeInputs(inputs: Inputs): Inputs {
   };
 
   if (typeof next.stock.workingCapital.reductionProven !== 'boolean') {
-    next.stock.workingCapital.reductionProven = next.stock.workingCapital.confidence === 'comprovavel';
+    next.stock.workingCapital.reductionProven = false;
   }
 
   next.network = next.network ?? { enabled: false, sharedMonthlyCost: 0, stores: [] };

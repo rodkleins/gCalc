@@ -167,7 +167,9 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     inputs.people.futureHires.enabled,
     inputs.people.futureHires.confidence,
     includePotential,
-    null,
+    storeType === 'nova'
+      ? 'Contratação futura só entra em loja existente. Em loja nova, a vaga que não nasce já está na economia de folha.'
+      : null,
   );
   const recruitmentInsideTurnover =
     inputs.people.recruitment.includedInTurnoverCost ||
@@ -919,7 +921,14 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     warnings.push('Perdas e avarias podem se sobrepor. Use o detalhamento para separar vencimento, avaria, extravio e erro.');
   }
   if (inputs.stock.workingCapital.enabled && !inputs.stock.workingCapital.reductionProven) {
-    warnings.push('A redução de estoque não está comprovada. O capital de giro não entrou no caixa.');
+    warnings.push(
+      'Não há queda de estoque comprovada. O capital de giro ficou de fora. O robô pode até aumentar o estoque.',
+    );
+  }
+  if (opexLooksLikeEquipmentPrice(grossCapex, monthlyOpex)) {
+    warnings.push(
+      'O custo mensal do robô, em um ano, passa de 20% do CAPEX. O preço do equipamento entra só no CAPEX; aqui ficam manutenção, suporte e os demais gastos recorrentes.',
+    );
   }
   if (
     inputs.profile.demandGrowthPctPerYear !== 0 &&
@@ -1030,6 +1039,13 @@ export function sensitivity(
     });
   }
   return table;
+}
+
+/** OPEX anual acima de 20% do CAPEX, ou OPEX sem CAPEX, costuma ser o preço do equipamento lançado no lugar errado. */
+export function opexLooksLikeEquipmentPrice(grossCapex: number, monthlyOpex: number): boolean {
+  const annual = monthlyOpex * 12;
+  if (!(annual > 0)) return false;
+  return !(grossCapex > 0) || annual > grossCapex * 0.2;
 }
 
 function gateBenefit(
@@ -1279,7 +1295,40 @@ function buildAudit(ctx: {
       kind: 'recorrente',
       gate: ctx.payrollGate,
       monthlyValue: ctx.payrollAmount(steady),
-      formula: 'Vagas evitadas × custo completo mensal, a partir do mês em que a contratação deixaria de existir.',
+      formula:
+        'Vagas evitadas × custo completo (R$ por pessoa por mês, com encargos e benefícios), a partir do mês em que a contratação deixaria de existir.',
+    }),
+    line({
+      id: 'severance',
+      module: 'Pessoas',
+      label: 'Rescisão de vagas evitadas',
+      kind: 'pontual',
+      gate:
+        ctx.storeType !== 'existente'
+          ? {
+              included: false,
+              confidence: ctx.payrollGate.confidence,
+              reason:
+                'Rescisão só entra em loja existente. Em loja nova a vaga não chega a ser contratada, então não há desligamento.',
+            }
+          : !ctx.payrollGate.included
+            ? ctx.payrollGate
+            : ctx.inputs.people.payroll.severanceCost <= 0
+              ? {
+                  included: false,
+                  confidence: ctx.payrollGate.confidence,
+                  reason: 'O valor de rescisão está zerado.',
+                }
+              : {
+                  included: true,
+                  confidence: ctx.payrollGate.confidence,
+                  reason: 'Saída de caixa única, no mês em que a vaga deixa de existir.',
+                },
+      monthlyValue: 0,
+      oneTimeValue:
+        ctx.storeType === 'existente' && ctx.payrollGate.included ? ctx.inputs.people.payroll.severanceCost : 0,
+      oneTimeMonth: Math.max(ctx.goLive, ctx.inputs.people.payroll.startMonth),
+      formula: 'Valor único de desligamento. Não entra em loja nova e não se repete todo mês.',
     }),
     line({
       id: 'futureHires',
@@ -1288,7 +1337,8 @@ function buildAudit(ctx: {
       kind: 'recorrente',
       gate: ctx.hiresGate,
       monthlyValue: ctx.futureHireCost(steady),
-      formula: 'Cada vaga entra só a partir do mês em que seria aberta no cenário sem robô.',
+      formula:
+        'Cada vaga entra só a partir do mês em que seria aberta no cenário sem robô, e somente em loja existente.',
     }),
     line({
       id: 'recruitment',
@@ -1487,7 +1537,8 @@ function buildAudit(ctx: {
       monthlyValue: 0,
       oneTimeValue: ctx.usePrincipal ? ctx.capitalRelease : 0,
       oneTimeMonth: Math.max(ctx.goLive, ctx.releaseMonth),
-      formula: 'Estoque médio antes − estoque médio depois. É caixa pontual, não lucro recorrente.',
+      formula:
+        'Estoque médio antes − estoque médio depois, só se a queda estiver comprovada. O padrão não presume redução: o robô pode até aumentar o estoque. É caixa pontual, não lucro recorrente.',
     }),
     line({
       id: 'financialCost',
@@ -1533,7 +1584,8 @@ function buildAudit(ctx: {
         reason: 'Custo recorrente abatido do benefício bruto.',
       },
       monthlyValue: ctx.monthlyOpex,
-      formula: 'Manutenção, software, energia, indisponibilidade, seguros e outros.',
+      formula:
+        'Manutenção, suporte, software, energia, indisponibilidade, seguros e outros gastos que se repetem. O preço do equipamento não entra aqui: ele está só no CAPEX.',
     }),
   ];
 

@@ -60,7 +60,7 @@ Não muda o exemplo fictício. Muda um caso real salvo se:
 
 - Custo da vaga já inclui encargos e benefícios, ou os percentuais precisam ser informados.
 - Vagas evitadas cabem no quadro e as horas liberadas cabem em quem permanece.
-- Redução de estoque é operacional, não automática.
+- Redução de estoque é operacional, não automática. O padrão de simulações sem o campo é não presumir queda.
 - Contrato de aluguel realmente muda antes de contar ocupação.
 - Processo das caixas retornáveis foi validado com a logística.
 - Prateleiras evitadas não são as que a loja ainda precisa.
@@ -76,6 +76,16 @@ Não muda o exemplo fictício. Muda um caso real salvo se:
 - O exemplo fictício ainda soma perdas históricas e avarias, com aviso de possível sobreposição, para manter o checkpoint de 39%. O detalhamento é o caminho sem dupla contagem.
 - A rede escalonada reutiliza a premissa da loja modelo e aplica fatores. Não é um orçamento loja a loja completo.
 - Head-to-head continua com a DRE própria e só reaproveita VPL, TIR, payback e ROI.
+
+## Revisão com o cliente (DPSP)
+
+Depois da publicação, a conversa com o Fabio ajustou a leitura, sem mudar o exemplo de R$ 65.000 e 39%:
+
+- Custo completo é R$ por pessoa por mês, com encargos e benefícios. A sugestão de farmacêutico passou de R$ 14.500 para R$ 8.500, fictícia e a validar. O treinamento sugerido passou de R$ 2.500 para R$ 6.000 por contratação, também fictício. No exemplo o treinamento continua incluso no turnover, então o caixa não muda.
+- O custo mensal do robô é manutenção e suporte. O equipamento fica só no CAPEX. OPEX anual acima de 20% do CAPEX gera aviso.
+- Rescisão e contratação futura só entram em loja existente. A tela mostra o motivo quando o benefício fica zerado.
+- Capital de giro não presume queda. Simulação antiga sem o campo fica com redução não comprovada.
+- Três modelos fictícios (R$ 1, 2 e 4 milhões/mês) carregam com um clique e aparecem lado a lado.
 
 ## Como executar
 

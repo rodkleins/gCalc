@@ -220,6 +220,25 @@ export function Callout({ children, tone = 'note' }: { children: React.ReactNode
   return <div className={`callout ${tone}`}>{children}</div>;
 }
 
+export function StageNote({ children, testId }: { children: React.ReactNode; testId?: string }) {
+  return (
+    <details className="stage-note" data-testid={testId ?? 'stage-note'}>
+      <summary>O que esta tela calcula</summary>
+      <div className="stage-note-body">{children}</div>
+    </details>
+  );
+}
+
+export function ExcludedReason({ result, id }: { result: ModelResult; id: string }) {
+  const line = result.audit.find((item) => item.id === id);
+  if (!line || line.includedInCashFlow) return null;
+  return (
+    <p className="hint-block zero-reason" data-testid={`zero-reason-${id}`}>
+      {line.reason}
+    </p>
+  );
+}
+
 export function ModuleImpact({ result, module }: { result: ModelResult; module: string }) {
   const lines = result.audit.filter((line) => line.module === module);
   if (lines.length === 0) {

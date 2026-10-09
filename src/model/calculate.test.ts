@@ -114,7 +114,7 @@ describe('regras anti-dupla-contagem', () => {
     const inputs = cloneExample();
     inputs.people.training.includedInReplacementCost = false;
     const opened = evaluate(inputs);
-    expect(opened.months[0].incremental).toBe(65_000 + 6 * 2_500);
+    expect(opened.months[0].incremental).toBe(65_000 + 6 * 6_000);
     expect(opened.months[1].incremental).toBe(65_000);
     expect(opened.steadyNet).toBe(65_000);
   });
@@ -188,6 +188,8 @@ describe('regras anti-dupla-contagem', () => {
   it('não coloca liberação de capital e custo financeiro no mesmo fluxo', () => {
     const inputs = cloneExample();
     inputs.stock.workingCapital.enabled = true;
+    inputs.stock.workingCapital.reductionProven = true;
+    inputs.stock.workingCapital.inventoryAfter = 350_000;
     inputs.stock.workingCapital.treatment = 'liberacao_caixa';
     const release = evaluate(inputs);
     expect(release.months[2].workingCapital).toBe(130_000);
@@ -206,10 +208,11 @@ describe('regras anti-dupla-contagem', () => {
 
   it('não antecipa contratação futura para o mês 1', () => {
     const inputs = cloneExample();
+    inputs.profile.storeType = 'existente';
     inputs.people.futureHires.enabled = true;
     const result = evaluate(inputs);
-    expect(result.months[11].netOperating).toBe(65_000);
-    expect(result.months[12].netOperating).toBe(65_000 + 9_200 + 200);
+    expect(result.months[11].netOperating).toBe(66_500);
+    expect(result.months[12].netOperating).toBe(66_500 + 9_200 + 200);
   });
 
   it('aplica rescisão só em loja existente e CAPEX evitado só em loja nova', () => {

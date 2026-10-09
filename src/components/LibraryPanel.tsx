@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import type { StorePreset } from '../model/presets';
 import type { SimulationRecord } from '../model/storage';
+import { StageNote } from './Fields';
+import { StorePresets } from './StorePresets';
 
 export function LibraryPanel({
   draftName,
@@ -16,6 +19,7 @@ export function LibraryPanel({
   onExportCurrent,
   onExportLibrary,
   onImport,
+  onLoadPreset,
 }: {
   draftName: string;
   onDraftName: (name: string) => void;
@@ -29,6 +33,7 @@ export function LibraryPanel({
   onExportCurrent: () => void;
   onExportLibrary: () => void;
   onImport: (file: File) => void;
+  onLoadPreset: (preset: StorePreset) => void;
 }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -43,6 +48,11 @@ export function LibraryPanel({
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela guarda casos neste navegador e compara dois deles. Os três portes abaixo são modelos fictícios: um
+        clique carrega a loja para você trocar pelos números reais.
+      </StageNote>
+      <StorePresets onLoad={onLoadPreset} />
       <section className="card">
         <h2>Salvar com nome</h2>
         <p className="lede">

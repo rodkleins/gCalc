@@ -17,8 +17,10 @@ import { matchesIllustrativeExample } from '../model/example';
 import { formatBRL, formatCompactBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { fieldForAudit } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
-import { Callout, PercentField, Switch } from './Fields';
+import { Callout, PercentField, StageNote, Switch } from './Fields';
 import { QuickAdjust } from './QuickAdjust';
+import { StorePresets } from './StorePresets';
+import type { StorePreset } from '../model/presets';
 
 const SCENARIOS: ScenarioId[] = ['conservador', 'base', 'otimista'];
 
@@ -32,6 +34,7 @@ export function Dashboard({
   onAdjust,
   onUndo,
   onOpenPremise,
+  onLoadPreset,
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -42,6 +45,7 @@ export function Dashboard({
   onAdjust: (inputs: Inputs) => void;
   onUndo: () => void;
   onOpenPremise: (fieldId: string) => void;
+  onLoadPreset: (preset: StorePreset) => void;
 }) {
   const illustrative = matchesIllustrativeExample(result);
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
@@ -84,6 +88,31 @@ export function Dashboard({
         </div>
       )}
 
+      <section className="card executive" data-testid="executive-summary">
+        <h2>Como chegamos no payback e no ROI</h2>
+        <ol>
+          <li>
+            O investimento líquido é {formatBRL(result.netInvestment)}: o equipamento e a instalação, menos o que a loja
+            deixa de comprar em prateleira.
+          </li>
+          <li>
+            No mês estável a operação deixa {formatBRL(result.steadyBenefit)} e gasta {formatBRL(result.monthlyOpex)} para
+            manter o robô. Sobra {formatBRL(result.steadyNet)} por mês.
+          </li>
+          <li>
+            O payback de {formatPayback(result.payback)} é quantos meses essa sobra leva para devolver o investimento. Ele
+            não usa a taxa de desconto.
+          </li>
+          <li>
+            O ROI de {formatPercent(result.roi)} é essa sobra vezes 12, dividida pelo investimento. É o ritmo de um ano
+            estável, não a soma dos 60 meses.
+          </li>
+          <li>O preço do robô entra só uma vez. O custo mensal é manutenção e suporte, e não repete o valor do equipamento.</li>
+        </ol>
+      </section>
+
+      <StorePresets onLoad={onLoadPreset} />
+
       <QuickAdjust
         inputs={inputs}
         anchor={anchor}
@@ -93,6 +122,10 @@ export function Dashboard({
         onOpen={onOpenPremise}
       />
 
+      <StageNote testId="stage-note-kpis">
+        Estes cartões são o resultado da conta. Investimento é o que se paga para ter o robô. A sobra mensal é o que a
+        loja passa a economizar depois da manutenção. Payback e ROI saem desses dois números.
+      </StageNote>
       <section className="kpis">
         <article className="kpi">
           <span>Investimento líquido</span>
@@ -200,7 +233,7 @@ export function Dashboard({
             Benefício operacional bruto no mês 60: <b>{formatBRL(result.steadyBenefit)}</b>
           </li>
           <li>
-            OPEX do robô:{' '}
+            Custo mensal do robô (manutenção e suporte, sem o preço do equipamento):{' '}
             <PremiseValue fieldId="robot.opexMonthly.maintenance" onOpen={onOpenPremise}>
               {formatBRL(result.monthlyOpex)}
             </PremiseValue>
@@ -270,6 +303,10 @@ export function Dashboard({
         </ul>
       </section>
 
+      <StageNote>
+        O gráfico da esquerda mostra de onde vem a sobra mensal. O da direita mostra quando o caixa acumulado devolve o
+        investimento: é o payback.
+      </StageNote>
       <div className="chart-grid two">
         <section className="card chart-card">
           <h2>Composição do benefício mensal</h2>
@@ -359,10 +396,23 @@ export function Dashboard({
 
       <section className="card">
         <h2>Loja nova e loja existente</h2>
+        <StageNote testId="stage-note-store">
+          A mesma premissa muda de significado conforme a loja. Em loja nova, prateleira evitada reduz o investimento e
+          não há rescisão. Em loja existente, a rescisão e a contratação futura podem entrar, e a prateleira vira revenda
+          ou manutenção. Se um benefício está zerado, o motivo aparece abaixo.
+        </StageNote>
         <p className="lede">
-          A coluna ativa é {storeLabel(result.storeType).toLowerCase()}. A outra aplica as regras do tipo de loja sobre
-          as mesmas premissas: CAPEX de prateleira, revenda, manutenção e rescisão.
+          A coluna ativa é {storeLabel(result.storeType).toLowerCase()}.
         </p>
+        <ul className="premise-list">
+          {result.audit
+            .filter((line) => !line.includedInCashFlow && /loja (nova|existente)/i.test(line.reason))
+            .map((line) => (
+              <li key={line.id} data-testid={`store-zero-${line.id}`}>
+                {line.label}: {line.reason}
+              </li>
+            ))}
+        </ul>
         <div className="table-wrap short">
           <table>
             <thead>

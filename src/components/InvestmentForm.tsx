@@ -1,9 +1,10 @@
-import { Callout, ModuleImpact, NumberField, PercentField, SelectField, Switch } from './Fields';
+import { Callout, ModuleImpact, NumberField, PercentField, SelectField, StageNote, Switch } from './Fields';
+import { opexLooksLikeEquipmentPrice } from '../model/calculate';
 import { formatBRL, formatIrr, formatPercent } from '../model/format';
 import type { Inputs, ModelResult } from '../model/types';
 
 const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string }> = [
-  { key: 'equipment', label: 'Robô' },
+  { key: 'equipment', label: 'Equipamento (só no CAPEX)' },
   { key: 'freightImportTaxes', label: 'Frete, importação e tributos' },
   { key: 'installationTraining', label: 'Instalação, comissionamento e treinamento' },
   { key: 'civilElectrical', label: 'Obras, elétrica e rede' },
@@ -34,6 +35,11 @@ export function InvestmentForm({
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela separa o preço de comprar o robô do custo de mantê-lo. O equipamento entra uma vez no CAPEX. O custo
+        mensal é manutenção, suporte e o que se repete. Os dois não se somam como se o robô fosse pago duas vezes. O
+        payback e o ROI usam o investimento líquido e a sobra mensal depois desse custo.
+      </StageNote>
       <ModuleImpact result={result} module="Investimento" />
       <section className="card">
         <h2>CAPEX</h2>
@@ -57,8 +63,17 @@ export function InvestmentForm({
       </section>
 
       <section className="card">
-        <h2>OPEX mensal</h2>
-        <p className="lede">Total considerado: {formatBRL(result.monthlyOpex)} por mês, a partir do go-live.</p>
+        <h2>Custo mensal do robô</h2>
+        <p className="lede">
+          Só manutenção, suporte e outros gastos recorrentes. Total {formatBRL(result.monthlyOpex)} por mês, a partir do
+          go-live. O preço do equipamento não entra aqui.
+        </p>
+        {opexLooksLikeEquipmentPrice(result.grossCapex, result.monthlyOpex) ? (
+          <Callout tone="warn">
+            Em um ano, este custo passa de 20% do CAPEX. Confira se o preço do equipamento foi lançado no mensal. O
+            equipamento fica só no CAPEX.
+          </Callout>
+        ) : null}
         <div className="form-grid">
           {OPEX_FIELDS.map((field) => (
             <NumberField

@@ -1,9 +1,14 @@
 import { formatBRL } from '../model/format';
 import type { ModelResult } from '../model/types';
+import { StageNote } from './Fields';
 
 export function CashflowTable({ result }: { result: ModelResult }) {
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela é o mês a mês por trás do payback. O mês 0 é o dinheiro que sai para instalar o robô. Depois entra a
+        sobra de cada mês. O payback é o mês em que a coluna acumulada cruza zero.
+      </StageNote>
       <p className="lede">
         Mês 0 é o investimento líquido de {formatBRL(result.netInvestment)}. Do mês 1 ao 60, o fluxo é o benefício
         operacional menos o OPEX, mais liberações de capital, revenda, rescisão e residual. A visão sem robô e com robô

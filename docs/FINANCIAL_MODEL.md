@@ -54,7 +54,11 @@ A alíquota default de 34% não é adequada a qualquer regime. Depreciação lin
 
 ## Capital de giro
 
-`liberação = estoque antes - estoque depois`, se a redução estiver comprovada. Entra no mês escolhido e pode reverter no mês 60. O custo financeiro mensal (`liberação × taxa / 12`) é alternativa, não soma. A leitura informativa permanece quando o principal já está no fluxo, porque o desconto do VPL já remunera o capital.
+`liberação = estoque antes - estoque depois`, somente se a redução estiver comprovada. O padrão é não presumir queda: o robô pode até aumentar o estoque. Entra no mês escolhido e pode reverter no mês 60. O custo financeiro mensal (`liberação × taxa / 12`) é alternativa, não soma. A leitura informativa permanece quando o principal já está no fluxo, porque o desconto do VPL já remunera o capital.
+
+O OPEX mensal é manutenção, suporte e gasto recorrente. O preço do equipamento entra só no CAPEX. OPEX anual acima de 20% do CAPEX bruto gera aviso.
+
+Contratação futura e rescisão só entram em loja existente. Em loja nova a vaga que não nasce já está na folha, sem desligamento.
 
 ## Indicadores
 

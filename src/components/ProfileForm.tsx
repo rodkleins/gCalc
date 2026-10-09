@@ -1,4 +1,5 @@
-import { ModuleImpact, NumberField, PercentField, SelectField, TextField } from './Fields';
+import { ModuleImpact, NumberField, PercentField, SelectField, StageNote, TextField } from './Fields';
+import { SUGGESTED_PHARMACIST_MONTHLY_COST } from '../model/example';
 import type { Inputs, ModelResult } from '../model/types';
 import { formatBRL } from '../model/format';
 
@@ -20,6 +21,10 @@ export function ProfileForm({
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela descreve a loja: tamanho, equipe e tipo (nova ou existente). Ela não calcula o payback sozinha. Os
+        outros módulos usam estes números para saber o que o robô evita e o que continua igual.
+      </StageNote>
       <ModuleImpact result={result} module="Perfil" />
       <section className="card">
         <h2>Identificação</h2>
@@ -160,9 +165,14 @@ export function ProfileForm({
                 }}
               />
               <NumberField
-                label="Custo completo"
+                label="Custo completo (R$/pessoa/mês)"
                 value={role.monthlyCost}
                 suffix="R$"
+                hint={
+                  role.role.toLowerCase().includes('farmac')
+                    ? `Por pessoa, por mês, já com encargos e benefícios. Sugestão fictícia do farmacêutico: R$ ${SUGGESTED_PHARMACIST_MONTHLY_COST.toLocaleString('pt-BR')}, a validar.`
+                    : 'Por pessoa, por mês, já com encargos e benefícios. Não é o salário bruto.'
+                }
                 onChange={(monthlyCost) => {
                   const roles = profile.roles.slice();
                   roles[index] = { ...role, monthlyCost };

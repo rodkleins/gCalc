@@ -1,4 +1,4 @@
-import { BenefitCard, Callout, ModuleImpact, NumberField, SelectField } from './Fields';
+import { BenefitCard, Callout, ModuleImpact, NumberField, SelectField, StageNote } from './Fields';
 import type { Inputs, ModelResult, SpaceMode } from '../model/types';
 
 export function LogisticsForm({
@@ -15,6 +15,11 @@ export function LogisticsForm({
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela pergunta o que a loja deixa de gastar com espaço, prateleira e movimento. O mesmo metro não vale
+        aluguel e venda ao mesmo tempo. Em loja nova, prateleira evitada reduz o investimento. Em loja existente, vira
+        revenda ou manutenção, e só se a prateleira realmente sair.
+      </StageNote>
       <ModuleImpact result={result} module="Logística" />
       <Callout>
         O robô não elimina sozinho a caixa do fornecedor. Ocupação e margem comercial da mesma área não entram juntas.

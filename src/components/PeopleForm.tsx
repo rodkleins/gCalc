@@ -1,4 +1,16 @@
-import { BenefitCard, Callout, ModuleImpact, NumberField, PercentField, SelectField, Switch, TextField } from './Fields';
+import {
+  BenefitCard,
+  Callout,
+  ExcludedReason,
+  ModuleImpact,
+  NumberField,
+  PercentField,
+  SelectField,
+  StageNote,
+  Switch,
+  TextField,
+} from './Fields';
+import { SUGGESTED_TRAINING_PER_HIRE } from '../model/example';
 import type { Inputs, ModelResult } from '../model/types';
 
 export function PeopleForm({
@@ -17,6 +29,11 @@ export function PeopleForm({
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela mede quanto de gente a loja deixa de pagar com o robô. O custo completo é R$ por pessoa por mês, com
+        encargos e benefícios. Rescisão e contratação futura só valem em loja existente. Hora liberada não é economia de
+        folha.
+      </StageNote>
       <ModuleImpact result={result} module="Pessoas" />
       <Callout>
         A vaga só economiza a partir do mês em que existiria sem o robô. Treinamento e recrutamento não entram de novo
@@ -39,9 +56,10 @@ export function PeopleForm({
         />
         <NumberField
           fieldId="people.payroll.monthlyCostPerPosition"
-          label="Custo completo por vaga"
+          label="Custo completo por pessoa (R$/mês)"
           value={people.payroll.monthlyCostPerPosition}
           suffix="R$"
+          hint="Por pessoa, por mês, já com encargos e benefícios. Não é o salário bruto."
           onChange={(monthlyCostPerPosition) =>
             setPeople({ ...people, payroll: { ...people.payroll, monthlyCostPerPosition } })
           }
@@ -58,9 +76,10 @@ export function PeopleForm({
           label="Rescisão"
           value={people.payroll.severanceCost}
           suffix="R$"
-          hint="Entra uma vez, e somente em loja existente."
+          hint="Só loja existente. Em loja nova a vaga não chega a ser contratada, então a rescisão fica zerada."
           onChange={(severanceCost) => setPeople({ ...people, payroll: { ...people.payroll, severanceCost } })}
         />
+        <ExcludedReason result={result} id="severance" />
         {advanced ? (
           <>
             <PercentField
@@ -87,7 +106,7 @@ export function PeopleForm({
         <header className="benefit-head">
           <div>
             <h3>Contratações futuras evitadas</h3>
-            <p>Cada vaga começa no mês em que a loja sem robô precisaria abrir.</p>
+            <p>Só loja existente. Cada vaga começa no mês em que a loja sem robô precisaria abrir.</p>
           </div>
           <Switch
             checked={people.futureHires.enabled}
@@ -109,6 +128,7 @@ export function PeopleForm({
             { value: 'potencial', label: 'Potencial' },
           ]}
         />
+        <ExcludedReason result={result} id="futureHires" />
         <div className="rows">
           {people.futureHires.hires.map((hire, index) => (
             <div className="row-card" key={hire.id}>
@@ -230,9 +250,10 @@ export function PeopleForm({
       >
         <NumberField
           fieldId="people.training.costPerPerson"
-          label="Custo por pessoa"
+          label="Treinamento por contratação"
           value={people.training.costPerPerson}
           suffix="R$"
+          hint={`Sugestão fictícia: R$ ${SUGGESTED_TRAINING_PER_HIRE.toLocaleString('pt-BR')} por pessoa, a validar. Não entra de novo se já estiver no custo de substituição.`}
           onChange={(costPerPerson) => setPeople({ ...people, training: { ...people.training, costPerPerson } })}
         />
         <label className="field check span-2">

@@ -6,7 +6,7 @@ export const WIZARD_STEPS = [
     id: 'inicio',
     title: 'A loja',
     kicker: 'Quem é o caso',
-    help: 'Loja nova ainda não comprou prateleiras: esse gasto pode sair do investimento. Loja existente já tem equipe e móveis: a rescisão e a revenda entram no caixa.',
+    help: 'Loja nova ainda não comprou prateleiras: esse gasto pode sair do investimento, e não há rescisão. Loja existente já tem equipe e móveis: a rescisão, a contratação futura e a revenda podem entrar. Em loja nova esses dois benefícios de gente ficam zerados.',
   },
   {
     id: 'farmacia',
@@ -18,7 +18,7 @@ export const WIZARD_STEPS = [
     id: 'pessoas',
     title: 'Pessoas',
     kicker: 'Quem deixa de ser contratado',
-    help: 'Conte só as vagas que deixam de existir com o robô, pelo custo completo. Turnover, recrutamento e treinamento não entram de novo se já estiverem nesse custo.',
+    help: 'O custo completo é R$ por pessoa por mês, já com encargos e benefícios. Conte só as vagas que deixam de existir. Rescisão e contratação futura só valem em loja existente. Turnover, recrutamento e treinamento não entram de novo se já estiverem nesse custo.',
   },
   {
     id: 'logistica',
@@ -30,13 +30,13 @@ export const WIZARD_STEPS = [
     id: 'estoque',
     title: 'Estoque',
     kicker: 'Perdas e capital parado',
-    help: 'Perda evitada é o que vencia ou quebrava menos o que ainda vence com o robô. A queda do estoque é caixa uma vez, não lucro todo mês.',
+    help: 'Perda evitada é o que vencia ou quebrava menos o que ainda vence com o robô. Não presuma queda de estoque: o robô pode até aumentar o estoque. Sem comprovação, o capital de giro fica zerado. Se houver queda comprovada, é caixa uma vez, não lucro todo mês.',
   },
   {
     id: 'investimento',
     title: 'O robô',
     kicker: 'Quanto custa ter e manter',
-    help: 'O investimento líquido é o que se paga para instalar, menos prateleira evitada em loja nova. O custo mensal do robô sai do benefício. A taxa de desconto serve ao VPL, não ao ROI.',
+    help: 'O preço do equipamento entra só no investimento (CAPEX), uma vez. O custo mensal é manutenção, suporte e o que se repete — não lance o preço do robô de novo aí. O payback divide o investimento pela sobra mensal. O ROI é essa sobra de um ano estável dividida pelo investimento. A taxa de desconto serve ao VPL, não ao ROI.',
   },
   {
     id: 'resumo',

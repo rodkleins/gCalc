@@ -56,7 +56,7 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 | attendancesPerDay | Atendimentos por dia | nº | 420 | Não |
 | dispensationsPerDay | Dispensações por dia | nº/dia | 900 | Sim (cobertura) |
 | operatingDaysPerMonth | Dias de operação no mês | dias | 26 | Não |
-| roles | Cargos (cargo, pessoas, custo, escala) | lista | 4 cargos, 16 pessoas | Sim (teto de vagas e orçamento de horas) |
+| roles | Cargos (cargo, pessoas, custo completo R$/pessoa/mês, escala) | lista | 4 cargos, 16 pessoas; farmacêutico R$ 8.500 (sugestão fictícia, a validar) | Sim (teto de vagas e orçamento de horas) |
 | totalAreaM2 / backroomAreaM2 | Área total / Retaguarda | m² | 280 / 70 | Não |
 | occupancyCostPerM2 | Aluguel ou ocupação de referência | R$/m² | 120 | Sim, só se o campo da logística for 0 |
 | averageInventory | Estoque médio | R$ | 480.000 | Sim (capital de giro) |
@@ -74,12 +74,12 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 
 | Bloco | Campos (código → rótulo) | Padrão do exemplo |
 |---|---|---|
-| payroll — Folha e encargos | positionsReduced → Vagas evitadas; monthlyCostPerPosition → Custo mensal (R$); chargesPct → Encargos; benefitsPerPosition → Benefícios (R$); costConfirmedFullyLoaded; startMonth; severanceCost → Rescisão (R$) | ligado, comprovável; 6 vagas; R$ 9.200; encargos 0; benefícios 0; custo confirmado; mês 1; R$ 18.000 |
+| payroll — Folha e encargos | positionsReduced → Vagas evitadas; monthlyCostPerPosition → Custo completo (R$/pessoa/mês, com encargos e benefícios); chargesPct → Encargos; benefitsPerPosition → Benefícios (R$); costConfirmedFullyLoaded; startMonth; severanceCost → Rescisão (R$, só loja existente) | ligado, comprovável; 6 vagas; R$ 9.200; encargos 0; benefícios 0; custo confirmado; mês 1; R$ 18.000 |
 | journeyHoursPerMonth | Jornada mensal para o orçamento de horas | 176 h |
 | reallocatedHours — Horas realocadas | hoursPerMonth; monetization (nenhuma, reducao_custo, ganho_incremental); costReductionMonthly; incrementalMarginMonthly; evidence | desligado; monetização nenhuma |
-| futureHires — Contratações futuras | lista: role, month, headcount, monthlyCost | desligado; 1 auxiliar no mês 13, R$ 9.200 |
+| futureHires — Contratações futuras | lista: role, month, headcount, monthlyCost. Só entra em loja existente | desligado; 1 auxiliar no mês 13, R$ 9.200 |
 | recruitment — Recrutamento e seleção | costPerHire; includedInTurnoverCost | ligado, comprovável; R$ 3.500; incluso = sim |
-| training — Treinamento e integração | costPerPerson; includedInReplacementCost | ligado, comprovável; R$ 2.500; incluso = sim |
+| training — Treinamento e integração | costPerPerson (sugestão fictícia R$ 6.000 por contratação, a validar); includedInReplacementCost | ligado, comprovável; R$ 6.000; incluso = sim |
 | turnover — Turnover evitado | annualRate; costMode (consolidado ou detalhado); costPerReplacement; components (recrutamento, treinamento do substituto, adaptação, desligamento, supervisão) | ligado, comprovável; 20% a.a.; consolidado; R$ 12.000; componentes 0 |
 | supervision — Supervisão | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 40 h; R$ 50; não |
 | consultativeSales — Venda consultiva | hoursFreedPerMonth; marginPerHour; independentEvidence | ligado, potencial; 20 h; R$ 80; sem evidência |
@@ -104,14 +104,14 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 | ruptures — Rupturas | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 20.000 |
 | serviceSpeed — Atendimento | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 10.000 |
 | abandonment — Abandono | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 0 |
-| workingCapital — Capital de giro | inventoryAfter; releaseMonth; treatment (liberacao_caixa ou custo_financeiro); costOfCapitalAnnual; reverseAtHorizon; reductionProven | desligado, comprovável; R$ 350.000; mês 3; liberação; 12% a.a.; não reverte; redução marcada como comprovada |
+| workingCapital — Capital de giro | inventoryAfter; releaseMonth; treatment (liberacao_caixa ou custo_financeiro); costOfCapitalAnnual; reverseAtHorizon; reductionProven | desligado, comprovável; estoque depois igual ao atual (R$ 480.000); mês 3; liberação; 12% a.a.; não reverte; redução não comprovada |
 
 ### 2.5 Investimento, curvas e política tributária (robot)
 
 | Grupo | Campos | Padrão do exemplo |
 |---|---|---|
 | capex | equipment 1.750.000; freightImportTaxes 140.000; installationTraining 90.000; civilElectrical 70.000; integration 50.000; implementationContingency 80.000 | Bruto R$ 2.180.000 |
-| opexMonthly | maintenance 8.000; software 3.200; energy 1.500; downtime 700; insurance 1.100; other 500 | R$ 15.000/mês |
+| opexMonthly | manutenção, suporte e demais gastos recorrentes: maintenance 8.000; software 3.200; energy 1.500; downtime 700; insurance 1.100; other 500. Não inclui o preço do equipamento | R$ 15.000/mês |
 | Operação | availabilityPct; capacityDispensationsPerDay; reorganizationEffectiveness; automatedStockShare; serviceLevel; conversionFactor; goLiveMonth | 100%; 1.500/dia; reorganização 100%; estoque automatizado 100%; atendimento 100%; conversão 100%; mês 1 |
 | Curvas | ramp.people, ramp.logistics, ramp.stock, ramp.sales | [1] em cada família (100% no go-live) |
 | Cronograma | capexSchedule: month e share | mês 0, parcela 1 |
@@ -176,7 +176,8 @@ Folha(m) = min(vagas, quadro) × custo completo × laborFactor
            a partir de m ≥ max(goLive, startMonth)
            o teto extra é a folha do quadro, quando o quadro existe
 
-Contratações futuras(m) = Σ (vagas_h × custo_h × laborFactor)
+Contratações futuras(m) = 0 em loja nova
+                          em loja existente, Σ (vagas_h × custo_h × laborFactor)
                           × captura de folha × rampa de pessoas × índice salarial × benefitFactor
                           só para vagas com m ≥ mês_h e m ≥ goLive
 
@@ -197,7 +198,7 @@ Recrutamento e treinamento iniciais são eventos pontuais, não o custo mensal d
 ```
 unidade = round2(custo unitário × laborFactor)
 Loja nova e folha incluída: no mês max(goLive, startMonth), vagas informadas × unidade
-Contratações futuras incluídas: no mês max(goLive, mês_h), vagas_h × unidade
+Contratações futuras incluídas, só em loja existente: no mês max(goLive, mês_h), vagas_h × unidade
 ```
 
 Esses eventos não passam por captura, rampa nem `benefitFactor`. A folha mensal usa as vagas já limitadas ao quadro; o evento pontual de recrutamento e treinamento da folha usa as vagas informadas.
@@ -275,6 +276,8 @@ Se mais de uma alavanca de venda passa na trava e `salesIndependenceConfirmed` �
 ```
 liberação = max(0, estoque antes − estoque depois), se reductionProven
             senão 0
+            o padrão é reductionProven falso: não se presume queda
+            o robô pode até aumentar o estoque
             não é escalada por volume nem por captura
 Principal = liberação no mês max(goLive, releaseMonth)
             e −liberação no mês 60, se reverseAtHorizon e a entrada não foi no mês 60
@@ -312,6 +315,8 @@ OPEX base = round2(soma dos 6 itens × opexFactor do cenário)
 OPEX(m)   = 0 antes do go-live
             senão OPEX base × índice de inflação de OPEX
 ```
+
+O OPEX é manutenção, suporte e o que se repete todo mês. O preço do equipamento está só no CAPEX. Se o OPEX anual passa de 20% do CAPEX bruto, ou se há OPEX sem CAPEX, o motor avisa: o preço do robô pode ter sido lançado no lugar errado.
 
 Parcelas posteriores ao mês 0 saem em `pontual(m)`, não na data zero. O exemplo desembolsa 100% na data zero.
 
@@ -581,4 +586,6 @@ O que o código ainda faz, e o que deixou de fazer:
 - Rede desligada replica a loja em linha reta. Rede ligada desloca cada unidade para a data dela e pode produzir paybacks diferentes.
 - No assistente, CAPEX além do robô vai para "Implantação e contingência" e o OPEX total vai para "Manutenção". Os totais não mudam; a distribuição que o ajuste rápido escala muda.
 - O assistente valida faixas. O motor não recusa entrada: perdas projetadas acima das históricas zeram a economia de perdas e geram aviso.
-- Simulações salvas na versão 2 da biblioteca são mantidas. Campos novos recebem padrão neutro (curva 100%, imposto como estava, redução de estoque comprovada quando a confiança já era comprovável).
+- Simulações salvas na versão 2 da biblioteca são mantidas. Campos novos recebem padrão neutro (curva 100%, imposto como estava). Se a simulação antiga não diz se a queda de estoque foi comprovada, o padrão agora é não presumir redução.
+- Há três modelos fictícios de loja (R$ 1, 2 e 4 milhões de faturamento mensal) para carregar com um clique. Não são dados do DPSP.
+- Cada módulo e o assistente têm um texto recolhível, “O que esta tela calcula”, para quem não vai ler esta página.

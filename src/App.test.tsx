@@ -32,6 +32,12 @@ describe('aplicação', () => {
     expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
     expect(text('[data-testid="kpi-payback"]')).toContain('30,8');
     expect(text('[data-testid="kpi-roi"]')).toBe('39%');
+    const summary = host.querySelector('[data-testid="executive-summary"]');
+    expect(summary?.querySelectorAll('li')).toHaveLength(5);
+    expect(summary?.textContent).toMatch(/payback/i);
+    expect(summary?.textContent).toMatch(/ROI/);
+    expect(summary?.textContent).toMatch(/não repete o valor do equipamento/i);
+    expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="example-check"]')).not.toBeNull();
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-headtohead"]')?.getAttribute('href')).toBe(
       '/gCalc/headtohead/',
@@ -203,7 +209,7 @@ describe('aplicação', () => {
     });
     expect(host.querySelector('nav .is-active')?.textContent).toBe('Investimento');
     const investment = host.querySelector<HTMLLabelElement>('.field.is-target');
-    expect(investment?.textContent).toContain('Robô');
+    expect(investment?.textContent).toContain('Equipamento');
     expect(document.activeElement).toBe(investment?.querySelector('input'));
 
     const resultados = () =>
@@ -223,7 +229,7 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="open-premise-audit-payroll"]')?.click();
     });
     expect(host.querySelector('nav .is-active')?.textContent).toBe('Pessoas');
-    expect(host.querySelector('.field.is-target')?.textContent).toContain('Custo completo por vaga');
+    expect(host.querySelector('.field.is-target')?.textContent).toContain('Custo completo por pessoa');
 
     await act(async () => {
       resultados().click();
@@ -329,7 +335,7 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="open-premise-investment"]')?.click();
     });
     const robot = [...host.querySelectorAll<HTMLLabelElement>('.field')].find((field) =>
-      field.textContent?.includes('Robô'),
+      field.textContent?.includes('Equipamento'),
     );
     const robotInput = robot?.querySelector('input');
     await act(async () => {
@@ -338,6 +344,23 @@ describe('aplicação', () => {
       robotInput?.blur();
     });
     expect(robot?.querySelector('input')?.value).toBe('0');
+    act(() => root.unmount());
+  });
+
+  it('carrega um modelo de loja fictício com um clique', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App initialInputs={exampleInputs()} />);
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-1m"]')?.click();
+    });
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 1 milhão/mês');
+    expect(host.querySelector('[data-testid="store-zero-futureHires"]')).toBeNull();
+    expect(host.textContent).toMatch(/fictícios/i);
     act(() => root.unmount());
   });
 });

@@ -3,10 +3,11 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { SENSITIVITY_DELTAS, sensitivity } from '../model/calculate';
 import { formatBRL, formatPayback, formatPercent } from '../model/format';
 import type { Inputs, ScenarioId, SensitivityDriver } from '../model/types';
+import { StageNote } from './Fields';
 
 const DRIVERS: Array<{ id: SensitivityDriver; label: string; note: string }> = [
   { id: 'investimento', label: 'Investimento', note: 'CAPEX bruto e prateleira evitada' },
-  { id: 'opex', label: 'OPEX', note: 'Custo mensal do robô' },
+  { id: 'opex', label: 'OPEX', note: 'Manutenção e suporte mensais, não o preço do equipamento' },
   { id: 'maoDeObra', label: 'Mão de obra', note: 'O mesmo percentual do ajuste rápido' },
   { id: 'turnover', label: 'Turnover', note: 'Taxa anual de substituição' },
   { id: 'vendas', label: 'Vendas', note: 'Margens incrementais' },
@@ -28,6 +29,10 @@ export function SensitivityPanel({ inputs, scenario }: { inputs: Inputs; scenari
 
   return (
     <div className="stack">
+      <StageNote>
+        Esta tela responde “e se este número estiver errado?”. Cada linha mexe em um único item. Se o payback mudar
+        pouco, a decisão não depende daquele palpite.
+      </StageNote>
       <p className="lede">
         Cada linha varia um único driver em torno do cenário {scenario}, de −30% a +30%. Os outros permanecem como estão.
       </p>

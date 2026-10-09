@@ -9,7 +9,7 @@ import {
   withTotalOpex,
   WIZARD_STEPS,
 } from '../model/wizard';
-import { NumberField, PercentField, Switch, TextField } from './Fields';
+import { NumberField, PercentField, StageNote, Switch, TextField } from './Fields';
 
 export function Wizard({
   inputs,
@@ -83,7 +83,7 @@ export function Wizard({
             Ir para o modo completo
           </button>
         </header>
-        <p className="lede">{current.help}</p>
+        <StageNote testId="wizard-stage-note">{current.help}</StageNote>
         {current.id !== 'resumo' ? (
           <p className="hint-block">Os números já vêm preenchidos. Troque só o que for diferente da loja.</p>
         ) : null}
@@ -277,10 +277,10 @@ function PeopleStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: I
       <div className="form-grid">
         <NumberField label="Vagas que o robô evita" value={payroll.positionsReduced} onChange={(positionsReduced) => patchPayroll({ positionsReduced })} />
         <NumberField
-          label="Custo completo da vaga"
+          label="Custo completo por pessoa (R$/mês)"
           suffix="R$/mês"
           value={payroll.monthlyCostPerPosition}
-          hint="Salário, encargos e o que já couber nessa vaga."
+          hint="Por pessoa, por mês, já com encargos e benefícios."
           onChange={(monthlyCostPerPosition) => patchPayroll({ monthlyCostPerPosition })}
         />
         <PercentField
@@ -307,6 +307,11 @@ function PeopleStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: I
               />
             ) : null}
           </div>
+          {inputs.profile.storeType === 'nova' ? (
+            <p className="hint-block" data-testid="wizard-nova-people">
+              Loja nova: rescisão e contratação futura ficam zeradas. A vaga que não nasce entra na economia de folha.
+            </p>
+          ) : null}
           <Switch
             checked={inputs.people.futureHires.enabled}
             label={inputs.people.futureHires.enabled ? 'Contratação futura ligada' : 'Contratação futura desligada'}
@@ -439,7 +444,9 @@ function StockStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: In
       <details className="advanced">
         <summary>Perguntas opcionais</summary>
         <div className="stack">
-          <p className="hint-block">A queda do estoque é caixa uma vez. Não é lucro todo mês.</p>
+          <p className="hint-block">
+            O padrão não reduz estoque. O robô pode até aumentá-lo. Só uma queda comprovada entra, e entra uma vez.
+          </p>
           <div className="form-grid">
             <NumberField
               label="Estoque médio atual"
@@ -494,7 +501,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           suffix="R$"
           min={0}
           value={totalOpex(inputs)}
-          hint="Manutenção, software, energia e o resto. Editar junta esses itens num só valor."
+          hint="Só manutenção, suporte e gastos recorrentes. O preço do equipamento fica no campo acima e não se repete aqui."
           onChange={(value) => onInputs(withTotalOpex(inputs, value))}
         />
         <PercentField
