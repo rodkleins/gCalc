@@ -342,9 +342,10 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             aria-expanded={!railCollapsed}
             aria-label={railCollapsed ? 'Expandir menu' : 'Recolher menu'}
             title={railCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            data-tooltip={railCollapsed ? 'Expandir menu' : 'Recolher menu'}
             onClick={toggleRail}
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
               <path
                 d={railCollapsed ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'}
                 fill="none"
@@ -354,7 +355,6 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
                 strokeLinejoin="round"
               />
             </svg>
-            <span className="rail-toggle-label">{railCollapsed ? 'Expandir' : 'Recolher'}</span>
           </button>
         </div>
         <nav className="nav" aria-label="Módulos">

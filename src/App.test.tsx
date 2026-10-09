@@ -432,6 +432,9 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="rail"]')?.classList.contains('is-collapsed')).toBe(false);
     expect(host.querySelector('.app')?.classList.contains('is-rail-collapsed')).toBe(false);
     expect(host.querySelector('[data-testid="rail-toggle"]')?.getAttribute('aria-expanded')).toBe('true');
+    expect(host.querySelector('[data-testid="rail-toggle"]')?.textContent?.trim()).toBe('');
+    expect(host.querySelector('[data-testid="rail-toggle"]')?.getAttribute('aria-label')).toBe('Recolher menu');
+    expect(host.querySelector('[data-testid="rail-toggle"]')?.getAttribute('data-tooltip')).toBe('Recolher menu');
     const pessoas = () =>
       [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Pessoas') as HTMLButtonElement;
     expect(pessoas().getAttribute('data-tooltip')).toBe('Pessoas');

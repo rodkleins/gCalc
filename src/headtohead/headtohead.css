@@ -1,8 +1,9 @@
 .hh {
-  width: min(1120px, calc(100% - 28px));
+  width: min(2100px, calc(100% - 48px));
   margin: 0 auto;
   padding: 22px 0 48px;
 }
+.hh .lede { max-width: 78ch; }
 .hh-top, .hh-actions, .hh-kpis, .hh-links {
   display: flex;
   flex-wrap: wrap;
@@ -40,23 +41,27 @@
 .hh-block { display: grid; gap: 10px; }
 .hh-block + .hh-block { margin-top: 14px; }
 .hh-scroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(72vh, 860px);
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--card);
   box-shadow: var(--shadow);
 }
-.hh-table { width: 100%; min-width: 680px; border-collapse: collapse; table-layout: fixed; }
+.hh-table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.hh-table col.line { width: 46%; }
+.hh-table col.num { width: 18%; }
 .hh-table th, .hh-table td {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
   text-align: left;
+  font-size: 0.95rem;
 }
 .hh-table thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   background: #f7f3ea;
   font-size: 0.95rem;
 }
@@ -114,5 +119,5 @@
   .hh-invest { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 1099px) {
-  .hh { width: min(1120px, calc(100% - 20px)); padding-top: 16px; }
+  .hh { width: min(2100px, calc(100% - 20px)); padding-top: 16px; }
 }
