@@ -43,6 +43,10 @@ export function AuditPanel({ result }: { result: ModelResult }) {
             </header>
             <p>{line.reason}</p>
             <p className="formula">{line.formula}</p>
+            <p className="hint-block">
+              Origem: {line.dataOrigin}. Acumulado {formatBRL(line.accumulatedValue)}.
+              {line.conflicts.length > 0 ? ` Conflitos: ${line.conflicts.join(', ')}.` : ''}
+            </p>
             <footer>
               {line.kind === 'recorrente' || line.kind === 'custo' ? <span>{formatBRL(line.monthlyValue)} / mês</span> : null}
               {line.oneTimeValue ? (

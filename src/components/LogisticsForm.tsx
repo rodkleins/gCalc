@@ -73,6 +73,16 @@ export function LogisticsForm({
             setLogistics({ ...logistics, shelving: { ...logistics.shelving, avoidedAcquisition } })
           }
         />
+        <label className="field check span-2">
+          <input
+            type="checkbox"
+            checked={logistics.shelving.stillRequired}
+            onChange={(event) =>
+              setLogistics({ ...logistics, shelving: { ...logistics.shelving, stillRequired: event.target.checked } })
+            }
+          />
+          <span>Estas prateleiras ainda são necessárias e não podem ser evitadas nem revendidas</span>
+        </label>
         <NumberField
           fieldId="logistics.shelving.resaleValue"
           label="Revenda ou reaproveitamento"
@@ -122,7 +132,11 @@ export function LogisticsForm({
           value={logistics.space.occupancyCostPerM2}
           suffix="R$/m²"
           onChange={(occupancyCostPerM2) =>
-            setLogistics({ ...logistics, space: { ...logistics.space, occupancyCostPerM2 } })
+            onChange({
+              ...inputs,
+              profile: { ...inputs.profile, occupancyCostPerM2 },
+              logistics: { ...logistics, space: { ...logistics.space, occupancyCostPerM2 } },
+            })
           }
         />
         <NumberField
@@ -134,6 +148,19 @@ export function LogisticsForm({
             setLogistics({ ...logistics, space: { ...logistics.space, contributionPerM2Month } })
           }
         />
+        <label className="field check span-2">
+          <input
+            type="checkbox"
+            checked={logistics.space.contractUnchanged}
+            onChange={(event) =>
+              setLogistics({
+                ...logistics,
+                space: { ...logistics.space, contractUnchanged: event.target.checked },
+              })
+            }
+          />
+          <span>O contrato de aluguel não muda. Nesse caso o custo de ocupação não entra no caixa.</span>
+        </label>
       </BenefitCard>
 
       <BenefitCard

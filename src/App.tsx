@@ -349,6 +349,22 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           <button type="button" className="btn ghost" data-testid="open-wizard" onClick={() => setSection('wizard')}>
             Assistente
           </button>
+          <button
+            type="button"
+            className="btn ghost"
+            data-testid="toggle-view"
+            onClick={() =>
+              commitInputs({
+                ...inputs,
+                assumptions: {
+                  ...inputs.assumptions,
+                  viewMode: inputs.assumptions.viewMode === 'simples' ? 'avancado' : 'simples',
+                },
+              })
+            }
+          >
+            {inputs.assumptions.viewMode === 'simples' ? 'Modo avançado' : 'Modo simples'}
+          </button>
           <button type="button" className="btn ghost" onClick={() => void copySummary()}>
             Copiar resumo
           </button>
@@ -391,7 +407,14 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           />
         ) : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
-        {section === 'pessoas' ? <PeopleForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'pessoas' ? (
+          <PeopleForm
+            inputs={inputs}
+            result={result}
+            onChange={commitInputs}
+            advanced={inputs.assumptions.viewMode !== 'simples'}
+          />
+        ) : null}
         {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'estoque' ? <StockForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'investimento' ? <InvestmentForm inputs={inputs} result={result} onChange={commitInputs} /> : null}

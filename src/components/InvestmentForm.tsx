@@ -1,5 +1,5 @@
-import { Callout, ModuleImpact, NumberField, PercentField, Switch } from './Fields';
-import { formatBRL, formatPercent } from '../model/format';
+import { Callout, ModuleImpact, NumberField, PercentField, SelectField, Switch } from './Fields';
+import { formatBRL, formatIrr, formatPercent } from '../model/format';
 import type { Inputs, ModelResult } from '../model/types';
 
 const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string }> = [
@@ -111,7 +111,25 @@ export function InvestmentForm({
           <PercentField
             label="Alíquota"
             value={robot.taxRate}
+            hint="Não é uma recomendação. 34% não serve a qualquer regime."
             onChange={(taxRate) => setRobot({ ...robot, taxRate })}
+          />
+          <SelectField
+            label="Política tributária"
+            value={robot.taxPolicy}
+            onChange={(taxPolicy) =>
+              setRobot({
+                ...robot,
+                taxPolicy: taxPolicy as Inputs['robot']['taxPolicy'],
+                includeTax: taxPolicy !== 'sem_impostos',
+              })
+            }
+            options={[
+              { value: 'sem_impostos', label: 'Sem impostos' },
+              { value: 'incremental_simplificado', label: 'Incremental simplificado' },
+              { value: 'prejuizo_com_limite', label: 'Prejuízo com limite de aproveitamento' },
+              { value: 'beneficio_condicionado', label: 'Benefício condicionado à capacidade' },
+            ]}
           />
           <PercentField
             fieldId="robot.discountRateAnnual"
@@ -126,7 +144,7 @@ export function InvestmentForm({
               checked={robot.includeTax}
               onChange={(event) => setRobot({ ...robot, includeTax: event.target.checked })}
             />
-            <span>Trazer imposto e escudo da depreciação linear para o caixa</span>
+            <span>Trazer imposto para o caixa. Prejuízo não vira crédito sozinho.</span>
           </label>
         </div>
       </section>
@@ -170,10 +188,11 @@ export function InvestmentForm({
         </div>
         {result.financing ? (
           <Callout tone="warn">
-            Valor financiado {formatBRL(result.financing.financedAmount)}. Parcela {formatBRL(result.financing.monthlyPayment)}{' '}
-            por {result.financing.termMonths} meses. Juros totais estimados {formatBRL(result.financing.interestTotal)}.
-            Esta leitura está fora do retorno econômico, hoje em {formatPercent(result.roi)} de ROI e VPL de{' '}
-            {formatBRL(result.npv)}.
+            Valor financiado {formatBRL(result.financing.financedAmount)}. Serviço da dívida{' '}
+            {formatBRL(result.financing.debtServiceMonthly)} por {result.financing.termMonths} meses. Custo financeiro{' '}
+            {formatBRL(result.financing.totalFinancialCost)}. VPL do projeto {formatBRL(result.financing.projectNpv)}. TIR
+            do capital próprio {formatIrr(result.financing.equityIrrAnnual)}. O financiamento recebido não é benefício
+            operacional. O retorno estabilizado do projeto segue em {formatPercent(result.roi)}.
           </Callout>
         ) : null}
       </section>

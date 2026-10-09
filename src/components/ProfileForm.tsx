@@ -189,6 +189,103 @@ export function ProfileForm({
           ))}
         </div>
       </section>
+
+      <section className="card">
+        <h2>Rede escalonada</h2>
+        <p className="lede">
+          Desligada, a rede só replica a loja atual. Ligada, cada unidade tem data, investimento e volume próprios. O
+          painel de resultados mostra o payback de cada uma.
+        </p>
+        <label className="field check">
+          <input
+            type="checkbox"
+            checked={inputs.network.enabled}
+            onChange={(event) =>
+              onChange({ ...inputs, network: { ...inputs.network, enabled: event.target.checked } })
+            }
+          />
+          <span>Consolidar implantação escalonada</span>
+        </label>
+        <div className="form-grid">
+          <NumberField
+            label="Custo compartilhado mensal"
+            value={inputs.network.sharedMonthlyCost}
+            suffix="R$"
+            onChange={(sharedMonthlyCost) =>
+              onChange({ ...inputs, network: { ...inputs.network, sharedMonthlyCost } })
+            }
+          />
+        </div>
+        <button
+          type="button"
+          className="btn"
+          onClick={() =>
+            onChange({
+              ...inputs,
+              network: {
+                ...inputs.network,
+                enabled: true,
+                stores: [
+                  ...inputs.network.stores,
+                  {
+                    id: `loja-${inputs.network.stores.length + 1}`,
+                    name: `Loja ${inputs.network.stores.length + 1}`,
+                    storeType: profile.storeType,
+                    count: 1,
+                    goLiveMonth: inputs.network.stores.length === 0 ? 1 : 13,
+                    investmentFactor: 1,
+                    volumeFactor: 1,
+                    laborFactor: 1,
+                  },
+                ],
+              },
+            })
+          }
+        >
+          Adicionar loja
+        </button>
+        {inputs.network.stores.map((store, index) => (
+          <div className="row-card" key={store.id}>
+            <TextField
+              label="Nome"
+              value={store.name}
+              onChange={(name) => {
+                const stores = inputs.network.stores.slice();
+                stores[index] = { ...store, name };
+                onChange({ ...inputs, network: { ...inputs.network, stores } });
+              }}
+            />
+            <NumberField
+              label="Go-live"
+              value={store.goLiveMonth}
+              min={1}
+              onChange={(goLiveMonth) => {
+                const stores = inputs.network.stores.slice();
+                stores[index] = { ...store, goLiveMonth };
+                onChange({ ...inputs, network: { ...inputs.network, stores } });
+              }}
+            />
+            <NumberField
+              label="Fator de investimento"
+              value={store.investmentFactor}
+              onChange={(investmentFactor) => {
+                const stores = inputs.network.stores.slice();
+                stores[index] = { ...store, investmentFactor };
+                onChange({ ...inputs, network: { ...inputs.network, stores } });
+              }}
+            />
+            <NumberField
+              label="Fator de volume"
+              value={store.volumeFactor}
+              onChange={(volumeFactor) => {
+                const stores = inputs.network.stores.slice();
+                stores[index] = { ...store, volumeFactor };
+                onChange({ ...inputs, network: { ...inputs.network, stores } });
+              }}
+            />
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
