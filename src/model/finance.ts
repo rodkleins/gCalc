@@ -134,3 +134,16 @@ export function simpleAnnualRoi(annualNetBenefit: number, netInvestment: number)
 export function emptyHorizon(value = 0): number[] {
   return Array.from({ length: HORIZON_MONTHS }, () => value);
 }
+
+/** Trocas de sinal ignorando zeros. Mais de uma troca torna a TIR ambígua. */
+export function signChanges(cashFlows: number[]): number {
+  let changes = 0;
+  let previous = 0;
+  for (const value of cashFlows) {
+    if (!Number.isFinite(value) || Math.abs(value) < 1e-6) continue;
+    const sign = value > 0 ? 1 : -1;
+    if (previous !== 0 && sign !== previous) changes += 1;
+    previous = sign;
+  }
+  return changes;
+}

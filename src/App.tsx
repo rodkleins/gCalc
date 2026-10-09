@@ -3,6 +3,9 @@ import { AuditPanel } from './components/AuditPanel';
 import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
 import { PremiseFocus } from './components/Fields';
+import { MoreActions } from './components/MoreActions';
+import { PageNav } from './components/PageNav';
+import { PreviewNotice } from './components/PreviewNotice';
 import { InvestmentForm } from './components/InvestmentForm';
 import { LibraryPanel, downloadJson } from './components/LibraryPanel';
 import { LogisticsForm } from './components/LogisticsForm';
@@ -280,6 +283,8 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
       </aside>
 
       <main className="main">
+        <PreviewNotice />
+        <PageNav current="calculadora" />
         <header className="top">
           <div>
             <p className="eyebrow">
@@ -316,45 +321,65 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           </div>
         </header>
 
-        <div className="toolbar">
-          <a className="btn" data-testid="open-headtohead" href={`${import.meta.env.BASE_URL}headtohead/`}>
-            Comparação head-to-head
-          </a>
-          <a className="btn" data-testid="open-calculos" href={`${import.meta.env.BASE_URL}calculos/`}>
-            Cálculos
-          </a>
-          <button type="button" className="btn" data-testid="restore-example" onClick={restoreExample}>
-            Restaurar exemplo
-          </button>
-          <button type="button" className="btn ghost" data-testid="clear-storage" onClick={clearSaved}>
-            Limpar dados salvos
-          </button>
-          <button
-            type="button"
-            className="btn ghost"
-            data-testid="new-simulation"
-            onClick={() => {
-              const seed = wizardSeed();
-              resetDraft(seed);
-              setScenario('base');
-              setSection('wizard');
-              setWizardStep(0);
-              setActiveId(null);
-              setDraftName(defaultSimulationName(seed, 'base'));
-              setStatus('Assistente aberto com valores sugeridos. Troque pelos dados da loja.');
-            }}
-          >
-            Nova simulação
-          </button>
-          <button type="button" className="btn ghost" data-testid="open-wizard" onClick={() => setSection('wizard')}>
-            Assistente
-          </button>
-          <button type="button" className="btn ghost" onClick={() => void copySummary()}>
-            Copiar resumo
-          </button>
-          <button type="button" className="btn ghost" onClick={() => setSection('simulacoes')}>
-            Simulações
-          </button>
+        <div className="command-bar">
+          <div className="command-primary">
+            <button
+              type="button"
+              className="btn primary"
+              data-testid="new-simulation"
+              onClick={() => {
+                const seed = wizardSeed();
+                resetDraft(seed);
+                setScenario('base');
+                setSection('wizard');
+                setWizardStep(0);
+                setActiveId(null);
+                setDraftName(defaultSimulationName(seed, 'base'));
+                setStatus('Assistente aberto com valores sugeridos. Troque pelos dados da loja.');
+              }}
+            >
+              Nova simulação
+            </button>
+            <button type="button" className="btn" data-testid="open-wizard" onClick={() => setSection('wizard')}>
+              Assistente
+            </button>
+            <button type="button" className="btn" data-testid="open-simulations" onClick={() => setSection('simulacoes')}>
+              Simulações
+            </button>
+          </div>
+          <div className="command-secondary">
+            <div className="seg" role="group" aria-label="Modo de edição" data-testid="toggle-view">
+              <button
+                type="button"
+                data-testid="view-simples"
+                aria-pressed={inputs.assumptions.viewMode === 'simples'}
+                className={inputs.assumptions.viewMode === 'simples' ? 'is-active' : ''}
+                onClick={() =>
+                  commitInputs({
+                    ...inputs,
+                    assumptions: { ...inputs.assumptions, viewMode: 'simples' },
+                  })
+                }
+              >
+                Simples
+              </button>
+              <button
+                type="button"
+                data-testid="view-avancado"
+                aria-pressed={inputs.assumptions.viewMode !== 'simples'}
+                className={inputs.assumptions.viewMode !== 'simples' ? 'is-active' : ''}
+                onClick={() =>
+                  commitInputs({
+                    ...inputs,
+                    assumptions: { ...inputs.assumptions, viewMode: 'avancado' },
+                  })
+                }
+              >
+                Avançado
+              </button>
+            </div>
+            <MoreActions onCopy={() => void copySummary()} onRestore={restoreExample} onClear={clearSaved} />
+          </div>
         </div>
         <p className="storage-note" data-testid="storage-note">
           Os dados ficam só neste navegador.
@@ -391,7 +416,14 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           />
         ) : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
-        {section === 'pessoas' ? <PeopleForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'pessoas' ? (
+          <PeopleForm
+            inputs={inputs}
+            result={result}
+            onChange={commitInputs}
+            advanced={inputs.assumptions.viewMode !== 'simples'}
+          />
+        ) : null}
         {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'estoque' ? <StockForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'investimento' ? <InvestmentForm inputs={inputs} result={result} onChange={commitInputs} /> : null}

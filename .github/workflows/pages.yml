@@ -1,3 +1,4 @@
+# Publica a calculadora, /headtohead/ e /calculos/ em /gCalc/, sem o subcaminho /preview/.
 name: Publicar no GitHub Pages
 
 on:

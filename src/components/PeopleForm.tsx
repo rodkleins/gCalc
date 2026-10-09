@@ -5,10 +5,12 @@ export function PeopleForm({
   inputs,
   result,
   onChange,
+  advanced = true,
 }: {
   inputs: Inputs;
   result: ModelResult;
   onChange: (inputs: Inputs) => void;
+  advanced?: boolean;
 }) {
   const people = inputs.people;
   const setPeople = (next: Inputs['people']) => onChange({ ...inputs, people: next });
@@ -59,8 +61,28 @@ export function PeopleForm({
           hint="Entra uma vez, e somente em loja existente."
           onChange={(severanceCost) => setPeople({ ...people, payroll: { ...people.payroll, severanceCost } })}
         />
+        {advanced ? (
+          <>
+            <PercentField
+              label="Encargos sobre o salário"
+              value={people.payroll.chargesPct}
+              hint="Some só se o custo da vaga ainda não for cheio."
+              onChange={(chargesPct) => setPeople({ ...people, payroll: { ...people.payroll, chargesPct } })}
+            />
+            <NumberField
+              label="Benefícios por vaga"
+              value={people.payroll.benefitsPerPosition}
+              suffix="R$"
+              onChange={(benefitsPerPosition) =>
+                setPeople({ ...people, payroll: { ...people.payroll, benefitsPerPosition } })
+              }
+            />
+          </>
+        ) : null}
       </BenefitCard>
 
+      {advanced ? (
+      <>
       <section className={`card benefit ${people.futureHires.enabled ? '' : 'is-off'}`}>
         <header className="benefit-head">
           <div>
@@ -332,6 +354,66 @@ export function PeopleForm({
           <span>Há evidência independente de que estas horas geram margem adicional</span>
         </label>
       </BenefitCard>
+      <BenefitCard
+        title="Horas realocadas"
+        description="Não são economia de folha. Só entram no caixa com redução de custo ou ganho incremental demonstrável."
+        enabled={people.reallocatedHours.enabled}
+        confidence={people.reallocatedHours.confidence}
+        onEnabled={(enabled) => setPeople({ ...people, reallocatedHours: { ...people.reallocatedHours, enabled } })}
+        onConfidence={(confidence) =>
+          setPeople({ ...people, reallocatedHours: { ...people.reallocatedHours, confidence } })
+        }
+      >
+        <NumberField
+          label="Horas por mês"
+          value={people.reallocatedHours.hoursPerMonth}
+          suffix="h"
+          onChange={(hoursPerMonth) =>
+            setPeople({ ...people, reallocatedHours: { ...people.reallocatedHours, hoursPerMonth } })
+          }
+        />
+        <SelectField
+          label="Monetização"
+          value={people.reallocatedHours.monetization}
+          onChange={(monetization) =>
+            setPeople({
+              ...people,
+              reallocatedHours: {
+                ...people.reallocatedHours,
+                monetization: monetization as Inputs['people']['reallocatedHours']['monetization'],
+              },
+            })
+          }
+          options={[
+            { value: 'nenhuma', label: 'Não monetizar' },
+            { value: 'reducao_custo', label: 'Redução real de custo' },
+            { value: 'ganho_incremental', label: 'Ganho incremental' },
+          ]}
+        />
+        <NumberField
+          label="Redução de custo"
+          value={people.reallocatedHours.costReductionMonthly}
+          suffix="R$/mês"
+          onChange={(costReductionMonthly) =>
+            setPeople({ ...people, reallocatedHours: { ...people.reallocatedHours, costReductionMonthly } })
+          }
+        />
+        <NumberField
+          label="Ganho incremental"
+          value={people.reallocatedHours.incrementalMarginMonthly}
+          suffix="R$/mês"
+          onChange={(incrementalMarginMonthly) =>
+            setPeople({ ...people, reallocatedHours: { ...people.reallocatedHours, incrementalMarginMonthly } })
+          }
+        />
+      </BenefitCard>
+      </>
+      ) : (
+        <Callout>
+          Modo simples: a folha usa o custo informado. Contratações futuras, turnover detalhado e horas ficam no modo
+          avançado e continuam valendo se já estavam preenchidos.
+        </Callout>
+      )}
     </div>
   );
 }

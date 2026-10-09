@@ -5,11 +5,15 @@ import { formatBRL, formatPayback, formatPercent } from '../model/format';
 import type { Inputs, ScenarioId, SensitivityDriver } from '../model/types';
 
 const DRIVERS: Array<{ id: SensitivityDriver; label: string; note: string }> = [
-  { id: 'investimento', label: 'Investimento', note: 'CAPEX bruto e CAPEX evitado' },
-  { id: 'maoDeObra', label: 'Mão de obra', note: 'Folha, horas, turnover e contratações' },
+  { id: 'investimento', label: 'Investimento', note: 'CAPEX bruto e prateleira evitada' },
+  { id: 'opex', label: 'OPEX', note: 'Custo mensal do robô' },
+  { id: 'maoDeObra', label: 'Mão de obra', note: 'O mesmo percentual do ajuste rápido' },
   { id: 'turnover', label: 'Turnover', note: 'Taxa anual de substituição' },
-  { id: 'vendas', label: 'Vendas', note: 'Só as margens que já entraram no fluxo' },
-  { id: 'volume', label: 'Volume', note: 'Dispensação, perdas, avarias, caixas e movimento' },
+  { id: 'vendas', label: 'Vendas', note: 'Margens incrementais' },
+  { id: 'volume', label: 'Volume', note: 'Dispensações, perdas, avarias, caixas e movimento' },
+  { id: 'desconto', label: 'Desconto', note: 'Taxa do VPL' },
+  { id: 'disponibilidade', label: 'Disponibilidade', note: 'Operação do robô' },
+  { id: 'cobertura', label: 'Cobertura', note: 'Estoque automatizado' },
 ];
 
 export function SensitivityPanel({ inputs, scenario }: { inputs: Inputs; scenario: ScenarioId }) {

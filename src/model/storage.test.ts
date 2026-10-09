@@ -5,6 +5,7 @@ import {
   STORAGE_KEY,
   STORAGE_VERSION,
   LEGACY_STORAGE_KEY,
+  storageKeys,
   clearSession,
   deleteSimulation,
   duplicateSimulation,
@@ -63,6 +64,28 @@ function sessionWith(patch?: Partial<PersistedSession['draft']>): PersistedSessi
     ],
   };
 }
+
+describe('chaves de armazenamento', () => {
+  it('mantém a calculadora publicada e isola a prévia', () => {
+    expect(storageKeys(false)).toEqual({
+      library: 'gcalc.library.v2',
+      legacy: 'gcalc.inputs.v1',
+      headtohead: 'gcalc.headtohead.v1',
+    });
+    expect(storageKeys(true)).toEqual({
+      library: 'gcalc.preview.library.v2',
+      legacy: 'gcalc.preview.inputs.v1',
+      headtohead: 'gcalc.preview.headtohead.v1',
+    });
+    expect(STORAGE_KEY).toBe('gcalc.library.v2');
+    expect(LEGACY_STORAGE_KEY).toBe('gcalc.inputs.v1');
+    for (const key of Object.values(storageKeys(true))) {
+      expect(key.startsWith('gcalc.preview.')).toBe(true);
+      expect(key).not.toBe(STORAGE_KEY);
+      expect(key).not.toBe(LEGACY_STORAGE_KEY);
+    }
+  });
+});
 
 describe('serialização da sessão', () => {
   it('preserva premissas, cenário, tipo de loja, benefícios e módulo', () => {
@@ -144,6 +167,110 @@ describe('serialização da sessão', () => {
 
     const empty = memory();
     expect(readSession(empty).source).toBe('empty');
+  });
+
+  it('mantém as simulações da raiz quando faltam os campos novos', () => {
+    const stored = exampleInputs();
+    const raw = JSON.parse(JSON.stringify(stored)) as Record<string, any>;
+    delete raw.assumptions.viewMode;
+    delete raw.profile.wageGrowthPctPerYear;
+    delete raw.profile.opexInflationPctPerYear;
+    delete raw.profile.priceInflationPctPerYear;
+    delete raw.profile.moneyBasis;
+    delete raw.people.journeyHoursPerMonth;
+    delete raw.people.reallocatedHours;
+    delete raw.people.payroll.chargesPct;
+    delete raw.people.payroll.benefitsPerPosition;
+    delete raw.people.payroll.costConfirmedFullyLoaded;
+    delete raw.people.turnover.costMode;
+    delete raw.people.turnover.components;
+    for (const key of [
+      'useDetailed',
+      'cyclesEnabled',
+      'reverseTransportMonthly',
+      'reverseTransportEnabled',
+      'sanitationMonthly',
+      'sanitationEnabled',
+      'handlingMonthly',
+      'handlingEnabled',
+      'lossReplacementMonthly',
+      'lossReplacementEnabled',
+      'spaceMonthly',
+      'spaceEnabled',
+    ]) {
+      delete raw.logistics.boxes[key];
+    }
+    delete raw.logistics.shelving.stillRequired;
+    delete raw.logistics.shelving.removalCost;
+    for (const key of ['treatment', 'contractUnchanged', 'avoidedRealEstate', 'commercialEvidence']) {
+      delete raw.logistics.space[key];
+    }
+    for (const key of ['useDetailed', 'expiryMonthly', 'damageMonthly', 'missingMonthly', 'errorsMonthly']) {
+      delete raw.stock.losses[key];
+    }
+    delete raw.stock.abandonment;
+    delete raw.stock.workingCapital.reductionProven;
+    delete raw.network;
+    for (const key of [
+      'reorganizationEffectiveness',
+      'automatedStockShare',
+      'serviceLevel',
+      'conversionFactor',
+      'taxPolicy',
+      'lossUtilizationLimit',
+      'taxCapacityMonthly',
+      'taxBenefitValidated',
+      'taxValidated',
+      'extraordinaryEventsTaxable',
+      'discountBasis',
+      'ramp',
+      'capexSchedule',
+    ]) {
+      delete raw.robot[key];
+    }
+
+    const store = memory();
+    store.setItem(
+      'gcalc.library.v2',
+      JSON.stringify({
+        version: 2,
+        draft: { inputs: raw, scenario: 'base', section: 'dashboard', wizardStep: 0, adjustAnchor: raw },
+        simulations: [
+          {
+            id: 'loja-centro',
+            name: 'Loja Centro salva',
+            savedAt: '2026-10-01T12:00:00.000Z',
+            inputs: raw,
+            scenario: 'base',
+            section: 'dashboard',
+          },
+        ],
+      }),
+    );
+    store.setItem('gcalc.preview.library.v2', '{"version":2,"simulations":[{"id":"prev","name":"Só prévia"}]}');
+
+    expect(STORAGE_KEY).toBe('gcalc.library.v2');
+    const loaded = readSession(store);
+    expect(loaded.source).toBe('current');
+    expect(loaded.simulations.map((item) => item.name)).toEqual(['Loja Centro salva']);
+    expect(loaded.draft?.inputs.meta.storeName).toBe('Farmácia Aurora — Unidade Centro');
+    expect(loaded.draft?.inputs.assumptions.viewMode).toBe('avancado');
+    const result = evaluate(loaded.simulations[0].inputs);
+    expect(result.netInvestment).toBe(2_000_000);
+    expect(result.steadyNet).toBe(65_000);
+    expect(result.roi).toBeCloseTo(0.39);
+    expect(store.getItem('gcalc.preview.library.v2')).toContain('Só prévia');
+
+    writeSession(store, {
+      version: STORAGE_VERSION,
+      draft: loaded.draft!,
+      simulations: loaded.simulations,
+    });
+    const rewritten = readSession(store);
+    expect(rewritten.simulations).toHaveLength(1);
+    expect(rewritten.simulations[0].id).toBe('loja-centro');
+    expect(store.getItem(STORAGE_KEY)).toContain('Loja Centro salva');
+    expect(store.getItem('gcalc.preview.library.v2')).toContain('Só prévia');
   });
 
   it('grava a versão atual e apaga a chave antiga', () => {

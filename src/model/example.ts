@@ -19,6 +19,7 @@ const EXAMPLE: Inputs = {
   },
   assumptions: {
     includePotential: false,
+    viewMode: 'avancado',
   },
   profile: {
     storeType: 'nova',
@@ -41,6 +42,10 @@ const EXAMPLE: Inputs = {
     skuCount: 6_500,
     historicalLossesMonthly: 18_000,
     demandGrowthPctPerYear: 0,
+    wageGrowthPctPerYear: 0,
+    opexInflationPctPerYear: 0,
+    priceInflationPctPerYear: 0,
+    moneyBasis: 'nominal',
     storeCount: 1,
   },
   people: {
@@ -49,8 +54,21 @@ const EXAMPLE: Inputs = {
       confidence: 'comprovavel',
       positionsReduced: 6,
       monthlyCostPerPosition: 9_200,
+      chargesPct: 0,
+      benefitsPerPosition: 0,
+      costConfirmedFullyLoaded: true,
       startMonth: 1,
       severanceCost: 18_000,
+    },
+    journeyHoursPerMonth: 176,
+    reallocatedHours: {
+      enabled: false,
+      confidence: 'potencial',
+      hoursPerMonth: 0,
+      monetization: 'nenhuma',
+      costReductionMonthly: 0,
+      incrementalMarginMonthly: 0,
+      evidence: false,
     },
     futureHires: {
       enabled: false,
@@ -82,6 +100,14 @@ const EXAMPLE: Inputs = {
       confidence: 'comprovavel',
       annualRate: 0.2,
       costPerReplacement: 12_000,
+      costMode: 'consolidado',
+      components: {
+        recruitment: 0,
+        replacementTraining: 0,
+        adaptationLoss: 0,
+        termination: 0,
+        supervision: 0,
+      },
     },
     supervision: {
       enabled: true,
@@ -105,6 +131,18 @@ const EXAMPLE: Inputs = {
       processValidated: false,
       cyclesAvoidedPerMonth: 400,
       costPerCycle: 8,
+      useDetailed: false,
+      cyclesEnabled: true,
+      reverseTransportMonthly: 0,
+      reverseTransportEnabled: false,
+      sanitationMonthly: 0,
+      sanitationEnabled: false,
+      handlingMonthly: 0,
+      handlingEnabled: false,
+      lossReplacementMonthly: 0,
+      lossReplacementEnabled: false,
+      spaceMonthly: 0,
+      spaceEnabled: false,
     },
     shelving: {
       enabled: true,
@@ -112,14 +150,20 @@ const EXAMPLE: Inputs = {
       avoidedAcquisition: 180_000,
       resaleValue: 25_000,
       avoidedMaintenanceMonthly: 1_500,
+      stillRequired: false,
+      removalCost: 0,
     },
     space: {
       enabled: true,
       confidence: 'comprovavel',
       m2Freed: 20,
       mode: 'ocupacao',
+      treatment: 'ocupacao_evitavel',
+      contractUnchanged: false,
       occupancyCostPerM2: 200,
       contributionPerM2Month: 150,
+      avoidedRealEstate: 0,
+      commercialEvidence: false,
     },
     movement: {
       enabled: true,
@@ -141,6 +185,11 @@ const EXAMPLE: Inputs = {
       enabled: true,
       confidence: 'comprovavel',
       projectedLossesMonthly: 8_000,
+      useDetailed: false,
+      expiryMonthly: 0,
+      damageMonthly: 0,
+      missingMonthly: 0,
+      errorsMonthly: 0,
     },
     shrinkage: {
       enabled: true,
@@ -159,6 +208,12 @@ const EXAMPLE: Inputs = {
       independentEvidence: false,
       additionalMonthlySales: 10_000,
     },
+    abandonment: {
+      enabled: false,
+      confidence: 'potencial',
+      independentEvidence: false,
+      additionalMonthlySales: 0,
+    },
     workingCapital: {
       enabled: false,
       confidence: 'comprovavel',
@@ -167,7 +222,13 @@ const EXAMPLE: Inputs = {
       treatment: 'liberacao_caixa',
       costOfCapitalAnnual: 0.12,
       reverseAtHorizon: false,
+      reductionProven: true,
     },
+  },
+  network: {
+    enabled: false,
+    sharedMonthlyCost: 0,
+    stores: [],
   },
   robot: {
     capex: {
@@ -188,12 +249,25 @@ const EXAMPLE: Inputs = {
     },
     availabilityPct: 1,
     capacityDispensationsPerDay: 1_500,
+    reorganizationEffectiveness: 1,
+    automatedStockShare: 1,
+    serviceLevel: 1,
+    conversionFactor: 1,
     goLiveMonth: 1,
     residualValue: 0,
     depreciationYears: 10,
     includeTax: false,
     taxRate: 0.34,
+    taxPolicy: 'sem_impostos',
+    lossUtilizationLimit: 0,
+    taxCapacityMonthly: 0,
+    taxBenefitValidated: false,
+    taxValidated: false,
+    extraordinaryEventsTaxable: true,
     discountRateAnnual: 0.12,
+    discountBasis: 'nominal',
+    ramp: { people: [1], logistics: [1], stock: [1], sales: [1] },
+    capexSchedule: [{ month: 0, share: 1 }],
     financing: {
       enabled: false,
       downPaymentPct: 0.3,
@@ -275,6 +349,12 @@ export function blankInputs(): Inputs {
   inputs.stock.serviceSpeed.enabled = false;
   inputs.stock.workingCapital.enabled = false;
   inputs.stock.workingCapital.inventoryAfter = 0;
+  inputs.stock.workingCapital.reductionProven = false;
+  inputs.stock.losses.useDetailed = false;
+  inputs.stock.abandonment.enabled = false;
+  inputs.people.reallocatedHours.enabled = false;
+  inputs.network.enabled = false;
+  inputs.network.stores = [];
   inputs.robot.capex = {
     equipment: 0,
     freightImportTaxes: 0,

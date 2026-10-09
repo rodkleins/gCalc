@@ -19,8 +19,8 @@ export function StockForm({
     <div className="stack">
       <ModuleImpact result={result} module="Estoque" />
       <Callout>
-        Capital de giro liberado é caixa, não lucro mensal. Se ele entra no fluxo, o custo financeiro do estoque fica só
-        como leitura: a taxa de desconto do VPL já remunera esse capital.
+        Capital de giro liberado é caixa, não lucro mensal. Sem premissa operacional comprovada, a queda de estoque não
+        entra. Se o principal entra no fluxo, o custo financeiro fica só como leitura.
       </Callout>
 
       <BenefitCard
@@ -164,6 +164,19 @@ export function StockForm({
             setStock({ ...stock, workingCapital: { ...stock.workingCapital, inventoryAfter } })
           }
         />
+        <label className="field check span-2">
+          <input
+            type="checkbox"
+            checked={stock.workingCapital.reductionProven}
+            onChange={(event) =>
+              setStock({
+                ...stock,
+                workingCapital: { ...stock.workingCapital, reductionProven: event.target.checked },
+              })
+            }
+          />
+          <span>A redução de estoque está comprovada operacionalmente. Sem isso o caixa não muda.</span>
+        </label>
         <NumberField
           label="Mês da liberação"
           value={stock.workingCapital.releaseMonth}

@@ -36,7 +36,7 @@ describe('premissas e ajuste rápido', () => {
     const raised = withLeverValue(anchor, anchor, 'investimento', gross * 1.3);
     expect(raised.robot.capex.equipment).toBeCloseTo(anchor.robot.capex.equipment * 1.3, 2);
     expect(raised.robot.capex.freightImportTaxes).toBeCloseTo(anchor.robot.capex.freightImportTaxes * 1.3, 2);
-    expect(raised.logistics.shelving.avoidedAcquisition).toBe(anchor.logistics.shelving.avoidedAcquisition);
+    expect(raised.logistics.shelving.avoidedAcquisition).toBeCloseTo(anchor.logistics.shelving.avoidedAcquisition * 1.3, 2);
     expect(leverDelta(raised, anchor, 'investimento')).toBeCloseTo(0.3, 6);
 
     const opex = withLeverValue(anchor, anchor, 'opex', leverValue(anchor, 'opex') * 1.1);

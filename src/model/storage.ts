@@ -1,10 +1,29 @@
 import { scenarioLabel } from './format';
+import { normalizeInputs } from './normalize';
 import type { Inputs, ScenarioId } from './types';
 import { normalizeWizardStep } from './wizard';
 
 export const STORAGE_VERSION = 2;
-export const STORAGE_KEY = 'gcalc.library.v2';
-export const LEGACY_STORAGE_KEY = 'gcalc.inputs.v1';
+
+/** Chaves da calculadora publicada e da prévia em /gCalc/preview/. A prévia não lê nem apaga as da raiz. */
+export function storageKeys(preview: boolean): { library: string; legacy: string; headtohead: string } {
+  if (preview) {
+    return {
+      library: 'gcalc.preview.library.v2',
+      legacy: 'gcalc.preview.inputs.v1',
+      headtohead: 'gcalc.preview.headtohead.v1',
+    };
+  }
+  return {
+    library: 'gcalc.library.v2',
+    legacy: 'gcalc.inputs.v1',
+    headtohead: 'gcalc.headtohead.v1',
+  };
+}
+
+const keys = storageKeys(import.meta.env.VITE_PREVIEW === '1');
+export const STORAGE_KEY = keys.library;
+export const LEGACY_STORAGE_KEY = keys.legacy;
 
 export const SECTION_IDS = [
   'dashboard',
@@ -106,11 +125,11 @@ function draftFrom(
   adjustAnchor?: unknown,
 ): DraftState {
   return {
-    inputs,
+    inputs: normalizeInputs(inputs),
     scenario: isScenarioId(scenario) ? scenario : 'base',
     section: isSectionId(section) ? section : 'dashboard',
     wizardStep: normalizeWizardStep(wizardStep),
-    adjustAnchor: isInputs(adjustAnchor) ? adjustAnchor : structuredClone(inputs),
+    adjustAnchor: normalizeInputs(isInputs(adjustAnchor) ? adjustAnchor : structuredClone(inputs)),
   };
 }
 
@@ -121,7 +140,7 @@ export function parseSimulation(value: unknown): SimulationRecord | null {
     id: value.id,
     name: value.name.trim(),
     savedAt: typeof value.savedAt === 'string' ? value.savedAt : new Date(0).toISOString(),
-    inputs: value.inputs,
+    inputs: normalizeInputs(value.inputs),
     scenario: isScenarioId(value.scenario) ? value.scenario : 'base',
     section: isSectionId(value.section) ? value.section : 'dashboard',
   };

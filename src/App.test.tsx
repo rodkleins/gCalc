@@ -39,6 +39,15 @@ describe('aplicação', () => {
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-calculos"]')?.getAttribute('href')).toBe(
       '/gCalc/calculos/',
     );
+    expect(host.querySelector('[data-testid="page-nav"] [aria-current="page"]')?.textContent).toBe('Calculadora');
+    expect(host.querySelector('.command-bar [data-testid="open-headtohead"]')).toBeNull();
+    expect(host.querySelector('[data-testid="view-avancado"]')?.className).toContain('is-active');
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="view-simples"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="view-simples"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('[data-testid="more-actions"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="copy-summary"]')).toBeNull();
     act(() => root.unmount());
   });
 
@@ -74,7 +83,12 @@ describe('aplicação', () => {
     expect(host.textContent).toContain('Folha e encargos');
     expect(host.querySelector('[aria-label="Cenário"] .is-active')?.textContent).toBe('Conservador');
     expect(host.textContent).toContain('Os dados ficam só neste navegador.');
+    expect(host.querySelector('.command-bar [data-testid="open-headtohead"]')).toBeNull();
+    expect(host.querySelector('[data-testid="restore-example"]')).toBeNull();
 
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="more-actions"]')?.click();
+    });
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="restore-example"]')?.click();
     });
@@ -82,7 +96,14 @@ describe('aplicação', () => {
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').simulations).toHaveLength(1);
 
     await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="more-actions"]')?.click();
+    });
+    await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="clear-storage"]')?.click();
+    });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').simulations).toHaveLength(1);
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="clear-storage-confirm"]')?.click();
     });
     const cleared = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     expect(cleared.simulations).toEqual([]);
@@ -211,7 +232,7 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.109.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.100.000');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
@@ -249,7 +270,7 @@ describe('aplicação', () => {
       restored.render(<App />);
     });
     const text = (selector: string) => next.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.109.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.100.000');
     await act(async () => {
       next.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });

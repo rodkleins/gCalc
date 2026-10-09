@@ -1,4 +1,4 @@
-import { createId } from '../model/storage';
+import { createId, storageKeys } from '../model/storage';
 import {
   exampleDraft,
   isHeadToHeadSection,
@@ -9,7 +9,7 @@ import {
   type StaffLine,
 } from './model';
 
-export const HEADTOHEAD_STORAGE_KEY = 'gcalc.headtohead.v1';
+export const HEADTOHEAD_STORAGE_KEY = storageKeys(import.meta.env.VITE_PREVIEW === '1').headtohead;
 
 export function loadDraft(storage: Pick<Storage, 'getItem'>): HeadToHeadDraft {
   const raw = storage.getItem(HEADTOHEAD_STORAGE_KEY);

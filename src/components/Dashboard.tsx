@@ -132,12 +132,12 @@ export function Dashboard({
           </em>
         </article>
         <article className="kpi accent">
-          <span>ROI anual simples</span>
+          <span>Retorno anual simples estabilizado</span>
           <strong data-testid="kpi-roi">{formatPercent(result.roi)}</strong>
           <em>
             {result.roi === null
               ? 'Não se aplica sem investimento positivo.'
-              : 'Não é a TIR. Usa o run-rate do mês 60.'}
+              : 'Run-rate do mês 60. Não é o ROI acumulado nem a TIR.'}
           </em>
         </article>
         <article className="kpi">
@@ -154,12 +154,44 @@ export function Dashboard({
           <span>TIR anual efetiva</span>
           <strong data-testid="kpi-irr">{formatIrr(result.irrAnnual)}</strong>
           <em>
-            {result.irrAnnual === null
-              ? 'Não há troca de sinal no caixa'
-              : `Mensal ${formatPercent(result.irrMonthly, 2)}`}
+            {result.indicators.irrAmbiguous
+              ? 'TIR ambígua: mais de uma troca de sinal. Use o VPL.'
+              : result.irrAnnual === null
+                ? 'Não há troca de sinal no caixa'
+                : `Mensal ${formatPercent(result.irrMonthly, 2)}`}
           </em>
         </article>
       </section>
+
+      <section className="kpis" data-testid="indicator-set">
+        <article className="kpi">
+          <span>ROI acumulado em 60 meses</span>
+          <strong data-testid="kpi-roi-accumulated">{formatPercent(result.indicators.cumulativeRoi)}</strong>
+          <em>Soma do operacional líquido ÷ investimento líquido</em>
+        </article>
+        <article className="kpi">
+          <span>Payback descontado</span>
+          <strong>{formatPayback(result.discountedPayback)}</strong>
+          <em>Caixa descontado à taxa do VPL</em>
+        </article>
+        <article className="kpi">
+          <span>Economia acumulada</span>
+          <strong>{formatBRL(result.indicators.accumulatedSavings)}</strong>
+          <em>Benefício operacional bruto no horizonte</em>
+        </article>
+        <article className="kpi">
+          <span>Benefício operacional anual</span>
+          <strong>{formatBRL(result.indicators.annualOperatingBenefit)}</strong>
+          <em>Bruto do mês 60 × 12, antes do OPEX</em>
+        </article>
+        <article className="kpi">
+          <span>Caixa acumulado</span>
+          <strong>{formatBRL(result.indicators.cumulativeCash)}</strong>
+          <em>Descontado {formatBRL(result.indicators.cumulativeDiscountedCash)}</em>
+        </article>
+      </section>
+
+      <BenefitClasses result={result} />
 
       <section className="card memory">
         <h2>Memória do cenário {scenarioLabel(scenario).toLowerCase()}</h2>
@@ -178,7 +210,7 @@ export function Dashboard({
             ao ano
           </li>
           <li>
-            ROI = {formatBRL(result.annualSteadyNet)} /{' '}
+            Retorno anual simples estabilizado = {formatBRL(result.annualSteadyNet)} /{' '}
             <PremiseValue fieldId="robot.capex.equipment" onOpen={onOpenPremise}>
               {formatBRL(result.netInvestment)}
             </PremiseValue>{' '}
@@ -203,7 +235,7 @@ export function Dashboard({
           />
           <Switch
             checked={inputs.assumptions.includePotential}
-            onChange={(includePotential) => onInputs({ ...inputs, assumptions: { includePotential } })}
+            onChange={(includePotential) => onInputs({ ...inputs, assumptions: { ...inputs.assumptions, includePotential } })}
             label={inputs.assumptions.includePotential ? 'Potenciais no fluxo' : 'Só comprováveis'}
           />
         </div>
@@ -371,16 +403,92 @@ export function Dashboard({
         </div>
       </section>
 
-      {result.storeCount > 1 ? (
+      {result.network.mode === 'escalonada' ? (
+        <section className="card">
+          <h2>Rede com implantação escalonada</h2>
+          <p className="lede">
+            Consolidado: investimento {formatBRL(result.network.investment)}, líquido {formatBRL(result.network.steadyNet)}{' '}
+            por mês e VPL {formatBRL(result.network.npv)}. Cada loja guarda o próprio payback.
+          </p>
+          <div className="table-wrap short">
+            <table>
+              <thead>
+                <tr>
+                  <th>Loja</th>
+                  <th className="num">Início</th>
+                  <th className="num">Payback</th>
+                  <th className="num">VPL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.network.stores.map((store) => (
+                  <tr key={store.id}>
+                    <td>
+                      {store.name} × {store.count}
+                    </td>
+                    <td className="num">mês {store.goLiveMonth}</td>
+                    <td className="num">{formatPayback(store.payback)}</td>
+                    <td className="num">{formatBRL(store.npv)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : result.storeCount > 1 ? (
         <section className="card">
           <h2>Rede, {result.storeCount} lojas</h2>
           <p className="lede">
             Investimento {formatBRL(result.network.investment)}, benefício líquido {formatBRL(result.network.steadyNet)}{' '}
-            por mês e VPL {formatBRL(result.network.npv)}. Payback e ROI permanecem os da loja, porque a réplica é linear.
+            por mês e VPL {formatBRL(result.network.npv)}. Payback e retorno estabilizado permanecem os da loja, porque a
+            réplica é linear. A implantação escalonada fica no modo avançado.
           </p>
         </section>
       ) : null}
     </div>
+  );
+}
+
+function BenefitClasses({ result }: { result: ModelResult }) {
+  const groups = [
+    {
+      title: 'Comprováveis no fluxo',
+      lines: result.audit.filter((line) => line.includedInCashFlow && line.confidence === 'comprovavel' && line.kind === 'recorrente'),
+    },
+    {
+      title: 'Potenciais',
+      lines: result.audit.filter((line) => line.confidence === 'potencial'),
+    },
+    {
+      title: 'Custos operacionais',
+      lines: result.audit.filter((line) => line.id === 'opex'),
+    },
+    {
+      title: 'Investimentos pontuais',
+      lines: result.audit.filter((line) => line.id === 'capex' || line.id === 'shelvingCapex'),
+    },
+    {
+      title: 'Caixa não recorrente',
+      lines: result.audit.filter((line) => line.kind === 'pontual' || line.kind === 'capital'),
+    },
+    {
+      title: 'Produtividade não monetizada',
+      lines: result.audit.filter((line) => line.id === 'reallocated' && !line.includedInCashFlow),
+    },
+  ];
+  return (
+    <section className="card">
+      <h2>O que entrou no resultado</h2>
+      <div className="compare">
+        {groups.map((group) => (
+          <article key={group.title} className="compare-card">
+            <span>{group.title}</span>
+            <strong>{group.lines.length}</strong>
+            <em>{group.lines.slice(0, 3).map((line) => line.label).join(' · ') || 'Nenhum item'}</em>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
