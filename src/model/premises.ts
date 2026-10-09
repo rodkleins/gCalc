@@ -1,6 +1,7 @@
+import { projectDriver } from './drivers';
 import { round2 } from './round';
 import type { SectionId } from './storage';
-import type { Inputs } from './types';
+import type { Inputs, SensitivityDriver } from './types';
 
 export const ADJUST_MIN = -1;
 export const ADJUST_MAX = 0.3;
@@ -23,10 +24,10 @@ export const QUICK_LEVERS = [
   },
   {
     id: 'salarios',
-    label: 'Salários',
+    label: 'Mão de obra',
     fieldId: 'people.payroll.monthlyCostPerPosition',
     kind: 'money' as const,
-    hint: 'Custo completo de cada vaga evitada.',
+    hint: 'Mesmo driver de mão de obra da sensibilidade: folha, horas, turnover e contratações.',
   },
   {
     id: 'turnover',
@@ -54,7 +55,21 @@ export const QUICK_LEVERS = [
     label: 'Taxa de desconto',
     fieldId: 'robot.discountRateAnnual',
     kind: 'percent' as const,
-    hint: 'Taxa efetiva anual do VPL. Não entra no ROI.',
+    hint: 'Taxa efetiva anual do VPL. Não entra no retorno anual simples.',
+  },
+  {
+    id: 'disponibilidade',
+    label: 'Disponibilidade',
+    fieldId: 'robot.availabilityPct',
+    kind: 'percent' as const,
+    hint: 'Reduz dispensação, vendas e logística. A folha só zera se a disponibilidade chega a zero.',
+  },
+  {
+    id: 'cobertura',
+    label: 'Cobertura do estoque',
+    fieldId: 'robot.automatedStockShare',
+    kind: 'percent' as const,
+    hint: 'Fração do estoque automatizado. É o mesmo driver da sensibilidade.',
   },
 ] as const;
 
@@ -111,6 +126,8 @@ export function leverValue(inputs: Inputs, id: LeverId): number {
   if (id === 'turnover') return inputs.people.turnover.annualRate;
   if (id === 'volume') return inputs.profile.dispensationsPerDay;
   if (id === 'vendas') return salesTotal(inputs);
+  if (id === 'disponibilidade') return inputs.robot.availabilityPct;
+  if (id === 'cobertura') return inputs.robot.automatedStockShare;
   return inputs.robot.discountRateAnnual;
 }
 
@@ -121,25 +138,23 @@ export function leverDelta(current: Inputs, anchor: Inputs, id: LeverId): number
   return now / base - 1;
 }
 
+const LEVER_DRIVER: Record<LeverId, SensitivityDriver> = {
+  investimento: 'investimento',
+  opex: 'opex',
+  salarios: 'maoDeObra',
+  turnover: 'turnover',
+  volume: 'volume',
+  vendas: 'vendas',
+  desconto: 'desconto',
+  disponibilidade: 'disponibilidade',
+  cobertura: 'cobertura',
+};
+
 export function withLeverValue(current: Inputs, anchor: Inputs, id: LeverId, absolute: number): Inputs {
   const target = Math.max(0, absolute);
-  if (id === 'investimento') return applyScale(current, anchor.robot.capex, target, 'capex');
-  if (id === 'opex') return applyScale(current, anchor.robot.opexMonthly, target, 'opex');
-  if (id === 'salarios') {
-    return {
-      ...current,
-      people: { ...current.people, payroll: { ...current.people.payroll, monthlyCostPerPosition: target } },
-    };
-  }
-  if (id === 'turnover') {
-    return {
-      ...current,
-      people: { ...current.people, turnover: { ...current.people.turnover, annualRate: target } },
-    };
-  }
-  if (id === 'volume') return applyVolume(current, anchor, target);
-  if (id === 'vendas') return applySales(current, anchor, target);
-  return { ...current, robot: { ...current.robot, discountRateAnnual: target } };
+  const base = leverValue(anchor, id);
+  if (!(base > 0)) return seedEmptyLever(current, id, target);
+  return projectDriver(current, anchor, LEVER_DRIVER[id], target / base);
 }
 
 export function reanchor(anchor: Inputs, previous: Inputs, next: Inputs): Inputs {
@@ -166,114 +181,57 @@ export function nudgeLever(current: Inputs, anchor: Inputs, id: LeverId, directi
   return withLeverValue(current, anchor, id, base * (1 + next));
 }
 
-function sumRecord(record: Record<string, number>): number {
-  return Object.values(record).reduce((total, value) => total + value, 0);
-}
-
-function salesTotal(inputs: Inputs): number {
-  return (
-    inputs.stock.ruptures.additionalMonthlySales +
-    inputs.stock.serviceSpeed.additionalMonthlySales +
-    inputs.people.consultativeSales.hoursFreedPerMonth * inputs.people.consultativeSales.marginPerHour
-  );
-}
-
-function scaleRecord<T extends Record<string, number>>(record: T, factor: number, target: number): T {
-  const next: Record<string, number> = {};
-  const keys = Object.keys(record);
-  for (const key of keys) next[key] = round2(record[key] * factor);
-  if (keys.length === 0) return next as T;
-  const key = keys.reduce((best, current) => (record[current] > record[best] ? current : best), keys[0]);
-  const others = keys.reduce((total, current) => (current === key ? total : total + next[current]), 0);
-  next[key] = Math.max(0, round2(target - others));
-  return next as T;
-}
-
-function applyScale(
-  current: Inputs,
-  anchorRecord: Inputs['robot']['capex'] | Inputs['robot']['opexMonthly'],
-  target: number,
-  kind: 'capex' | 'opex',
-): Inputs {
-  const base = sumRecord(anchorRecord);
-  const scaled =
-    base > 0
-      ? scaleRecord(anchorRecord, target / base, target)
-      : { ...anchorRecord, [kind === 'capex' ? 'equipment' : 'maintenance']: target };
-  if (kind === 'capex') {
-    return { ...current, robot: { ...current.robot, capex: scaled as Inputs['robot']['capex'] } };
+function seedEmptyLever(current: Inputs, id: LeverId, target: number): Inputs {
+  if (id === 'investimento') {
+    return { ...current, robot: { ...current.robot, capex: { ...current.robot.capex, equipment: target } } };
   }
-  return { ...current, robot: { ...current.robot, opexMonthly: scaled as Inputs['robot']['opexMonthly'] } };
-}
-
-function applyVolume(current: Inputs, anchor: Inputs, dispensations: number): Inputs {
-  const base = anchor.profile.dispensationsPerDay;
-  const factor = base > 0 ? dispensations / base : 0;
-  if (!(base > 0)) {
-    return { ...current, profile: { ...current.profile, dispensationsPerDay: dispensations } };
+  if (id === 'opex') {
+    return {
+      ...current,
+      robot: { ...current.robot, opexMonthly: { ...current.robot.opexMonthly, maintenance: target } },
+    };
   }
-  return {
-    ...current,
-    profile: {
-      ...current.profile,
-      dispensationsPerDay: round2(anchor.profile.dispensationsPerDay * factor),
-      historicalLossesMonthly: round2(anchor.profile.historicalLossesMonthly * factor),
-    },
-    stock: {
-      ...current.stock,
-      losses: {
-        ...current.stock.losses,
-        projectedLossesMonthly: round2(anchor.stock.losses.projectedLossesMonthly * factor),
-      },
-      shrinkage: {
-        ...current.stock.shrinkage,
-        avoidedMonthly: round2(anchor.stock.shrinkage.avoidedMonthly * factor),
-      },
-    },
-    logistics: {
-      ...current.logistics,
-      boxes: {
-        ...current.logistics.boxes,
-        cyclesAvoidedPerMonth: round2(anchor.logistics.boxes.cyclesAvoidedPerMonth * factor),
-      },
-      movement: {
-        ...current.logistics.movement,
-        hoursSavedPerMonth: round2(anchor.logistics.movement.hoursSavedPerMonth * factor),
-      },
-    },
-  };
-}
-
-function applySales(current: Inputs, anchor: Inputs, target: number): Inputs {
-  const base = salesTotal(anchor);
-  if (!(base > 0)) {
+  if (id === 'salarios') {
+    return {
+      ...current,
+      people: { ...current.people, payroll: { ...current.people.payroll, monthlyCostPerPosition: target } },
+    };
+  }
+  if (id === 'turnover') {
+    return { ...current, people: { ...current.people, turnover: { ...current.people.turnover, annualRate: target } } };
+  }
+  if (id === 'volume') return { ...current, profile: { ...current.profile, dispensationsPerDay: target } };
+  if (id === 'vendas') {
     return {
       ...current,
       stock: { ...current.stock, ruptures: { ...current.stock.ruptures, additionalMonthlySales: target } },
     };
   }
-  const factor = target / base;
-  return {
-    ...current,
-    stock: {
-      ...current.stock,
-      ruptures: {
-        ...current.stock.ruptures,
-        additionalMonthlySales: round2(anchor.stock.ruptures.additionalMonthlySales * factor),
-      },
-      serviceSpeed: {
-        ...current.stock.serviceSpeed,
-        additionalMonthlySales: round2(anchor.stock.serviceSpeed.additionalMonthlySales * factor),
-      },
-    },
-    people: {
-      ...current.people,
-      consultativeSales: {
-        ...current.people.consultativeSales,
-        marginPerHour: round2(anchor.people.consultativeSales.marginPerHour * factor),
-      },
-    },
-  };
+  if (id === 'disponibilidade') {
+    return { ...current, robot: { ...current.robot, availabilityPct: Math.min(1, target) } };
+  }
+  if (id === 'cobertura') {
+    return { ...current, robot: { ...current.robot, automatedStockShare: Math.min(1, target) } };
+  }
+  return { ...current, robot: { ...current.robot, discountRateAnnual: target } };
+}
+
+function sumRecord(record: Record<string, number>): number {
+  return Object.values(record).reduce((total, value) => total + value, 0);
+}
+
+function salesTotal(inputs: Inputs): number {
+  const space =
+    inputs.logistics.space.mode === 'margem'
+      ? inputs.logistics.space.m2Freed * inputs.logistics.space.contributionPerM2Month
+      : 0;
+  return (
+    inputs.stock.ruptures.additionalMonthlySales +
+    inputs.stock.serviceSpeed.additionalMonthlySales +
+    inputs.stock.abandonment.additionalMonthlySales +
+    inputs.people.consultativeSales.hoursFreedPerMonth * inputs.people.consultativeSales.marginPerHour +
+    space
+  );
 }
 
 function sameLever(left: Inputs, right: Inputs, id: LeverId): boolean {
@@ -283,9 +241,19 @@ function sameLever(left: Inputs, right: Inputs, id: LeverId): boolean {
 }
 
 function leverSlice(inputs: Inputs, id: LeverId): number[] {
-  if (id === 'investimento') return Object.values(inputs.robot.capex);
+  if (id === 'investimento') {
+    return [...Object.values(inputs.robot.capex), inputs.logistics.shelving.avoidedAcquisition];
+  }
   if (id === 'opex') return Object.values(inputs.robot.opexMonthly);
-  if (id === 'salarios') return [inputs.people.payroll.monthlyCostPerPosition];
+  if (id === 'salarios') {
+    return [
+      inputs.people.payroll.monthlyCostPerPosition,
+      inputs.people.supervision.costPerHour,
+      inputs.logistics.movement.costPerHour,
+      inputs.logistics.inventoryCount.costPerHour,
+      inputs.people.turnover.costPerReplacement,
+    ];
+  }
   if (id === 'turnover') return [inputs.people.turnover.annualRate];
   if (id === 'volume') {
     return [
@@ -297,38 +265,12 @@ function leverSlice(inputs: Inputs, id: LeverId): number[] {
       inputs.logistics.movement.hoursSavedPerMonth,
     ];
   }
-  if (id === 'vendas') {
-    return [
-      inputs.stock.ruptures.additionalMonthlySales,
-      inputs.stock.serviceSpeed.additionalMonthlySales,
-      inputs.people.consultativeSales.marginPerHour,
-    ];
-  }
+  if (id === 'vendas') return [salesTotal(inputs)];
+  if (id === 'disponibilidade') return [inputs.robot.availabilityPct];
+  if (id === 'cobertura') return [inputs.robot.automatedStockShare];
   return [inputs.robot.discountRateAnnual];
 }
 
 function copyLever(target: Inputs, source: Inputs, id: LeverId): Inputs {
-  if (id === 'investimento') return { ...target, robot: { ...target.robot, capex: { ...source.robot.capex } } };
-  if (id === 'opex') return { ...target, robot: { ...target.robot, opexMonthly: { ...source.robot.opexMonthly } } };
-  if (id === 'salarios') {
-    return {
-      ...target,
-      people: {
-        ...target.people,
-        payroll: { ...target.people.payroll, monthlyCostPerPosition: source.people.payroll.monthlyCostPerPosition },
-      },
-    };
-  }
-  if (id === 'turnover') {
-    return {
-      ...target,
-      people: {
-        ...target.people,
-        turnover: { ...target.people.turnover, annualRate: source.people.turnover.annualRate },
-      },
-    };
-  }
-  if (id === 'volume') return applyVolume(target, source, source.profile.dispensationsPerDay);
-  if (id === 'vendas') return applySales(target, source, salesTotal(source));
-  return { ...target, robot: { ...target.robot, discountRateAnnual: source.robot.discountRateAnnual } };
+  return projectDriver(target, source, LEVER_DRIVER[id], 1);
 }

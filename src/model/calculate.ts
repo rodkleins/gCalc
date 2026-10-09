@@ -1,3 +1,4 @@
+import { applyDriver, DRIVER_IDS } from './drivers';
 import {
   annualizeMonthlyRate,
   discountedPayback,
@@ -6,9 +7,11 @@ import {
   irr,
   monthlyRateFromAnnual,
   npv,
+  signChanges,
   simpleAnnualRoi,
   simplePayback,
 } from './finance';
+import { normalizeInputs, occupancyRate } from './normalize';
 import { clamp, round2, sum } from './round';
 import type {
   AuditLine,
@@ -18,10 +21,12 @@ import type {
   Inputs,
   ModelResult,
   MonthDetail,
+  NetworkStoreResult,
   ScenarioId,
   SensitivityDriver,
   SensitivityPoint,
   StoreType,
+  TaxPolicy,
 } from './types';
 import { HORIZON_MONTHS } from './types';
 
@@ -43,7 +48,26 @@ interface SalesCandidate {
 
 const SENSITIVITY_DELTAS = [-0.3, -0.15, 0, 0.15, 0.3];
 
-export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult {
+function rampAt(curve: number[], month: number, goLive: number): number {
+  if (month < goLive) return 0;
+  if (!curve.length) return 1;
+  const index = month - goLive;
+  return clamp(index < curve.length ? curve[index] : curve[curve.length - 1], 0, 1);
+}
+
+function yearIndex(annualRate: number, month: number): number {
+  if (!annualRate) return 1;
+  return Math.pow(1 + annualRate, (month - 1) / 12);
+}
+
+function activeTaxPolicy(inputs: Inputs): TaxPolicy {
+  if (!inputs.robot.includeTax) return 'sem_impostos';
+  if (inputs.robot.taxPolicy === 'sem_impostos') return 'incremental_simplificado';
+  return inputs.robot.taxPolicy;
+}
+
+export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelResult {
+  const inputs = normalizeInputs(rawInputs);
   const scenario = options.scenario ?? 'base';
   const factors = inputs.scenarios[scenario];
   const storeType: StoreType = options.storeTypeOverride ?? inputs.profile.storeType;
@@ -61,6 +85,39 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   const coverage = dispensations <= 0 || capacity <= 0 ? (capacity <= 0 ? 0 : 1) : Math.min(1, capacity / dispensations);
   const availability = clamp(inputs.robot.availabilityPct, 0, 1);
   const capture = coverage * availability;
+  const payrollCapture = availability <= 0 ? 0 : clamp(inputs.robot.reorganizationEffectiveness, 0, 1);
+  const inventoryCapture = availability <= 0 ? 0 : clamp(inputs.robot.automatedStockShare, 0, 1);
+  const salesCapture =
+    coverage * availability * clamp(inputs.robot.serviceLevel, 0, 1) * clamp(inputs.robot.conversionFactor, 0, 1);
+  const peopleRamp = (month: number) => rampAt(inputs.robot.ramp.people, month, goLive);
+  const logisticsRamp = (month: number) => rampAt(inputs.robot.ramp.logistics, month, goLive);
+  const stockRamp = (month: number) => rampAt(inputs.robot.ramp.stock, month, goLive);
+  const salesRamp = (month: number) => rampAt(inputs.robot.ramp.sales, month, goLive);
+  const wageIndex = (month: number) => yearIndex(inputs.profile.wageGrowthPctPerYear, month);
+  const priceIndex = (month: number) => yearIndex(inputs.profile.priceInflationPctPerYear, month);
+  const roleHeadcount = inputs.profile.roles.reduce((total, role) => total + Math.max(0, role.headcount), 0);
+  const rolePayroll = inputs.profile.roles.reduce(
+    (total, role) => total + Math.max(0, role.headcount) * Math.max(0, role.monthlyCost),
+    0,
+  );
+  const requestedPositions = Math.max(0, inputs.people.payroll.positionsReduced);
+  const positions = roleHeadcount > 0 ? Math.min(requestedPositions, roleHeadcount) : requestedPositions;
+  const fullPositionCost =
+    inputs.people.payroll.monthlyCostPerPosition * (1 + inputs.people.payroll.chargesPct) +
+    inputs.people.payroll.benefitsPerPosition;
+  const journey = Math.max(1, inputs.people.journeyHoursPerMonth || 176);
+  const remainingHeadcount = roleHeadcount > 0 ? Math.max(0, roleHeadcount - positions) : Number.POSITIVE_INFINITY;
+  const hourBudget = remainingHeadcount * journey;
+  const claimedHours =
+    (inputs.people.supervision.alreadyCountedInPayroll ? 0 : Math.max(0, inputs.people.supervision.hoursSavedPerMonth)) +
+    (inputs.logistics.movement.alreadyCountedInPayroll ? 0 : Math.max(0, inputs.logistics.movement.hoursSavedPerMonth)) +
+    Math.max(0, inputs.logistics.inventoryCount.hoursSavedPerMonth) +
+    Math.max(0, inputs.people.consultativeSales.hoursFreedPerMonth) +
+    Math.max(0, inputs.people.reallocatedHours.hoursPerMonth);
+  const hourScale = !Number.isFinite(hourBudget) || claimedHours <= hourBudget || claimedHours <= 0 ? 1 : hourBudget / claimedHours;
+  const schedule = normalizeSchedule(inputs.robot.capexSchedule);
+  const shareAt = (month: number) =>
+    schedule.filter((tranche) => tranche.month === month).reduce((total, tranche) => total + tranche.share, 0);
 
   const grossCapex = round2(sum(Object.values(inputs.robot.capex)) * capexMultiplier);
   const monthlyOpex = round2(sum(Object.values(inputs.robot.opexMonthly)) * factors.opexFactor);
@@ -73,12 +130,25 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     null,
   );
 
-  const avoidedCapex =
-    storeType === 'nova' && shelvingGate.included
+  const shelvingStillNeeded = inputs.logistics.shelving.stillRequired;
+  const avoidedShelving =
+    storeType === 'nova' && shelvingGate.included && !shelvingStillNeeded
       ? round2(inputs.logistics.shelving.avoidedAcquisition * capexMultiplier)
       : 0;
+  const realEstateGate = gateBenefit(
+    inputs.logistics.space.enabled && inputs.logistics.space.treatment === 'investimento_imobiliario',
+    inputs.logistics.space.confidence,
+    includePotential,
+    null,
+  );
+  const avoidedRealEstate =
+    storeType === 'nova' && realEstateGate.included
+      ? round2(inputs.logistics.space.avoidedRealEstate * capexMultiplier)
+      : 0;
+  const avoidedCapex = round2(avoidedShelving + avoidedRealEstate);
   const netInvestment = round2(grossCapex - avoidedCapex);
-  const openingCash = netInvestment === 0 ? 0 : -netInvestment;
+  const openingShare = shareAt(0);
+  const openingCash = netInvestment === 0 ? 0 : round2(-netInvestment * openingShare);
 
   const depreciationMonths = Math.max(1, Math.round(inputs.robot.depreciationYears * 12));
 
@@ -99,11 +169,17 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     includePotential,
     null,
   );
+  const recruitmentInsideTurnover =
+    inputs.people.recruitment.includedInTurnoverCost ||
+    (inputs.people.turnover.costMode === 'detalhado' && inputs.people.turnover.components.recruitment > 0);
+  const trainingInsideTurnover =
+    inputs.people.training.includedInReplacementCost ||
+    (inputs.people.turnover.costMode === 'detalhado' && inputs.people.turnover.components.replacementTraining > 0);
   const recruitmentGate = gateBenefit(
     inputs.people.recruitment.enabled,
     inputs.people.recruitment.confidence,
     includePotential,
-    inputs.people.recruitment.includedInTurnoverCost
+    recruitmentInsideTurnover
       ? 'Recrutamento e seleção já estão no custo por substituição do turnover. Não entram de novo.'
       : null,
   );
@@ -111,7 +187,7 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     inputs.people.training.enabled,
     inputs.people.training.confidence,
     includePotential,
-    inputs.people.training.includedInReplacementCost
+    trainingInsideTurnover
       ? 'Treinamento inicial já está no custo por substituição. Não entra de novo.'
       : null,
   );
@@ -137,11 +213,22 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       ? null
       : 'Processo logístico não validado. O robô não elimina automaticamente a caixa do fornecedor.',
   );
+  const space = inputs.logistics.space;
+  const spaceBlocked =
+    space.treatment === 'sem_monetizacao'
+      ? 'Área liberada sem monetização. Fica registrada e não entra no caixa.'
+      : space.treatment === 'investimento_imobiliario'
+        ? 'O efeito desta área é investimento imobiliário evitado, não um aluguel mensal.'
+        : space.contractUnchanged && space.mode !== 'margem' && space.treatment !== 'expansao_comercial'
+          ? 'O contrato de ocupação não muda. Aluguel e custo de ocupação não entram.'
+          : space.treatment === 'expansao_comercial' && space.mode !== 'margem' && !space.commercialEvidence
+            ? 'Expansão comercial sem evidência de margem incremental. Não entra no caixa.'
+            : null;
   const spaceGate = gateBenefit(
     inputs.logistics.space.enabled,
     inputs.logistics.space.confidence,
     includePotential,
-    null,
+    spaceBlocked,
   );
   const movementGate = gateBenefit(
     inputs.logistics.movement.enabled,
@@ -167,7 +254,9 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     inputs.stock.shrinkage.enabled,
     inputs.stock.shrinkage.confidence,
     includePotential,
-    null,
+    inputs.stock.losses.useDetailed && inputs.stock.losses.enabled
+      ? 'Avarias, extravios e erros já estão no detalhamento de perdas. Não entram de novo.'
+      : null,
   );
   const capitalGate = gateBenefit(
     inputs.stock.workingCapital.enabled,
@@ -178,13 +267,20 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
 
   const payrollAmount = (month: number) => {
     if (!payrollGate.included || month < Math.max(goLive, inputs.people.payroll.startMonth)) return 0;
-    return round2(
-      inputs.people.payroll.positionsReduced *
-        inputs.people.payroll.monthlyCostPerPosition *
-        laborFactor *
-        capture *
-        benefitFactor,
-    );
+    const raw =
+      positions * fullPositionCost * laborFactor * payrollCapture * peopleRamp(month) * wageIndex(month) * benefitFactor;
+    const cap = roleHeadcount > 0 ? rolePayroll * laborFactor * wageIndex(month) * benefitFactor : raw;
+    return round2(Math.min(raw, cap));
+  };
+
+  const reallocatedAmount = (month: number) => {
+    const item = inputs.people.reallocatedHours;
+    if (!item.enabled || month < goLive) return 0;
+    if (item.confidence === 'potencial' && !includePotential) return 0;
+    if (item.monetization === 'nenhuma') return 0;
+    if (item.monetization === 'ganho_incremental' && !item.evidence) return 0;
+    const base = item.monetization === 'reducao_custo' ? item.costReductionMonthly : item.incrementalMarginMonthly;
+    return round2(base * hourScale * laborFactor * payrollCapture * peopleRamp(month) * wageIndex(month) * benefitFactor);
   };
 
   const activeFutureHeadcount = (month: number) => {
@@ -200,19 +296,26 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       if (month < hire.month) return total;
       return total + hire.headcount * hire.monthlyCost * laborFactor;
     }, 0);
-    return round2(raw * capture * benefitFactor);
+    return round2(raw * payrollCapture * peopleRamp(month) * wageIndex(month) * benefitFactor);
+  };
+
+  const replacementUnit = () => {
+    const turnover = inputs.people.turnover;
+    if (turnover.costMode === 'detalhado') {
+      const parts = turnover.components;
+      return parts.recruitment + parts.replacementTraining + parts.adaptationLoss + parts.termination + parts.supervision;
+    }
+    return turnover.costPerReplacement;
   };
 
   const turnoverAmount = (month: number) => {
     if (!turnoverGate.included || month < goLive) return 0;
     const opened =
-      (payrollGate.included && month >= inputs.people.payroll.startMonth
-        ? inputs.people.payroll.positionsReduced
-        : 0) + activeFutureHeadcount(month);
+      (payrollGate.included && month >= inputs.people.payroll.startMonth ? positions : 0) + activeFutureHeadcount(month);
     return round2(
-      ((opened * inputs.people.turnover.annualRate * turnoverFactor * inputs.people.turnover.costPerReplacement * laborFactor) /
-        12) *
-        capture *
+      ((opened * inputs.people.turnover.annualRate * turnoverFactor * replacementUnit() * laborFactor) / 12) *
+        payrollCapture *
+        peopleRamp(month) *
         benefitFactor,
     );
   };
@@ -221,46 +324,85 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     if (!supervisionGate.included || month < goLive) return 0;
     return round2(
       inputs.people.supervision.hoursSavedPerMonth *
+        hourScale *
         inputs.people.supervision.costPerHour *
         laborFactor *
-        capture *
+        payrollCapture *
+        peopleRamp(month) *
+        wageIndex(month) *
         benefitFactor,
     );
+  };
+
+  const boxesMonthlyBase = () => {
+    const boxes = inputs.logistics.boxes;
+    if (!boxes.useDetailed) return boxes.cyclesAvoidedPerMonth * boxes.costPerCycle;
+    let total = 0;
+    if (boxes.cyclesEnabled) total += boxes.cyclesAvoidedPerMonth * boxes.costPerCycle;
+    if (boxes.reverseTransportEnabled) total += boxes.reverseTransportMonthly;
+    if (boxes.sanitationEnabled) total += boxes.sanitationMonthly;
+    if (boxes.handlingEnabled) total += boxes.handlingMonthly;
+    if (boxes.lossReplacementEnabled) total += boxes.lossReplacementMonthly;
+    if (boxes.spaceEnabled) total += boxes.spaceMonthly;
+    return total;
   };
 
   const boxesAmount = (month: number) => {
     if (!boxesGate.included || month < goLive) return 0;
+    const cyclesPortion = inputs.logistics.boxes.useDetailed && !inputs.logistics.boxes.cyclesEnabled ? 0 : 1;
+    const base = boxesMonthlyBase();
+    const grown = inputs.logistics.boxes.useDetailed
+      ? (cyclesPortion === 0 ? 0 : inputs.logistics.boxes.cyclesEnabled ? inputs.logistics.boxes.cyclesAvoidedPerMonth * inputs.logistics.boxes.costPerCycle * volumeGrowth(month) : 0) +
+        (inputs.logistics.boxes.reverseTransportEnabled ? inputs.logistics.boxes.reverseTransportMonthly : 0) +
+        (inputs.logistics.boxes.sanitationEnabled ? inputs.logistics.boxes.sanitationMonthly : 0) +
+        (inputs.logistics.boxes.handlingEnabled ? inputs.logistics.boxes.handlingMonthly : 0) +
+        (inputs.logistics.boxes.lossReplacementEnabled ? inputs.logistics.boxes.lossReplacementMonthly : 0) +
+        (inputs.logistics.boxes.spaceEnabled ? inputs.logistics.boxes.spaceMonthly : 0)
+      : base * volumeGrowth(month);
+    return round2(grown * capture * logisticsRamp(month) * benefitFactor);
+  };
+
+  const maintenanceAmount = (month: number) => {
+    if (!shelvingGate.included || shelvingStillNeeded || storeType !== 'existente' || month < goLive) return 0;
     return round2(
-      inputs.logistics.boxes.cyclesAvoidedPerMonth *
-        inputs.logistics.boxes.costPerCycle *
-        volumeGrowth(month) *
-        capture *
+      inputs.logistics.shelving.avoidedMaintenanceMonthly *
+        logisticsRamp(month) *
+        yearIndex(inputs.profile.opexInflationPctPerYear, month) *
         benefitFactor,
     );
   };
 
-  const maintenanceAmount = (month: number) => {
-    if (!shelvingGate.included || storeType !== 'existente' || month < goLive) return 0;
-    return round2(inputs.logistics.shelving.avoidedMaintenanceMonthly * capture * benefitFactor);
-  };
-
+  const spaceIsMargin =
+    inputs.logistics.space.mode === 'margem' || inputs.logistics.space.treatment === 'expansao_comercial';
   const spaceAmount = (month: number) => {
-    if (!spaceGate.included || month < goLive) return 0;
-    const rate =
-      inputs.logistics.space.mode === 'ocupacao'
-        ? inputs.logistics.space.occupancyCostPerM2
-        : inputs.logistics.space.contributionPerM2Month;
-    return round2(inputs.logistics.space.m2Freed * rate * capture * benefitFactor);
+    if (!spaceGate.included || month < goLive || spaceIsMargin) return 0;
+    return round2(
+      inputs.logistics.space.m2Freed * occupancyRate(inputs) * logisticsRamp(month) * benefitFactor,
+    );
+  };
+  const spaceMarginAmount = (month: number) => {
+    if (!spaceGate.included || month < goLive || !spaceIsMargin) return 0;
+    return round2(
+      inputs.logistics.space.m2Freed *
+        inputs.logistics.space.contributionPerM2Month *
+        logisticsRamp(month) *
+        priceIndex(month) *
+        benefitFactor *
+        salesMultiplier,
+    );
   };
 
   const movementAmount = (month: number) => {
     if (!movementGate.included || month < goLive) return 0;
     return round2(
       inputs.logistics.movement.hoursSavedPerMonth *
+        hourScale *
         inputs.logistics.movement.costPerHour *
         laborFactor *
         volumeGrowth(month) *
         capture *
+        logisticsRamp(month) *
+        wageIndex(month) *
         benefitFactor,
     );
   };
@@ -269,26 +411,47 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     if (!countGate.included || month < goLive) return 0;
     return round2(
       inputs.logistics.inventoryCount.hoursSavedPerMonth *
+        hourScale *
         inputs.logistics.inventoryCount.costPerHour *
         laborFactor *
-        capture *
+        inventoryCapture *
+        logisticsRamp(month) *
+        wageIndex(month) *
         benefitFactor,
     );
   };
 
   const historicalLosses = (month: number) =>
-    round2(inputs.profile.historicalLossesMonthly * volumeGrowth(month) * capture);
+    round2(inputs.profile.historicalLossesMonthly * volumeGrowth(month) * inventoryCapture * stockRamp(month));
   const projectedLosses = (month: number) =>
-    round2(inputs.stock.losses.projectedLossesMonthly * volumeGrowth(month) * capture);
+    round2(inputs.stock.losses.projectedLossesMonthly * volumeGrowth(month) * inventoryCapture * stockRamp(month));
 
   const lossesAmount = (month: number) => {
     if (!lossesGate.included || month < goLive) return 0;
+    if (inputs.stock.losses.useDetailed) {
+      const parts = inputs.stock.losses;
+      return round2(
+        (parts.expiryMonthly + parts.damageMonthly + parts.missingMonthly + parts.errorsMonthly) *
+          volumeGrowth(month) *
+          inventoryCapture *
+          stockRamp(month) *
+          priceIndex(month) *
+          benefitFactor,
+      );
+    }
     return round2(Math.max(0, historicalLosses(month) - projectedLosses(month)) * benefitFactor);
   };
 
   const shrinkageAmount = (month: number) => {
     if (!shrinkageGate.included || month < goLive) return 0;
-    return round2(inputs.stock.shrinkage.avoidedMonthly * volumeGrowth(month) * capture * benefitFactor);
+    return round2(
+      inputs.stock.shrinkage.avoidedMonthly *
+        volumeGrowth(month) *
+        inventoryCapture *
+        stockRamp(month) *
+        priceIndex(month) *
+        benefitFactor,
+    );
   };
 
   const marginOf = (sales: number, month: number) =>
@@ -296,7 +459,9 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       sales *
         inputs.profile.contributionMarginPct *
         volumeGrowth(month) *
-        capture *
+        salesCapture *
+        salesRamp(month) *
+        priceIndex(month) *
         benefitFactor *
         salesMultiplier,
     );
@@ -305,9 +470,12 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     if (month < goLive) return 0;
     return round2(
       inputs.people.consultativeSales.hoursFreedPerMonth *
+        hourScale *
         inputs.people.consultativeSales.marginPerHour *
         growthAt(month) *
-        capture *
+        salesCapture *
+        salesRamp(month) *
+        priceIndex(month) *
         benefitFactor *
         salesMultiplier,
     );
@@ -362,6 +530,37 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       ),
       monthlyAt: (month) => marginOf(inputs.stock.serviceSpeed.additionalMonthlySales, month),
     },
+    {
+      id: 'abandonment',
+      label: 'Margem por menos abandono',
+      module: 'Estoque',
+      formula: 'Vendas que deixam de ser abandonadas × margem de contribuição, com evidência própria.',
+      confidence: inputs.stock.abandonment.confidence,
+      gate: gateBenefit(
+        inputs.stock.abandonment.enabled,
+        inputs.stock.abandonment.confidence,
+        includePotential,
+        inputs.stock.abandonment.independentEvidence
+          ? null
+          : 'Sem evidência independente de venda recuperada por menor abandono.',
+      ),
+      monthlyAt: (month) => marginOf(inputs.stock.abandonment.additionalMonthlySales, month),
+    },
+    {
+      id: 'spaceMargin',
+      label: 'Margem da área liberada',
+      module: 'Logística',
+      formula: 'm² liberados × margem de contribuição mensal por m². Não soma com outras vendas sem independência.',
+      confidence: inputs.logistics.space.confidence,
+      gate: spaceIsMargin
+        ? spaceGate
+        : {
+            included: false,
+            confidence: inputs.logistics.space.confidence,
+            reason: 'A área não está em expansão comercial.',
+          },
+      monthlyAt: spaceMarginAmount,
+    },
   ];
 
   const includedSales = salesCandidates.filter((candidate) => candidate.gate.included);
@@ -382,10 +581,9 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       }, 0),
     );
 
-  const releaseBase = Math.max(
-    0,
-    inputs.profile.averageInventory * volumeFactor - inputs.stock.workingCapital.inventoryAfter * volumeFactor,
-  );
+  const releaseBase = inputs.stock.workingCapital.reductionProven
+    ? Math.max(0, inputs.profile.averageInventory - inputs.stock.workingCapital.inventoryAfter)
+    : 0;
   const capitalRelease = capitalGate.included ? round2(releaseBase) : 0;
   const financialMonthly =
     capitalGate.included && inputs.stock.workingCapital.treatment === 'custo_financeiro'
@@ -408,7 +606,8 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
         lossesAmount(month) +
         shrinkageAmount(month) +
         salesAmount(month) +
-        (month >= goLive ? financialMonthly : 0),
+        reallocatedAmount(month) +
+        (month >= goLive ? financialMonthly * stockRamp(month) * priceIndex(month) : 0),
     );
 
   const recruitmentEvents = (): Array<{ month: number; amount: number }> => {
@@ -466,9 +665,21 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   };
 
   const resaleAt = (month: number) => {
-    if (storeType !== 'existente' || !shelvingGate.included) return 0;
+    if (storeType !== 'existente' || !shelvingGate.included || shelvingStillNeeded) return 0;
     if (month !== goLive) return 0;
     return round2(inputs.logistics.shelving.resaleValue);
+  };
+
+  const removalAt = (month: number) => {
+    if (storeType !== 'existente' || !shelvingGate.included || shelvingStillNeeded) return 0;
+    if (month !== goLive) return 0;
+    return round2(inputs.logistics.shelving.removalCost);
+  };
+
+  const capexTrancheAt = (month: number) => {
+    const share = shareAt(month);
+    if (share === 0 || netInvestment === 0) return 0;
+    return round2(-netInvestment * share);
   };
 
   const workingCapitalAt = (month: number) => {
@@ -484,7 +695,9 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   const residualAt = (month: number) => {
     if (month !== HORIZON_MONTHS) return 0;
     const residual = round2(inputs.robot.residualValue * capexMultiplier);
-    if (!inputs.robot.includeTax || residual === 0) return residual;
+    if (activeTaxPolicy(inputs) === 'sem_impostos' || !inputs.robot.extraordinaryEventsTaxable || residual === 0) {
+      return residual;
+    }
     const operated = HORIZON_MONTHS - goLive + 1;
     const depreciated = Math.min(operated, depreciationMonths) * (netInvestment / depreciationMonths);
     const book = Math.max(0, netInvestment - depreciated);
@@ -502,21 +715,65 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   const months: MonthDetail[] = [];
   let cumulative = openingCash;
   let cumulativeDiscounted = openingCash;
+  let lossCarry = 0;
+  const taxPolicy = activeTaxPolicy(inputs);
+  const accrued: Record<string, number> = {};
+  const bump = (id: string, value: number) => {
+    accrued[id] = round2((accrued[id] ?? 0) + value);
+  };
 
   for (let month = 1; month <= HORIZON_MONTHS; month += 1) {
     const salesMargin = salesAmount(month);
     const benefit = operatingBenefit(month);
-    const opex = month >= goLive ? monthlyOpex : 0;
+    const opex =
+      month >= goLive ? round2(monthlyOpex * yearIndex(inputs.profile.opexInflationPctPerYear, month)) : 0;
     const preTax = round2(benefit - opex);
     const depreciation = depreciationAt(month);
-    const tax = inputs.robot.includeTax ? round2((preTax - depreciation) * inputs.robot.taxRate) : 0;
+    const taxableRaw = preTax - depreciation;
+    let taxableBase = taxableRaw;
+    let tax = 0;
+    if (taxPolicy === 'incremental_simplificado') {
+      tax = round2(Math.max(0, taxableRaw) * inputs.robot.taxRate);
+    } else if (taxPolicy === 'prejuizo_com_limite') {
+      if (taxableRaw < 0) {
+        lossCarry = round2(lossCarry - taxableRaw);
+        taxableBase = 0;
+      } else {
+        const limit = clamp(inputs.robot.lossUtilizationLimit, 0, 1);
+        const used = Math.min(lossCarry, taxableRaw * limit);
+        lossCarry = round2(lossCarry - used);
+        taxableBase = taxableRaw - used;
+        tax = round2(Math.max(0, taxableBase) * inputs.robot.taxRate);
+      }
+    } else if (taxPolicy === 'beneficio_condicionado') {
+      const rawTax = taxableRaw * inputs.robot.taxRate;
+      if (rawTax >= 0) tax = round2(rawTax);
+      else if (inputs.robot.taxBenefitValidated) {
+        tax = round2(Math.max(rawTax, -Math.max(0, inputs.robot.taxCapacityMonthly)));
+      }
+    }
     const netOperating = round2(preTax - tax);
+    bump('payroll', payrollAmount(month));
+    bump('futureHires', futureHireCost(month));
+    bump('turnover', turnoverAmount(month));
+    bump('supervision', supervisionAmount(month));
+    bump('reallocated', reallocatedAmount(month));
+    bump('boxes', boxesAmount(month));
+    bump('shelvingMaintenance', maintenanceAmount(month));
+    bump('spaceOccupancy', spaceAmount(month));
+    bump('movement', movementAmount(month));
+    bump('inventoryCount', countAmount(month));
+    bump('losses', lossesAmount(month));
+    bump('shrinkage', shrinkageAmount(month));
+    bump('opex', opex);
     const workingCapital = workingCapitalAt(month);
     const severance = severanceAt(month);
     const resale = resaleAt(month);
     const residual = residualAt(month);
     const oneTimeExtras = round2(eventTotal(recruitment, month) + eventTotal(training, month));
-    const oneTime = round2(workingCapital + -severance + resale + residual + oneTimeExtras);
+    const removal = removalAt(month);
+    const capexTranche = capexTrancheAt(month);
+    const oneTime = round2(workingCapital + -severance + resale - removal + residual + oneTimeExtras + capexTranche);
     const incremental = round2(netOperating + oneTime);
     cumulative = round2(cumulative + incremental);
     const discountedIncremental = round2(incremental / Math.pow(1 + monthlyRate, month));
@@ -539,6 +796,8 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       salesMargin,
       benefit,
       opex,
+      accountingResult: preTax,
+      taxableBase: round2(taxableBase),
       tax,
       netOperating,
       workingCapital,
@@ -559,6 +818,10 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
   const steadyNet = steady.netOperating;
   const annualSteadyNet = round2(steadyNet * 12);
   const roi = simpleAnnualRoi(annualSteadyNet, netInvestment);
+  const accumulatedSavings = round2(months.reduce((total, month) => total + month.benefit, 0));
+  const accumulatedNet = months.reduce((total, month) => total + month.netOperating, 0);
+  const cumulativeRoi = netInvestment > 0 && Number.isFinite(accumulatedNet) ? accumulatedNet / netInvestment : null;
+  const irrAmbiguous = signChanges(cashFlows) > 1;
   const payback = simplePayback(cashFlows);
   const firstPositiveMonth = firstNonNegativeMonth(cashFlows);
   const discountedPb = Number.isFinite(monthlyRate) ? discountedPayback(cashFlows, monthlyRate) : null;
@@ -592,6 +855,7 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     futureHireCost,
     turnoverAmount,
     supervisionAmount,
+    reallocatedAmount,
     boxesAmount,
     maintenanceAmount,
     spaceAmount,
@@ -633,7 +897,46 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     warnings.push('O financiamento aparece à parte. VPL, TIR, ROI e payback usam o investimento total, sem a dívida.');
   }
   if (inputs.robot.includeTax) {
-    warnings.push('Os fluxos estão depois do imposto, com o escudo da depreciação linear.');
+    warnings.push(
+      'Imposto simplificado sobre o resultado incremental. A alíquota não vale para qualquer regime e precisa de validação tributária. Prejuízo não gera crédito automático.',
+    );
+  }
+  if (inputs.robot.includeTax && !inputs.robot.taxValidated) {
+    warnings.push('A premissa tributária ainda não foi validada com a área fiscal.');
+  }
+  if (requestedPositions > roleHeadcount && roleHeadcount > 0) {
+    warnings.push(
+      `As vagas informadas (${requestedPositions}) passam do quadro (${roleHeadcount}). A folha foi limitada ao quadro.`,
+    );
+  }
+  if (hourScale < 1) {
+    warnings.push('As horas liberadas passam da jornada do quadro que permanece. O excedente não foi monetizado.');
+  }
+  if (!inputs.people.payroll.costConfirmedFullyLoaded && payrollGate.included) {
+    warnings.push('Confirme se o custo da vaga já inclui encargos e benefícios. Sem isso a folha pode estar incompleta.');
+  }
+  if (lossesGate.included && shrinkageGate.included && !inputs.stock.losses.useDetailed) {
+    warnings.push('Perdas e avarias podem se sobrepor. Use o detalhamento para separar vencimento, avaria, extravio e erro.');
+  }
+  if (inputs.stock.workingCapital.enabled && !inputs.stock.workingCapital.reductionProven) {
+    warnings.push('A redução de estoque não está comprovada. O capital de giro não entrou no caixa.');
+  }
+  if (
+    inputs.profile.demandGrowthPctPerYear !== 0 &&
+    inputs.profile.wageGrowthPctPerYear === 0 &&
+    inputs.profile.opexInflationPctPerYear === 0 &&
+    inputs.profile.moneyBasis === 'nominal'
+  ) {
+    warnings.push('A demanda cresce e salários e OPEX ficam constantes. Justifique ou informe a inflação correspondente.');
+  }
+  if (inputs.profile.moneyBasis !== inputs.robot.discountBasis) {
+    warnings.push('A base dos fluxos e a base da taxa de desconto estão diferentes (nominal e real).');
+  }
+  if (irrAmbiguous) {
+    warnings.push('O fluxo troca de sinal mais de uma vez. A TIR é ambígua; a decisão deve usar o VPL.');
+  }
+  if (inputs.people.reallocatedHours.enabled && inputs.people.reallocatedHours.monetization === 'nenhuma') {
+    warnings.push('Horas realocadas estão registradas e não entram como economia de folha.');
   }
   if (includePotential) {
     warnings.push('Ganhos marcados como potenciais estão entrando no fluxo.');
@@ -645,9 +948,30 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
     warnings.push('Há crescimento de demanda. O ROI usa o benefício do mês 60, não a média do período.');
   }
 
-  const financing = buildFinancing(inputs, netInvestment);
+  const financing = buildFinancing(inputs, netInvestment, cashFlows, monthlyRate, presentValue, irrAnnual);
 
   const storeCount = Math.max(1, Math.round(inputs.profile.storeCount) || 1);
+  const network = buildNetwork(inputs, options, {
+    netInvestment,
+    steadyNet,
+    npv: presentValue,
+    monthlyRate,
+    storeCount,
+  });
+  const indicators = {
+    stabilizedAnnualReturn: roi,
+    cumulativeRoi,
+    simplePayback: payback,
+    discountedPayback: discountedPb,
+    npv: presentValue,
+    irrAnnualEffective: irrAnnual,
+    irrAmbiguous,
+    cumulativeCash: steady.cumulative,
+    cumulativeDiscountedCash: steady.cumulativeDiscounted,
+    annualOperatingBenefit: round2(steadyBenefit * 12),
+    accumulatedSavings,
+    totalNetInvestment: netInvestment,
+  };
 
   return {
     scenario,
@@ -682,11 +1006,8 @@ export function evaluate(inputs: Inputs, options: EvalOptions = {}): ModelResult
       workingCapitalIncluded: usePrincipal,
       financialCostIncluded: financialMonthly > 0 && capitalGate.included,
     },
-    network: {
-      investment: round2(netInvestment * storeCount),
-      steadyNet: round2(steadyNet * storeCount),
-      npv: round2(presentValue * storeCount),
-    },
+    indicators,
+    network,
   };
 }
 
@@ -694,19 +1015,11 @@ export function sensitivity(
   inputs: Inputs,
   scenario: ScenarioId,
 ): Record<SensitivityDriver, SensitivityPoint[]> {
-  const drivers: SensitivityDriver[] = ['investimento', 'maoDeObra', 'turnover', 'vendas', 'volume'];
   const table = {} as Record<SensitivityDriver, SensitivityPoint[]>;
-  for (const driver of drivers) {
+  for (const driver of DRIVER_IDS) {
     table[driver] = SENSITIVITY_DELTAS.map((delta) => {
-      const factor = 1 + delta;
-      const result = evaluate(inputs, {
-        scenario,
-        capexFactor: driver === 'investimento' ? factor : undefined,
-        laborFactor: driver === 'maoDeObra' ? factor : undefined,
-        turnoverFactor: driver === 'turnover' ? factor : undefined,
-        salesFactor: driver === 'vendas' ? factor : undefined,
-        volumeFactor: driver === 'volume' ? factor : undefined,
-      });
+      const varied = applyDriver(normalizeInputs(inputs), driver, 1 + delta);
+      const result = evaluate(varied, { scenario, skipNetwork: true });
       return {
         delta,
         payback: result.payback,
@@ -748,16 +1061,23 @@ function gateBenefit(
   };
 }
 
-function buildFinancing(inputs: Inputs, netInvestment: number): FinancingResult | null {
+function buildFinancing(
+  inputs: Inputs,
+  netInvestment: number,
+  projectFlows: number[],
+  _discountMonthly: number,
+  projectNpv: number,
+  projectIrrAnnual: number | null,
+): FinancingResult | null {
   if (!inputs.robot.financing.enabled) return null;
   const down = clamp(inputs.robot.financing.downPaymentPct, 0, 1);
   const term = Math.max(1, Math.round(inputs.robot.financing.termMonths));
   const balloon = Math.max(0, inputs.robot.financing.balloon);
-  const principal = Math.max(0, round2(netInvestment * (1 - down)));
+  const principal = Math.max(0, round2(Math.max(0, netInvestment) * (1 - down)));
   const monthlyRate = monthlyRateFromAnnual(inputs.robot.financing.annualInterest);
   let payment = 0;
   if (principal > 0) {
-    if (Math.abs(monthlyRate) < 1e-12) {
+    if (!Number.isFinite(monthlyRate) || Math.abs(monthlyRate) < 1e-12) {
       payment = (principal - balloon) / term;
     } else {
       const annuity = (1 - Math.pow(1 + monthlyRate, -term)) / monthlyRate;
@@ -766,7 +1086,26 @@ function buildFinancing(inputs: Inputs, netInvestment: number): FinancingResult 
     }
   }
   payment = round2(Math.max(0, payment));
-  const totalPaid = round2(netInvestment * down + payment * term + balloon);
+  const equity = round2(Math.max(0, netInvestment) * down);
+  const totalPaid = round2(equity + payment * term + balloon);
+  const equityFlows = projectFlows.slice();
+  equityFlows[0] = round2(projectFlows[0] + principal);
+  const balances: number[] = [];
+  let balance = principal;
+  for (let month = 1; month <= HORIZON_MONTHS; month += 1) {
+    if (month <= term && month < equityFlows.length) {
+      equityFlows[month] = round2(equityFlows[month] - payment);
+      const interest = Number.isFinite(monthlyRate) ? balance * monthlyRate : 0;
+      const amort = payment - interest;
+      balance = round2(Math.max(0, balance - amort));
+    }
+    if (month === term && month < equityFlows.length) {
+      equityFlows[month] = round2(equityFlows[month] - balloon);
+      balance = round2(Math.max(0, balance - balloon));
+    }
+    balances.push(balance);
+  }
+  const equityIrrMonthly = irr(equityFlows);
   return {
     enabled: true,
     financedAmount: principal,
@@ -774,9 +1113,118 @@ function buildFinancing(inputs: Inputs, netInvestment: number): FinancingResult 
     termMonths: term,
     balloon,
     totalPaid,
-    interestTotal: round2(totalPaid - netInvestment),
-    note: 'Visão de financiamento, separada do retorno econômico do investimento total.',
+    interestTotal: round2(totalPaid - Math.max(0, netInvestment)),
+    note: 'Fluxo do investidor, separado do fluxo do projeto. O financiamento recebido não é benefício operacional.',
+    projectNpv,
+    projectIrrAnnual,
+    equityCashFlows: equityFlows,
+    equityIrrAnnual: equityIrrMonthly === null ? null : annualizeMonthlyRate(equityIrrMonthly),
+    debtServiceMonthly: payment,
+    debtBalanceByMonth: balances,
+    totalFinancialCost: round2(totalPaid - Math.max(0, netInvestment)),
   };
+}
+
+function buildNetwork(
+  inputs: Inputs,
+  options: EvalOptions,
+  single: { netInvestment: number; steadyNet: number; npv: number; monthlyRate: number; storeCount: number },
+): ModelResult['network'] {
+  if (!inputs.network.enabled || inputs.network.stores.length === 0 || options.skipNetwork) {
+    return {
+      mode: 'replicacao',
+      investment: round2(single.netInvestment * single.storeCount),
+      steadyNet: round2(single.steadyNet * single.storeCount),
+      npv: round2(single.npv * single.storeCount),
+      sharedMonthlyCost: 0,
+      stores: [],
+    };
+  }
+
+  const combined = Array.from({ length: HORIZON_MONTHS + 1 }, () => 0);
+  const stores: NetworkStoreResult[] = [];
+  for (const store of inputs.network.stores) {
+    const clone = structuredClone(inputs);
+    clone.network = { enabled: false, sharedMonthlyCost: 0, stores: [] };
+    clone.profile = { ...clone.profile, storeType: store.storeType, storeCount: 1, dispensationsPerDay: clone.profile.dispensationsPerDay * store.volumeFactor };
+    clone.robot = {
+      ...clone.robot,
+      goLiveMonth: 1,
+      capex: scaleMoney(clone.robot.capex, store.investmentFactor),
+    };
+    clone.logistics = {
+      ...clone.logistics,
+      shelving: {
+        ...clone.logistics.shelving,
+        avoidedAcquisition: round2(clone.logistics.shelving.avoidedAcquisition * store.investmentFactor),
+      },
+    };
+    clone.people = {
+      ...clone.people,
+      payroll: {
+        ...clone.people.payroll,
+        monthlyCostPerPosition: round2(clone.people.payroll.monthlyCostPerPosition * store.laborFactor),
+      },
+    };
+    const local = evaluate(clone, {
+      scenario: options.scenario,
+      storeTypeOverride: store.storeType,
+      skipNetwork: true,
+    });
+    const placed = placeFlows(local.cashFlows, store.goLiveMonth);
+    const count = Math.max(1, Math.round(store.count) || 1);
+    for (let index = 0; index < combined.length; index += 1) combined[index] += placed[index] * count;
+    stores.push({
+      id: store.id,
+      name: store.name,
+      count,
+      goLiveMonth: store.goLiveMonth,
+      payback: local.payback,
+      npv: round2(local.npv * count),
+      netInvestment: round2(local.netInvestment * count),
+      steadyNet: round2(local.steadyNet * count),
+    });
+  }
+  const shared = inputs.network.sharedMonthlyCost;
+  for (let month = 1; month <= HORIZON_MONTHS; month += 1) combined[month] = round2(combined[month] - shared);
+  return {
+    mode: 'escalonada',
+    investment: round2(stores.reduce((total, store) => total + store.netInvestment, 0)),
+    steadyNet: round2(stores.reduce((total, store) => total + store.steadyNet, 0) - shared),
+    npv: Number.isFinite(single.monthlyRate) ? round2(npv(single.monthlyRate, combined)) : Number.NaN,
+    sharedMonthlyCost: shared,
+    stores,
+  };
+}
+
+function placeFlows(local: number[], goLiveMonth: number): number[] {
+  const global = Array.from({ length: HORIZON_MONTHS + 1 }, () => 0);
+  const start = clamp(Math.round(goLiveMonth) || 1, 1, HORIZON_MONTHS);
+  const investAt = Math.max(0, start - 1);
+  global[investAt] += local[0] ?? 0;
+  for (let month = 1; month < local.length; month += 1) {
+    const globalMonth = start + month - 1;
+    if (globalMonth >= 1 && globalMonth <= HORIZON_MONTHS) global[globalMonth] += local[month];
+  }
+  return global;
+}
+
+function scaleMoney<T extends Record<string, number>>(record: T, factor: number): T {
+  const next = { ...record };
+  for (const key of Object.keys(next)) next[key as keyof T] = round2(next[key as keyof T] * factor) as T[keyof T];
+  return next;
+}
+
+function normalizeSchedule(schedule: Array<{ month: number; share: number }>): Array<{ month: number; share: number }> {
+  const clean = (schedule.length ? schedule : [{ month: 0, share: 1 }])
+    .map((tranche) => ({
+      month: clamp(Math.round(tranche.month) || 0, 0, HORIZON_MONTHS),
+      share: Math.max(0, tranche.share),
+    }))
+    .filter((tranche) => tranche.share > 0);
+  const total = clean.reduce((sumShares, tranche) => sumShares + tranche.share, 0);
+  if (!(total > 0)) return [{ month: 0, share: 1 }];
+  return clean.map((tranche) => ({ ...tranche, share: tranche.share / total }));
 }
 
 function buildAudit(ctx: {
@@ -802,6 +1250,7 @@ function buildAudit(ctx: {
   futureHireCost: (month: number) => number;
   turnoverAmount: (month: number) => number;
   supervisionAmount: (month: number) => number;
+  reallocatedAmount: (month: number) => number;
   boxesAmount: (month: number) => number;
   maintenanceAmount: (month: number) => number;
   spaceAmount: (month: number) => number;
@@ -883,6 +1332,27 @@ function buildAudit(ctx: {
     }),
     salesLine(ctx, 'consultative'),
     line({
+      id: 'reallocated',
+      module: 'Pessoas',
+      label: 'Horas realocadas',
+      kind: 'recorrente',
+      gate: {
+        included:
+          ctx.inputs.people.reallocatedHours.enabled &&
+          ctx.inputs.people.reallocatedHours.monetization !== 'nenhuma' &&
+          (ctx.inputs.people.reallocatedHours.confidence !== 'potencial' || ctx.inputs.assumptions.includePotential) &&
+          (ctx.inputs.people.reallocatedHours.monetization !== 'ganho_incremental' ||
+            ctx.inputs.people.reallocatedHours.evidence),
+        confidence: ctx.inputs.people.reallocatedHours.confidence,
+        reason:
+          ctx.inputs.people.reallocatedHours.monetization === 'nenhuma'
+            ? 'Horas realocadas não são economia de folha. Só entram com redução de custo ou ganho incremental demonstrável.'
+            : 'Horas realocadas monetizadas por premissa explícita, sem duplicar a folha.',
+      },
+      monthlyValue: ctx.reallocatedAmount(steady),
+      formula: 'Não usa vagas × custo. Exige monetização própria e evidência quando o ganho é incremental.',
+    }),
+    line({
       id: 'boxes',
       module: 'Logística',
       label: 'Caixas retornáveis',
@@ -960,22 +1430,7 @@ function buildAudit(ctx: {
       monthlyValue: spaceMode === 'ocupacao' ? ctx.spaceAmount(steady) : 0,
       formula: 'm² liberados × custo de ocupação por m².',
     }),
-    line({
-      id: 'spaceMargin',
-      module: 'Logística',
-      label: 'Margem da área liberada',
-      kind: 'recorrente',
-      gate:
-        spaceMode === 'margem'
-          ? ctx.spaceGate
-          : {
-              included: false,
-              confidence: ctx.inputs.logistics.space.confidence,
-              reason: 'A área está valorizada pelo custo de ocupação. A margem da mesma área não entra junto.',
-            },
-      monthlyValue: spaceMode === 'margem' ? ctx.spaceAmount(steady) : 0,
-      formula: 'm² liberados × margem de contribuição mensal por m².',
-    }),
+    salesLine(ctx, 'spaceMargin'),
     line({
       id: 'movement',
       module: 'Logística',
@@ -1014,6 +1469,7 @@ function buildAudit(ctx: {
     }),
     salesLine(ctx, 'ruptures'),
     salesLine(ctx, 'service'),
+    salesLine(ctx, 'abandonment'),
     line({
       id: 'workingCapital',
       module: 'Estoque',
@@ -1132,12 +1588,20 @@ function line(input: {
     label: input.label,
     kind: input.kind,
     confidence: input.gate.confidence,
-    monthlyValue: input.gate.included ? input.monthlyValue : input.monthlyValue,
-    oneTimeValue: input.gate.included ? (input.oneTimeValue ?? 0) : input.oneTimeValue ?? 0,
+    monthlyValue: input.monthlyValue,
+    oneTimeValue: input.oneTimeValue ?? 0,
     oneTimeMonth: input.oneTimeMonth ?? null,
     includedInCashFlow: input.gate.included,
     formula: input.formula,
     reason: input.gate.reason,
+    unit: input.kind === 'recorrente' || input.kind === 'custo' ? 'R$/mês' : 'R$',
+    dataOrigin: 'Premissa informada na simulação',
+    condition: input.gate.reason,
+    startMonth: input.oneTimeMonth ?? null,
+    captureFactor: 1,
+    accumulatedValue: input.gate.included && (input.kind === 'recorrente' || input.kind === 'custo') ? round2(input.monthlyValue * HORIZON_MONTHS) : input.oneTimeValue ?? 0,
+    dependencies: [],
+    conflicts: [],
   };
 }
 

@@ -211,7 +211,7 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.109.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.100.000');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
@@ -249,7 +249,7 @@ describe('aplicação', () => {
       restored.render(<App />);
     });
     const text = (selector: string) => next.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.109.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.100.000');
     await act(async () => {
       next.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });

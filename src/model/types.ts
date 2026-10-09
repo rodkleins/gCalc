@@ -4,7 +4,22 @@ export type StoreType = 'nova' | 'existente';
 export type ScenarioId = 'conservador' | 'base' | 'otimista';
 export type Confidence = 'comprovavel' | 'potencial';
 export type SpaceMode = 'ocupacao' | 'margem';
+export type SpaceTreatment =
+  | 'aluguel_evitado'
+  | 'ocupacao_evitavel'
+  | 'expansao_comercial'
+  | 'sem_monetizacao'
+  | 'investimento_imobiliario';
 export type WorkingCapitalTreatment = 'liberacao_caixa' | 'custo_financeiro';
+export type TaxPolicy =
+  | 'sem_impostos'
+  | 'incremental_simplificado'
+  | 'prejuizo_com_limite'
+  | 'beneficio_condicionado';
+export type ViewMode = 'simples' | 'avancado';
+export type MoneyBasis = 'nominal' | 'real';
+export type TurnoverCostMode = 'consolidado' | 'detalhado';
+export type HourMonetization = 'nenhuma' | 'reducao_custo' | 'ganho_incremental';
 
 export interface ScenarioFactors {
   benefitFactor: number;
@@ -34,6 +49,17 @@ export interface BenefitSwitch {
   confidence: Confidence;
 }
 
+export interface NetworkStore {
+  id: string;
+  name: string;
+  storeType: StoreType;
+  count: number;
+  goLiveMonth: number;
+  investmentFactor: number;
+  volumeFactor: number;
+  laborFactor: number;
+}
+
 export interface Inputs {
   fictional: boolean;
   meta: {
@@ -47,6 +73,7 @@ export interface Inputs {
   };
   assumptions: {
     includePotential: boolean;
+    viewMode: ViewMode;
   };
   profile: {
     storeType: StoreType;
@@ -64,14 +91,29 @@ export interface Inputs {
     skuCount: number;
     historicalLossesMonthly: number;
     demandGrowthPctPerYear: number;
+    wageGrowthPctPerYear: number;
+    opexInflationPctPerYear: number;
+    priceInflationPctPerYear: number;
+    moneyBasis: MoneyBasis;
     storeCount: number;
   };
   people: {
     payroll: BenefitSwitch & {
       positionsReduced: number;
       monthlyCostPerPosition: number;
+      chargesPct: number;
+      benefitsPerPosition: number;
+      costConfirmedFullyLoaded: boolean;
       startMonth: number;
       severanceCost: number;
+    };
+    journeyHoursPerMonth: number;
+    reallocatedHours: BenefitSwitch & {
+      hoursPerMonth: number;
+      monetization: HourMonetization;
+      costReductionMonthly: number;
+      incrementalMarginMonthly: number;
+      evidence: boolean;
     };
     futureHires: BenefitSwitch & {
       hires: PlannedHire[];
@@ -87,6 +129,14 @@ export interface Inputs {
     turnover: BenefitSwitch & {
       annualRate: number;
       costPerReplacement: number;
+      costMode: TurnoverCostMode;
+      components: {
+        recruitment: number;
+        replacementTraining: number;
+        adaptationLoss: number;
+        termination: number;
+        supervision: number;
+      };
     };
     supervision: BenefitSwitch & {
       alreadyCountedInPayroll: boolean;
@@ -104,17 +154,35 @@ export interface Inputs {
       processValidated: boolean;
       cyclesAvoidedPerMonth: number;
       costPerCycle: number;
+      useDetailed: boolean;
+      cyclesEnabled: boolean;
+      reverseTransportMonthly: number;
+      reverseTransportEnabled: boolean;
+      sanitationMonthly: number;
+      sanitationEnabled: boolean;
+      handlingMonthly: number;
+      handlingEnabled: boolean;
+      lossReplacementMonthly: number;
+      lossReplacementEnabled: boolean;
+      spaceMonthly: number;
+      spaceEnabled: boolean;
     };
     shelving: BenefitSwitch & {
       avoidedAcquisition: number;
       resaleValue: number;
       avoidedMaintenanceMonthly: number;
+      stillRequired: boolean;
+      removalCost: number;
     };
     space: BenefitSwitch & {
       m2Freed: number;
       mode: SpaceMode;
+      treatment: SpaceTreatment;
+      contractUnchanged: boolean;
       occupancyCostPerM2: number;
       contributionPerM2Month: number;
+      avoidedRealEstate: number;
+      commercialEvidence: boolean;
     };
     movement: BenefitSwitch & {
       alreadyCountedInPayroll: boolean;
@@ -130,6 +198,11 @@ export interface Inputs {
     salesIndependenceConfirmed: boolean;
     losses: BenefitSwitch & {
       projectedLossesMonthly: number;
+      useDetailed: boolean;
+      expiryMonthly: number;
+      damageMonthly: number;
+      missingMonthly: number;
+      errorsMonthly: number;
     };
     shrinkage: BenefitSwitch & {
       avoidedMonthly: number;
@@ -142,13 +215,23 @@ export interface Inputs {
       independentEvidence: boolean;
       additionalMonthlySales: number;
     };
+    abandonment: BenefitSwitch & {
+      independentEvidence: boolean;
+      additionalMonthlySales: number;
+    };
     workingCapital: BenefitSwitch & {
       inventoryAfter: number;
       releaseMonth: number;
       treatment: WorkingCapitalTreatment;
       costOfCapitalAnnual: number;
       reverseAtHorizon: boolean;
+      reductionProven: boolean;
     };
+  };
+  network: {
+    enabled: boolean;
+    sharedMonthlyCost: number;
+    stores: NetworkStore[];
   };
   robot: {
     capex: {
@@ -169,12 +252,30 @@ export interface Inputs {
     };
     availabilityPct: number;
     capacityDispensationsPerDay: number;
+    reorganizationEffectiveness: number;
+    automatedStockShare: number;
+    serviceLevel: number;
+    conversionFactor: number;
     goLiveMonth: number;
     residualValue: number;
     depreciationYears: number;
     includeTax: boolean;
     taxRate: number;
+    taxPolicy: TaxPolicy;
+    lossUtilizationLimit: number;
+    taxCapacityMonthly: number;
+    taxBenefitValidated: boolean;
+    taxValidated: boolean;
+    extraordinaryEventsTaxable: boolean;
     discountRateAnnual: number;
+    discountBasis: MoneyBasis;
+    ramp: {
+      people: number[];
+      logistics: number[];
+      stock: number[];
+      sales: number[];
+    };
+    capexSchedule: Array<{ month: number; share: number }>;
     financing: {
       enabled: boolean;
       downPaymentPct: number;
@@ -198,6 +299,14 @@ export interface AuditLine {
   includedInCashFlow: boolean;
   formula: string;
   reason: string;
+  unit: string;
+  dataOrigin: string;
+  condition: string;
+  startMonth: number | null;
+  captureFactor: number;
+  accumulatedValue: number;
+  dependencies: string[];
+  conflicts: string[];
 }
 
 export interface MonthDetail {
@@ -207,6 +316,8 @@ export interface MonthDetail {
   salesMargin: number;
   benefit: number;
   opex: number;
+  accountingResult: number;
+  taxableBase: number;
   tax: number;
   netOperating: number;
   workingCapital: number;
@@ -229,6 +340,13 @@ export interface FinancingResult {
   totalPaid: number;
   interestTotal: number;
   note: string;
+  projectNpv: number;
+  projectIrrAnnual: number | null;
+  equityCashFlows: number[];
+  equityIrrAnnual: number | null;
+  debtServiceMonthly: number;
+  debtBalanceByMonth: number[];
+  totalFinancialCost: number;
 }
 
 export interface ModelResult {
@@ -264,11 +382,41 @@ export interface ModelResult {
     workingCapitalIncluded: boolean;
     financialCostIncluded: boolean;
   };
+  indicators: FinancialIndicators;
   network: {
     investment: number;
     steadyNet: number;
     npv: number;
+    mode: 'replicacao' | 'escalonada';
+    sharedMonthlyCost: number;
+    stores: NetworkStoreResult[];
   };
+}
+
+export interface FinancialIndicators {
+  stabilizedAnnualReturn: number | null;
+  cumulativeRoi: number | null;
+  simplePayback: number | null;
+  discountedPayback: number | null;
+  npv: number;
+  irrAnnualEffective: number | null;
+  irrAmbiguous: boolean;
+  cumulativeCash: number;
+  cumulativeDiscountedCash: number;
+  annualOperatingBenefit: number;
+  accumulatedSavings: number;
+  totalNetInvestment: number;
+}
+
+export interface NetworkStoreResult {
+  id: string;
+  name: string;
+  count: number;
+  goLiveMonth: number;
+  payback: number | null;
+  npv: number;
+  netInvestment: number;
+  steadyNet: number;
 }
 
 export interface EvalOptions {
@@ -279,9 +427,20 @@ export interface EvalOptions {
   volumeFactor?: number;
   capexFactor?: number;
   storeTypeOverride?: StoreType;
+  /** Evita recursão quando a rede consolidada reavalia cada loja. */
+  skipNetwork?: boolean;
 }
 
-export type SensitivityDriver = 'investimento' | 'maoDeObra' | 'turnover' | 'vendas' | 'volume';
+export type SensitivityDriver =
+  | 'investimento'
+  | 'opex'
+  | 'maoDeObra'
+  | 'turnover'
+  | 'vendas'
+  | 'volume'
+  | 'desconto'
+  | 'disponibilidade'
+  | 'cobertura';
 
 export interface SensitivityPoint {
   delta: number;

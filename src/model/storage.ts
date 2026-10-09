@@ -1,4 +1,5 @@
 import { scenarioLabel } from './format';
+import { normalizeInputs } from './normalize';
 import type { Inputs, ScenarioId } from './types';
 import { normalizeWizardStep } from './wizard';
 
@@ -106,11 +107,11 @@ function draftFrom(
   adjustAnchor?: unknown,
 ): DraftState {
   return {
-    inputs,
+    inputs: normalizeInputs(inputs),
     scenario: isScenarioId(scenario) ? scenario : 'base',
     section: isSectionId(section) ? section : 'dashboard',
     wizardStep: normalizeWizardStep(wizardStep),
-    adjustAnchor: isInputs(adjustAnchor) ? adjustAnchor : structuredClone(inputs),
+    adjustAnchor: normalizeInputs(isInputs(adjustAnchor) ? adjustAnchor : structuredClone(inputs)),
   };
 }
 
@@ -121,7 +122,7 @@ export function parseSimulation(value: unknown): SimulationRecord | null {
     id: value.id,
     name: value.name.trim(),
     savedAt: typeof value.savedAt === 'string' ? value.savedAt : new Date(0).toISOString(),
-    inputs: value.inputs,
+    inputs: normalizeInputs(value.inputs),
     scenario: isScenarioId(value.scenario) ? value.scenario : 'base',
     section: isSectionId(value.section) ? value.section : 'dashboard',
   };
