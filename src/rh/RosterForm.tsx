@@ -314,14 +314,10 @@ export function RosterForm({
               <label className="field">
                 <FieldLabel label="Fator de cobertura" help={FACTOR_HELP} />
                 <span className="control is-calculated">
-                  <input
-                    readOnly
-                    tabIndex={0}
-                    data-testid={`post-factor-${item.id}`}
-                    aria-readonly="true"
-                    {...fieldHelpAttr(true, FACTOR_HELP)}
-                    value={formatNumber(memory.suggested, 4)}
-                  />
+                  <output data-testid={`post-factor-${item.id}`} {...fieldHelpAttr(true, FACTOR_HELP)}>
+                    {formatNumber(memory.suggested, 4)}
+                  </output>
+                  <i>calculado</i>
                 </span>
                 <small data-testid={`post-coverage-${item.id}`}>{coverageSentence(memory, roster)}</small>
               </label>

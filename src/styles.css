@@ -524,7 +524,18 @@ p { margin: 0; }
   outline: none;
   font-variant-numeric: tabular-nums;
 }
-.control.is-calculated { background: var(--paper); }
+.control.is-calculated {
+  background: var(--gold-soft);
+  border-style: dashed;
+}
+.control output {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
 .control input[readonly] { cursor: default; }
 .roster-form .advanced,
 .roster-form .card > .table-wrap { margin-top: 12px; }
