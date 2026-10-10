@@ -68,6 +68,18 @@ describe('tela head-to-head', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="hh-add-indicator"]')?.click();
     });
     expect([...host.querySelectorAll('input')].map((input) => input.value)).toContain('Novo indicador');
+
+    const removes = () => host.querySelectorAll('[data-testid^="remove-hh-"]');
+    const before = removes().length;
+    expect(before).toBeGreaterThan(2);
+    const line = host.querySelector<HTMLButtonElement>('[data-testid^="remove-hh-line-"]');
+    expect(line?.getAttribute('aria-label')).toBe('Remover');
+    expect(line?.className).toBe('btn-remove');
+    await act(async () => {
+      line?.click();
+    });
+    expect(removes()).toHaveLength(before - 1);
+    expect(host.querySelector('[data-testid$="-confirm"]')).toBeNull();
     act(() => root.unmount());
   });
 

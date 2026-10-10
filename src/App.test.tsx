@@ -554,6 +554,74 @@ describe('aplicação', () => {
     expect(narrow.querySelector('[data-testid="rail-toggle"]')?.getAttribute('aria-label')).toBe('Expandir menu');
     act(() => narrowRoot.unmount());
   });
+
+  it('remove cargos e contratações na hora e confirma antes de apagar uma simulação', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App />);
+    });
+    const nav = (label: string) =>
+      [...host.querySelectorAll('nav button')].find((button) => button.textContent === label) as HTMLButtonElement;
+
+    await act(async () => {
+      nav('Pessoas').click();
+    });
+    const hire = host.querySelector<HTMLButtonElement>('[data-testid="remove-hire-hire-13"]');
+    expect(hire?.getAttribute('aria-label')).toBe('Remover');
+    expect(hire?.getAttribute('title')).toBe('Remover');
+    expect(hire?.getAttribute('data-tooltip')).toBe('Remover');
+    expect(hire?.className).toBe('btn-remove');
+    expect(hire?.querySelector('svg')).not.toBeNull();
+    expect(hire?.textContent?.trim()).toBe('');
+    expect(hire?.closest('.remove-field')).not.toBeNull();
+    await act(async () => {
+      hire?.click();
+    });
+    expect(host.querySelector('[data-testid="remove-hire-hire-13"]')).toBeNull();
+    expect(host.querySelector('[data-testid="remove-hire-hire-13-confirm"]')).toBeNull();
+
+    await act(async () => {
+      nav('Perfil').click();
+    });
+    const rolesBefore = host.querySelectorAll('[data-testid^="remove-role-"]').length;
+    expect(rolesBefore).toBeGreaterThan(1);
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="remove-role-auxiliar"]')?.click();
+    });
+    expect(host.querySelectorAll('[data-testid^="remove-role-"]')).toHaveLength(rolesBefore - 1);
+    expect(host.textContent).not.toContain('Auxiliar de farmácia');
+
+    await act(async () => {
+      nav('Simulações').click();
+    });
+    await act(async () => {
+      [...host.querySelectorAll('button')].find((button) => button.textContent === 'Salvar simulação')?.click();
+    });
+    const saved = host.querySelector<HTMLButtonElement>('[data-testid^="remove-simulation-"]');
+    expect(saved?.getAttribute('aria-label')).toBe('Remover');
+    await act(async () => {
+      saved?.click();
+    });
+    expect(host.querySelector('[data-testid$="-confirm"]')).not.toBeNull();
+    expect(host.textContent).toContain('Apagar esta simulação salva neste navegador?');
+    expect(host.querySelectorAll('article.library-item')).toHaveLength(1);
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid$="-cancel"]')?.click();
+    });
+    expect(host.querySelector('[data-testid$="-confirm"]')).toBeNull();
+    expect(host.querySelectorAll('article.library-item')).toHaveLength(1);
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid^="remove-simulation-"]')?.click();
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid$="-confirm"]')?.click();
+    });
+    expect(host.textContent).toContain('Nenhuma simulação nomeada ainda.');
+    act(() => root.unmount());
+  });
 });
 
 function setViewport(width: number, height = 800) {

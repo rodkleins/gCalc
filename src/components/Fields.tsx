@@ -270,3 +270,111 @@ export function ModuleImpact({ result, module }: { result: ModelResult; module: 
     </aside>
   );
 }
+
+/** Reserva a altura do rótulo para o botão ficar na mesma linha dos inputs. */
+export function RemoveField({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="field remove-field">
+      <span className="remove-spacer" aria-hidden="true">
+        &nbsp;
+      </span>
+      {children}
+    </div>
+  );
+}
+
+export function RemoveButton({
+  onRemove,
+  confirm,
+  testId,
+  label = 'Remover',
+}: {
+  onRemove: () => void;
+  /** Texto da confirmação. Sem isso, o clique remove na hora. */
+  confirm?: string;
+  testId?: string;
+  label?: string;
+}) {
+  const [pending, setPending] = useState(false);
+  const root = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!pending) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPending(false);
+    }
+    function onPointer(event: PointerEvent) {
+      if (!root.current?.contains(event.target as Node)) setPending(false);
+    }
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, [pending]);
+
+  return (
+    <span className="remove-wrap" ref={root}>
+      <button
+        type="button"
+        className="btn-remove"
+        aria-label={label}
+        title={label}
+        data-tooltip={label}
+        data-testid={testId}
+        aria-expanded={confirm ? pending : undefined}
+        onClick={() => {
+          if (!confirm) {
+            onRemove();
+            return;
+          }
+          setPending((value) => !value);
+        }}
+      >
+        <TrashIcon />
+      </button>
+      {pending && confirm ? (
+        <span className="remove-confirm" role="group" aria-label="Confirmar remoção">
+          <span>{confirm}</span>
+          <span className="remove-confirm-actions">
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid={testId ? `${testId}-cancel` : undefined}
+              onClick={() => setPending(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn danger"
+              data-testid={testId ? `${testId}-confirm` : undefined}
+              onClick={() => {
+                setPending(false);
+                onRemove();
+              }}
+            >
+              Remover
+            </button>
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <path
+        d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

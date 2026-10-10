@@ -422,7 +422,7 @@ p { margin: 0; }
   background: white;
 }
 .library-item.is-active { outline: 2px solid var(--forest-2); }
-.library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.library-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .seg { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
 .seg button.is-active { background: var(--forest); color: white; }
 .seg.wrap { width: fit-content; max-width: 100%; }
@@ -521,6 +521,56 @@ p { margin: 0; }
 .switch.is-on { background: #d7ebe3; }
 .switch.is-on i { background: var(--forest-2); }
 .switch.is-on i::after { left: 12px; }
+.remove-field { width: max-content; justify-self: start; }
+.remove-spacer { visibility: hidden; user-select: none; }
+.remove-wrap { position: relative; display: inline-flex; align-self: center; }
+.btn-remove {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  border: 1px solid #eadfdf;
+  border-radius: 12px;
+  background: white;
+  color: var(--danger);
+}
+.btn-remove:hover, .btn-remove:focus-visible { background: #f8e8e8; border-color: #e4c2c2; }
+.btn-remove:hover::after, .btn-remove:focus-visible::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: #0e2824;
+  color: #f6f1e6;
+  border-radius: 8px;
+  padding: 6px 10px;
+  white-space: nowrap;
+  z-index: 8;
+  font-size: 0.85rem;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
+.remove-confirm {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(280px, 70vw);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+.remove-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .rows { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .row-card {
   display: grid;

@@ -3,7 +3,7 @@ import { evaluate } from '../model/calculate';
 import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import type { StorePreset } from '../model/presets';
 import type { SimulationRecord } from '../model/storage';
-import { StageNote } from './Fields';
+import { RemoveButton, StageNote } from './Fields';
 import { StorePresets } from './StorePresets';
 
 export function LibraryPanel({
@@ -211,9 +211,11 @@ export function LibraryPanel({
                     >
                       Renomear
                     </button>
-                    <button type="button" className="btn ghost danger" onClick={() => onDelete(simulation.id)}>
-                      Excluir
-                    </button>
+                    <RemoveButton
+                      testId={`remove-simulation-${simulation.id}`}
+                      confirm="Apagar esta simulação salva neste navegador?"
+                      onRemove={() => onDelete(simulation.id)}
+                    />
                   </>
                 )}
               </div>

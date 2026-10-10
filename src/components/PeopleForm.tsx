@@ -5,6 +5,8 @@ import {
   ModuleImpact,
   NumberField,
   PercentField,
+  RemoveButton,
+  RemoveField,
   SelectField,
   StageNote,
   Switch,
@@ -172,21 +174,20 @@ export function PeopleForm({
                   setPeople({ ...people, futureHires: { ...people.futureHires, hires } });
                 }}
               />
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() =>
-                  setPeople({
-                    ...people,
-                    futureHires: {
-                      ...people.futureHires,
-                      hires: people.futureHires.hires.filter((item) => item.id !== hire.id),
-                    },
-                  })
-                }
-              >
-                Remover
-              </button>
+              <RemoveField>
+                <RemoveButton
+                  testId={`remove-hire-${hire.id}`}
+                  onRemove={() =>
+                    setPeople({
+                      ...people,
+                      futureHires: {
+                        ...people.futureHires,
+                        hires: people.futureHires.hires.filter((item) => item.id !== hire.id),
+                      },
+                    })
+                  }
+                />
+              </RemoveField>
             </div>
           ))}
         </div>

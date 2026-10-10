@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { NumberField, PercentField, Switch } from '../components/Fields';
+import { NumberField, PercentField, RemoveButton, Switch } from '../components/Fields';
 import { PageNav } from '../components/PageNav';
 import { PreviewNotice } from '../components/PreviewNotice';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, parseLocaleNumber } from '../model/format';
@@ -236,15 +236,12 @@ export function HeadToHeadApp({ initialDraft }: { initialDraft?: HeadToHeadDraft
                         placeholder="unidade"
                         onChange={(event) => updateIndicator(indicator.id, { unit: event.target.value })}
                       />
-                      <button
-                        type="button"
-                        className="btn ghost hh-remove"
-                        onClick={() =>
+                      <RemoveButton
+                        testId={`remove-hh-indicator-${indicator.id}`}
+                        onRemove={() =>
                           setDraft({ ...draft, indicators: draft.indicators.filter((item) => item.id !== indicator.id) })
                         }
-                      >
-                        Remover
-                      </button>
+                      />
                     </div>
                   </th>
                   <td>
@@ -394,9 +391,7 @@ function SectionBlock({
                       value={line.monthlyCostPerPerson}
                       onChange={(monthlyCostPerPerson) => onStaff(line.id, { monthlyCostPerPerson })}
                     />
-                    <button type="button" className="btn ghost hh-remove" onClick={() => onRemoveStaff(line.id)}>
-                      Remover
-                    </button>
+                    <RemoveButton testId={`remove-hh-staff-${line.id}`} onRemove={() => onRemoveStaff(line.id)} />
                   </div>
                 </div>
               </th>
@@ -467,9 +462,7 @@ function SectionBlock({
                     <option value="subtrai">Reduz o resultado</option>
                   </select>
                 ) : null}
-                <button type="button" className="btn ghost hh-remove" onClick={() => onRemoveLine(line.id)}>
-                  Remover
-                </button>
+                <RemoveButton testId={`remove-hh-line-${line.id}`} onRemove={() => onRemoveLine(line.id)} />
               </div>
             </th>
             <td>

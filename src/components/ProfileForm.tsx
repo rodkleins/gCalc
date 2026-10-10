@@ -1,4 +1,4 @@
-import { ModuleImpact, NumberField, PercentField, SelectField, StageNote, TextField } from './Fields';
+import { ModuleImpact, NumberField, PercentField, RemoveButton, RemoveField, SelectField, StageNote, TextField } from './Fields';
 import { SUGGESTED_PHARMACIST_MONTHLY_COST } from '../model/example';
 import type { Inputs, ModelResult } from '../model/types';
 import { formatBRL } from '../model/format';
@@ -188,13 +188,12 @@ export function ProfileForm({
                   setProfile({ roles });
                 }}
               />
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => setProfile({ roles: profile.roles.filter((item) => item.id !== role.id) })}
-              >
-                Remover
-              </button>
+              <RemoveField>
+                <RemoveButton
+                  testId={`remove-role-${role.id}`}
+                  onRemove={() => setProfile({ roles: profile.roles.filter((item) => item.id !== role.id) })}
+                />
+              </RemoveField>
             </div>
           ))}
         </div>
