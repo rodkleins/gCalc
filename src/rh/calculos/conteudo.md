@@ -25,21 +25,22 @@ Não há um campo de vaga digitado à parte.
 O fator de cobertura transforma uma pessoa no turno em pessoas contratadas. Ele cobre a folga da escala, as férias e as faltas.
 
 ```
-presença 6x1 = 6/7
-presença 5x2 = 5/7
-presença 12x36 = 12/48
-dias produtivos = 365 × presença − férias − faltas
-fator sugerido = 365 / dias produtivos
+6x1 trabalha 6 e folga 1 → 7/6 pessoas por cadeira
+5x2 trabalha 5 e folga 2 → 7/5 pessoas por cadeira
+12x36 trabalha um dia e folga o outro → 2 pessoas por cadeira
+fator sugerido = pessoas da escala × 365 / (365 − férias − faltas)
 folguista = fator − 1
 ```
 
-O padrão visível é 365 dias, 30 de férias e 6 faltas. Com esse padrão:
+O posto já é a cadeira daquele turno. Um turno de 8 horas não se converte em 12/8 nem em 12/48. O 12x36 cobre o turno um dia sim e um dia não, em jornada de 12 horas. Cobrir a cadeira o ano inteiro pede 2 pessoas antes de férias e faltas.
 
-- 6x1 fica em 1,3184 (folguista de 0,3184 por pessoa no turno);
-- 5x2 fica em 1,6243 (folguista de 0,6243);
-- 12x36 fica em 6,6063 (folguista de 5,6063).
+O padrão visível é 365 dias, 30 de férias e 6 faltas. Com 329 dias disponíveis:
 
-O 12x36 é alto porque a pessoa só está presente um quarto do tempo. Uma cadeira no turno da noite, todos os dias, pede várias contratações. O fator sugerido aparece em cada posto e pode ser sobrescrito. Vazio volta à sugestão. Se férias e faltas cobrem o ano, o fator vai a zero em vez de inverter o sinal.
+- 6x1 fica em 1,2943 (folguista de 0,2943 por pessoa no turno);
+- 5x2 fica em 1,5532 (folguista de 0,5532);
+- 12x36 fica em 2,2188 (folguista de 1,2188).
+
+Sem férias nem faltas, os fatores ficam em 7/6, 7/5 e 2. A memória dessa conta aparece em cada posto e o fator pode ser sobrescrito. Vazio volta à sugestão. Se férias e faltas cobrem o ano, o fator vai a zero em vez de inverter o sinal.
 
 ## 4. Folha
 
@@ -77,6 +78,6 @@ O exemplo e a loja de R$ 1 milhão têm 2 turnos e 1 balcão. O robô libera 1 a
 
 A de R$ 2 milhões tem 2 turnos e 2 balcões, com 1 auxiliar liberado por turno em cada balcão.
 
-A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1. À noite, farmacêutico e auxiliar usam 12x36, com adicional de 10%. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. Esse fator 6,6063 é o que encurta o payback dessa loja. Se a operação real não cobre a noite assim, sobrescreva o fator ou a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
+A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1, e o gerente fica em 5x2. À noite, farmacêutico e auxiliar usam 12x36, com adicional de 10%. Estoquista e gerente da noite continuam em 6x1 e 5x2. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. O fator 2,2188 entra só nas cadeiras 12x36. Se a operação real não cobre a noite assim, sobrescreva o fator ou a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
 
 A tabela no fim desta página sai dos mesmos modelos, nos cenários conservador, base e otimista.

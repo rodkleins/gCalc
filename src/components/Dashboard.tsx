@@ -15,7 +15,7 @@ import {
 import { evaluate } from '../model/calculate';
 import { matchesIllustrativeExample } from '../model/example';
 import { formatBRL, formatCompactBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
-import { fieldForAudit } from '../model/premises';
+import { fieldForAudit, type LeverId } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
 import { Callout, PercentField, StageNote, Switch } from './Fields';
 import { QuickAdjust } from './QuickAdjust';
@@ -33,6 +33,7 @@ export function Dashboard({
   onUndo,
   onOpenPremise,
   uiKeys,
+  hiddenLevers,
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -44,6 +45,7 @@ export function Dashboard({
   onUndo: () => void;
   onOpenPremise: (fieldId: string) => void;
   uiKeys?: { dock: string; adjust: string };
+  hiddenLevers?: LeverId[];
 }) {
   const illustrative = matchesIllustrativeExample(result);
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
@@ -165,6 +167,7 @@ export function Dashboard({
         onUndo={onUndo}
         onOpen={onOpenPremise}
         storageKeys={uiKeys}
+        hiddenLevers={hiddenLevers}
       />
 
       <StageNote testId="stage-note-kpis">

@@ -2,6 +2,7 @@ import { createId } from '../model/storage';
 import { formatBRL, formatNumber, parseLocaleNumber } from '../model/format';
 import { Callout, NumberField, PercentField, RemoveButton, StageNote, TextField } from '../components/Fields';
 import {
+  coverageMemory,
   postCoverage,
   shiftName,
   summarizeRoster,
@@ -201,8 +202,11 @@ export function RosterForm({
           />
         </div>
         <p className="lede">
-          Fator sugerido = 365 / (365 × presença − férias − faltas). Presença: 6x1 = 6/7, 5x2 = 5/7, 12x36 = 12/48. O
-          folguista é esse fator menos 1. Sobrescrever o fator troca a sugestão só naquele posto.
+          Uma cadeira no turno pede gente contratada para cobrir a folga da escala, as férias e as faltas. O posto já é
+          o turno: um turno de 8 horas não se converte em 12/8 nem em 12/48. 6x1 trabalha 6 e folga 1 (7/6 pessoas).
+          5x2 trabalha 5 e folga 2 (7/5). 12x36 trabalha um dia e folga o outro, em turno de 12 horas (2 pessoas).
+          Férias e faltas multiplicam esse número por dias do ano / (dias do ano − férias − faltas). O folguista é o
+          fator menos 1. Sobrescrever o fator troca a sugestão só naquele posto.
         </p>
       </section>
 
@@ -211,8 +215,9 @@ export function RosterForm({
         <RosterSummary roster={roster} storeType={storeType} />
       </section>
 
-      {roster.posts.map((item) => {
+        {roster.posts.map((item) => {
         const coverage = postCoverage(item, roster);
+        const memory = coverageMemory(item.scale, roster);
         return (
           <section key={item.id} className="card" data-testid={`roster-post-${item.id}`}>
             <header className="benefit-head">
@@ -225,6 +230,11 @@ export function RosterForm({
                   {coverage.overridden ? ` · em uso ${formatNumber(coverage.applied, 4)}` : ' · em uso'}
                   {' · '}
                   folguista de {formatNumber(Math.max(0, coverage.applied - 1), 4)} por pessoa no turno
+                </p>
+                <p className="lede" data-testid={`post-coverage-${item.id}`}>
+                  {memory.availableDays > 0
+                    ? `${memory.scaleMeaning} Fator sugerido = ${memory.peoplePerSeatLabel} × ${roster.yearDays} / (${roster.yearDays} − ${roster.vacationDays} − ${roster.absenceDays}) = ${formatNumber(memory.suggested, 4)}. Folguista de ${formatNumber(memory.folguista, 4)} por pessoa neste turno.`
+                    : `${memory.scaleMeaning} Férias e faltas cobrem o ano, então o fator sugerido é 0.`}
                 </p>
               </div>
               <RemoveButton confirm="Tirar este posto do quadro?" onRemove={() => onChange({ ...roster, posts: roster.posts.filter((post) => post.id !== item.id) })} />

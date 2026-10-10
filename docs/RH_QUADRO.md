@@ -8,24 +8,27 @@ A calculadora em `/gCalc/`, o rascunho `/gCalc/headtohead/` e a página `/gCalc/
 
 ## Conta do folguista
 
-Padrão visível: 365 dias, 30 de férias e 6 faltas. Cada posto pode sobrescrever o fator.
+O posto já é uma cadeira daquele turno. A escala diz quantas pessoas contratadas mantêm uma pessoa presente cada vez que o turno acontece. Um turno de 8 horas e uma escala de 12 horas não se multiplicam: 12x36 não é 12/48 nem 12/8.
+
+Padrão visível: 365 dias, 30 de férias e 6 faltas. Cada posto pode sobrescrever o fator. A memória dessa conta aparece em cada posto.
 
 ```
-presença 6x1 = 6/7
-presença 5x2 = 5/7
-presença 12x36 = 12/48
-fator = 365 / (365 × presença − 30 − 6)
+6x1 trabalha 6 e folga 1 → 7/6 pessoas por cadeira
+5x2 trabalha 5 e folga 2 → 7/5 pessoas por cadeira
+12x36 trabalha um dia e folga o outro, turno de 12 horas → 2 pessoas por cadeira
+fator = pessoas da escala × 365 / (365 − 30 − 6)
+folguista = fator − 1
 ```
 
-Referência calculada à mão:
+Referência calculada à mão, com 329 dias disponíveis (365 − 30 − 6):
 
-| Escala | Fator | Folguista por pessoa no turno |
-| --- | --- | --- |
-| 6x1 | 1,3184 | 0,3184 |
-| 5x2 | 1,6243 | 0,6243 |
-| 12x36 | 6,6063 | 5,6063 |
+| Escala | Conta | Fator | Folguista por pessoa no turno |
+| --- | --- | --- | --- |
+| 6x1 | (7/6) × 365/329 = 2555/1974 | 1,2943 | 0,2943 |
+| 5x2 | (7/5) × 365/329 = 2555/1645 | 1,5532 | 0,5532 |
+| 12x36 | 2 × 365/329 = 730/329 | 2,2188 | 1,2188 |
 
-Duas posições de auxiliar liberadas em 6x1, a R$ 4.200, viram `2 × 1,3184 = 2,6367` vagas e `2,6367 × 4.200 = R$ 11.074,30` de folha evitada. Uma cadeira noturna em 12x36, com adicional de 10%, vira `6,6063 × 4.200 × 1,10 = R$ 30.521,27`.
+Sem férias nem faltas, os fatores ficam em 7/6, 7/5 e 2. Duas posições de auxiliar liberadas em 6x1, a R$ 4.200, viram 2,5887 vagas e R$ 10.872 de folha evitada. Uma cadeira noturna em 12x36, com adicional de 10%, vira R$ 10.251.
 
 A rescisão é um mês da folha evitada agora. A contratação futura, no mês 13, usa a mesma conta. O turnover de 30% e R$ 8.000 incide sobre essas vagas, já com o folguista. Supervisão, movimentação, inventário e horas realocadas ficam de fora.
 
@@ -39,11 +42,11 @@ O robô libera 1 auxiliar por turno em cada balcão. Farmacêutico, estoquista e
 
 | Modelo | Turnos | Pessoas no turno | Folha do mês |
 | --- | --- | --- | --- |
-| Exemplo e loja de R$ 1 milhão | 2, 1 balcão | 5 + 3 | R$ 42.194 + R$ 22.280 = R$ 64.474 |
-| Loja de R$ 2 milhões | 2, 2 balcões | 8 + 8 | R$ 64.474 + R$ 64.474 = R$ 128.948 |
-| Loja de R$ 4 milhões | 3 (24h), 3 balcões | 11 + 11 + 10 | R$ 86.754 + R$ 86.754 + R$ 328.571 = R$ 502.080 |
+| Exemplo e loja de R$ 1 milhão | 2, 1 balcão | 5 + 3 | R$ 41.030 + R$ 21.874 = R$ 62.904 |
+| Loja de R$ 2 milhões | 2, 2 balcões | 8 + 8 | R$ 62.904 em cada turno; no mês, R$ 125.809 |
+| Loja de R$ 4 milhões | 3 (24h), 3 balcões | 11 + 11 + 10 | R$ 84.778 + R$ 84.778 + R$ 124.070; no mês, R$ 293.627 |
 
-A noite da loja de R$ 4 milhões usa 12x36. Duas pessoas presentes por balcão, em três balcões, pedem o fator 6,6063. É isso que leva a folha da noite a R$ 328.571 e a folha evitada do modelo a R$ 124.787. Se a operação real não cobre a noite assim, o fator do posto pode ser sobrescrito. O payback abaixo é o resultado dessa premissa, sem ajuste para caber em 30 meses.
+A noite da loja de R$ 4 milhões usa 12x36 no farmacêutico e no auxiliar (duas pessoas presentes por balcão, em três balcões) e mantém estoquista em 6x1 e gerente em 5x2. O fator 2,2188, com adicional de 10%, leva a folha da noite a R$ 124.070. Os turnos do dia, com 11 pessoas, ficam em R$ 84.778 cada. A noite fica acima do dia porque a escala pede cerca de 2,2 pessoas por cadeira e o adicional é 10%. A folha evitada do modelo é R$ 63.370. Se a operação real não cobre a noite assim, o fator do posto pode ser sobrescrito. O payback abaixo é o resultado dessa premissa, sem ajuste para caber em 30 meses.
 
 A loja de R$ 1 milhão tem, além das duas posições liberadas, 1 auxiliar futuro no turno 1. A de R$ 2 milhões tem 1 futuro em cada balcão. A de R$ 4 milhões tem futuro nos dois primeiros balcões, de dia. O exemplo é loja nova: a rescisão e o futuro não entram no caixa.
 
@@ -53,17 +56,17 @@ Custo mensal da tabela é o OPEX do robô já com o fator do cenário. ROI acumu
 
 | Modelo | Cenário | Investimento líquido | Custo mensal | Benefício líquido | Payback | ROI acumulado | VPL |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Exemplo fictício (nova) | Conservador | R$ 1.290.600 | R$ 5.750 | R$ 11.691 | Não recupera em 60 meses | 54,4% | −R$ 757.619 |
-| Exemplo fictício (nova) | Base | R$ 1.195.000 | R$ 5.000 | R$ 16.802 | Não recupera em 60 meses | 84,4% | −R$ 429.050 |
-| Exemplo fictício (nova) | Otimista | R$ 1.159.150 | R$ 4.600 | R$ 19.818 | 58,5 meses | 102,6% | −R$ 255.698 |
-| Loja de R$ 1 milhão | Conservador | R$ 1.333.800 | R$ 5.750 | R$ 15.052 | Não recupera em 60 meses | 63,5% | −R$ 710.984 |
-| Loja de R$ 1 milhão | Base | R$ 1.235.000 | R$ 5.000 | R$ 21.002 | Não recupera em 60 meses | 96,4% | −R$ 354.014 |
-| Loja de R$ 1 milhão | Otimista | R$ 1.197.950 | R$ 4.600 | R$ 24.523 | 52,5 meses | 116,3% | −R$ 164.341 |
-| Loja de R$ 2 milhões | Conservador | R$ 1.782.000 | R$ 6.325 | R$ 35.119 | 54,5 meses | 112% | −R$ 307.745 |
-| Loja de R$ 2 milhões | Base | R$ 1.650.000 | R$ 5.500 | R$ 46.305 | 39,1 meses | 159,9% | R$ 308.000 |
-| Loja de R$ 2 milhões | Otimista | R$ 1.600.500 | R$ 5.060 | R$ 52.962 | 33,6 meses | 188,8% | R$ 645.240 |
-| Loja de R$ 4 milhões | Conservador | R$ 2.413.800 | R$ 6.900 | R$ 133.687 | 19,8 meses | 327,7% | R$ 3.452.298 |
-| Loja de R$ 4 milhões | Base | R$ 2.235.000 | R$ 6.000 | R$ 169.734 | 14,7 meses | 449,4% | R$ 5.248.194 |
-| Loja de R$ 4 milhões | Otimista | R$ 2.167.950 | R$ 5.520 | R$ 191.302 | 12,8 meses | 522,3% | R$ 6.282.767 |
+| Exemplo fictício (nova) | Conservador | R$ 1.290.600 | R$ 5.750 | R$ 11.522 | Não recupera em 60 meses | 53,6% | -R$ 765.335 |
+| Exemplo fictício (nova) | Base | R$ 1.195.000 | R$ 5.000 | R$ 16.590 | Não recupera em 60 meses | 83,3% | -R$ 438.695 |
+| Exemplo fictício (nova) | Otimista | R$ 1.159.150 | R$ 4.600 | R$ 19.581 | 59,2 meses | 101,4% | -R$ 266.501 |
+| Loja de R$ 1 milhão | Conservador | R$ 1.333.800 | R$ 5.750 | R$ 14.798 | Não recupera em 60 meses | 62,5% | -R$ 721.402 |
+| Loja de R$ 1 milhão | Base | R$ 1.235.000 | R$ 5.000 | R$ 20.685 | Não recupera em 60 meses | 95% | -R$ 367.087 |
+| Loja de R$ 1 milhão | Otimista | R$ 1.197.950 | R$ 4.600 | R$ 24.167 | 53,2 meses | 114,7% | -R$ 179.008 |
+| Loja de R$ 2 milhões | Conservador | R$ 1.782.000 | R$ 6.325 | R$ 34.611 | 55,3 meses | 110,4% | -R$ 328.583 |
+| Loja de R$ 2 milhões | Base | R$ 1.650.000 | R$ 5.500 | R$ 45.670 | 39,6 meses | 157,8% | R$ 281.853 |
+| Loja de R$ 2 milhões | Otimista | R$ 1.600.500 | R$ 5.060 | R$ 52.251 | 34,0 meses | 186,3% | R$ 615.906 |
+| Loja de R$ 4 milhões | Conservador | R$ 2.413.800 | R$ 6.900 | R$ 82.256 | 31,4 meses | 199,9% | R$ 1.170.398 |
+| Loja de R$ 4 milhões | Base | R$ 2.235.000 | R$ 6.000 | R$ 105.445 | 23,1 meses | 277% | R$ 2.380.609 |
+| Loja de R$ 4 milhões | Otimista | R$ 2.167.950 | R$ 5.520 | R$ 119.298 | 20,0 meses | 323,1% | R$ 3.063.771 |
 
-O exemplo e a loja de R$ 1 milhão não recuperam o investimento em 60 meses no cenário base. A de R$ 2 milhões fica em 39,1 meses. A de R$ 4 milhões fica em 14,7 meses por causa do 12x36 na noite. Nenhuma dessas três foi puxada para 30 meses.
+O exemplo e a loja de R$ 1 milhão não recuperam o investimento em 60 meses no cenário base. A de R$ 2 milhões fica em 39,6 meses. A de R$ 4 milhões fica em 23,1 meses no base e em 31,4 meses no conservador. Nenhuma dessas três foi puxada para 30 meses.

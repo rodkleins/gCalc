@@ -519,7 +519,13 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
                 Avançado
               </button>
             </div>
-            <MoreActions onCopy={() => void copySummary()} onRestore={restoreExample} onClear={clearSaved} />
+            <MoreActions
+              onCopy={() => void copySummary()}
+              onRestore={restoreExample}
+              onClear={clearSaved}
+              onExportJson={exportCurrent}
+              onImportJson={importFile}
+            />
           </div>
         </div>
         <RhStorePicker presets={presets} onLoad={setPendingPreset} />
@@ -556,6 +562,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
               onUndo={() => setInputs(structuredClone(adjustAnchor))}
               onOpenPremise={openPremise}
               uiKeys={{ dock: RH_UI_KEYS.quickDockOpen, adjust: RH_UI_KEYS.quickAdjustOpen }}
+              hiddenLevers={['salarios']}
             />
           ) : null}
           {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
@@ -606,6 +613,8 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
               onExportCurrent={exportCurrent}
               onExportLibrary={exportLibrary}
               onImport={importFile}
+              exportCurrentLabel="Exportar JSON"
+              emphasizeJson
               onLoadPreset={(preset) => {
                 const match = presets.find((item) => item.id === preset.id);
                 if (match) setPendingPreset(match);

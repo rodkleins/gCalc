@@ -4,7 +4,7 @@ import { blankInputs } from '../model/example';
 import { round2 } from '../model/round';
 import {
   applyRoster,
-  productiveDays,
+  coverageMemory,
   suggestedCoverageFactor,
   summarizeRoster,
   type Roster,
@@ -12,17 +12,18 @@ import {
 } from './roster';
 
 const CALENDAR = { yearDays: 365, vacationDays: 30, absenceDays: 6 };
+const AVAILABLE = 365 - 30 - 6;
 
 function factor61(): number {
-  return 365 / (365 * (6 / 7) - 36);
+  return (7 / 6) * (365 / AVAILABLE);
 }
 
 function factor52(): number {
-  return 365 / (365 * (5 / 7) - 36);
+  return (7 / 5) * (365 / AVAILABLE);
 }
 
 function factor1236(): number {
-  return 365 / (365 * (12 / 48) - 36);
+  return 2 * (365 / AVAILABLE);
 }
 
 function post(overrides: Partial<RosterPost> = {}): RosterPost {
@@ -51,22 +52,42 @@ function roster(overrides: Partial<Roster> = {}, posts: RosterPost[] = [post()])
 }
 
 describe('folguista por escala', () => {
-  it('calcula 6x1, 5x2 e 12x36 com 365 dias, 30 de férias e 6 faltas', () => {
-    expect(productiveDays('6x1', CALENDAR)).toBeCloseTo(365 * (6 / 7) - 36, 10);
-    expect(suggestedCoverageFactor('6x1', CALENDAR)).toBeCloseTo(factor61(), 12);
-    expect(suggestedCoverageFactor('5x2', CALENDAR)).toBeCloseTo(factor52(), 12);
-    expect(suggestedCoverageFactor('12x36', CALENDAR)).toBeCloseTo(factor1236(), 12);
-    expect(factor61()).toBeCloseTo(1.318369453, 8);
-    expect(factor52()).toBeCloseTo(1.624284806, 8);
-    expect(factor1236()).toBeCloseTo(6.606334842, 8);
+  it('calcula 6x1, 5x2 e 12x36 à mão com 365 dias, 30 de férias e 6 faltas', () => {
+    expect(suggestedCoverageFactor('6x1', CALENDAR)).toBeCloseTo(2555 / 1974, 12);
+    expect(suggestedCoverageFactor('5x2', CALENDAR)).toBeCloseTo(2555 / 1645, 12);
+    expect(suggestedCoverageFactor('12x36', CALENDAR)).toBeCloseTo(730 / 329, 12);
+    expect(factor61()).toBeCloseTo(1.294326241, 8);
+    expect(factor52()).toBeCloseTo(1.553191489, 8);
+    expect(factor1236()).toBeCloseTo(2.218844985, 8);
+    expect(factor1236()).not.toBeCloseTo(365 / (365 * (12 / 48) - 36), 1);
   });
 
-  it('sem férias nem faltas o 6x1 fica em 7/6', () => {
-    expect(suggestedCoverageFactor('6x1', { yearDays: 365, vacationDays: 0, absenceDays: 0 })).toBeCloseTo(7 / 6, 12);
+  it('sem férias nem faltas o 6x1 fica em 7/6, o 5x2 em 7/5 e o 12x36 em 2', () => {
+    const clear = { yearDays: 365, vacationDays: 0, absenceDays: 0 };
+    expect(suggestedCoverageFactor('6x1', clear)).toBeCloseTo(7 / 6, 12);
+    expect(suggestedCoverageFactor('5x2', clear)).toBeCloseTo(7 / 5, 12);
+    expect(suggestedCoverageFactor('12x36', clear)).toBe(2);
+    expect(suggestedCoverageFactor('12x36', clear)).not.toBeCloseTo(12 / 8, 5);
+    expect(suggestedCoverageFactor('12x36', clear)).not.toBeCloseTo(48 / 12, 5);
   });
 
-  it('zera o fator quando férias e faltas cobrem os dias trabalhados', () => {
+  it('mostra a memória: pessoas da escala vezes 365/(365−30−6)', () => {
+    const memory = coverageMemory('12x36', CALENDAR);
+    expect(memory.peoplePerSeat).toBe(2);
+    expect(memory.peoplePerSeatLabel).toBe('2');
+    expect(memory.availableDays).toBe(329);
+    expect(memory.calendarFactor).toBeCloseTo(365 / 329, 12);
+    expect(memory.suggested).toBeCloseTo(2 * (365 / 329), 12);
+    expect(memory.folguista).toBeCloseTo(memory.suggested - 1, 12);
+    expect(memory.scaleMeaning).toContain('um dia');
+    expect(memory.scaleMeaning).toContain('12/48');
+    expect(coverageMemory('6x1', CALENDAR).peoplePerSeatLabel).toBe('7/6');
+    expect(coverageMemory('5x2', CALENDAR).peoplePerSeat).toBeCloseTo(7 / 5, 12);
+  });
+
+  it('zera o fator quando férias e faltas cobrem o ano', () => {
     expect(suggestedCoverageFactor('6x1', { yearDays: 365, vacationDays: 400, absenceDays: 0 })).toBe(0);
+    expect(suggestedCoverageFactor('12x36', { yearDays: 365, vacationDays: 300, absenceDays: 65 })).toBe(0);
   });
 });
 

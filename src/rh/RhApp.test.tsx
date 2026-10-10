@@ -85,14 +85,71 @@ describe('versão em validação', () => {
       host.querySelector('[data-testid="preset-replace"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
-    expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toContain('14,7');
+    expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toContain(
+      formatPayback(rhScorecard()[3].cells[1].payback),
+    );
     const pessoas = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === 'Pessoas');
     await act(async () => {
       pessoas?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(host.querySelector('[data-testid="roster-summary"]')?.textContent).toContain('Turno da noite');
     expect(host.querySelector('[data-testid="shift-count-3"]')?.classList.contains('is-active')).toBe(true);
+    expect(host.querySelector('[data-testid="post-coverage-aux-noite-1"]')?.textContent).toContain('2 × 365 / (365 − 30 − 6)');
+    expect(host.querySelector('[data-testid="post-coverage-aux-noite-1"]')?.textContent).toContain('2,2188');
+    expect(host.querySelector('[data-testid="post-coverage-aux-1"]')?.textContent).toContain('7/6');
+    expect(host.querySelector('[data-testid="roster-summary"]')?.textContent).not.toContain('328.571');
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('exporta o JSON da simulação atual em Simulações e em Mais ações, sem a alavanca de mão de obra', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => {
+      root?.render(<RhApp />);
+    });
+    expect(host.querySelector('[data-testid="quick-salarios-slider"]')).toBeNull();
+    expect(host.querySelector('[data-testid="quick-investimento-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-opex-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-turnover-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-volume-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-vendas-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-desconto-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-disponibilidade-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-cobertura-slider"]')).not.toBeNull();
+
+    const downloads: string[] = [];
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function click() {
+      if (this.download) downloads.push(this.download);
+    };
+    try {
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>('[data-testid="more-actions"]')?.click();
+      });
+      expect(host.querySelector('[data-testid="export-json"]')?.textContent).toBe('Exportar JSON');
+      expect(host.querySelector('[data-testid="import-json"]')?.textContent).toBe('Importar JSON');
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>('[data-testid="export-json"]')?.click();
+      });
+      expect(downloads).toContain('gcalc-rh-simulacao.json');
+
+      const simulacoes = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === 'Simulações');
+      await act(async () => {
+        simulacoes?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      expect(host.querySelector('[data-testid="export-current"]')?.textContent).toBe('Exportar JSON');
+      expect(host.querySelector('[data-testid="export-current"]')?.className).toContain('primary');
+      expect(host.querySelector('[data-testid="import-json"]')?.textContent).toContain('Importar JSON');
+      expect(host.querySelector('[data-testid="export-library"]')?.textContent).toBe('Exportar biblioteca');
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>('[data-testid="export-current"]')?.click();
+      });
+      expect(downloads.filter((name) => name === 'gcalc-rh-simulacao.json')).toHaveLength(2);
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
   });
 });
 
@@ -114,11 +171,15 @@ describe('página de cálculos desta versão', () => {
     });
     const text = host.textContent ?? '';
     expect(text).toContain('Versão em validação');
-    expect(text).toContain('1,3184');
-    expect(text).toContain('6,6063');
+    expect(text).toContain('1,2943');
+    expect(text).toContain('2,2188');
+    expect(text).not.toContain('6,6063');
     expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
     expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('Não recupera em 60 meses');
-    expect(host.querySelector('[data-testid="score-loja-4m-base"]')?.textContent).toContain('14,7 meses');
+    expect(formatPayback(rhScorecard()[3].cells[1].payback)).not.toBe('14,7 meses');
+    expect(host.querySelector('[data-testid="score-loja-4m-base"]')?.textContent).toContain(
+      formatPayback(rhScorecard()[3].cells[1].payback),
+    );
     expect(host.querySelector('[data-testid="score-loja-1m-base"]')?.textContent?.replace(/\u00a0/g, ' ')).toContain(
       'R$ 1.235.000',
     );

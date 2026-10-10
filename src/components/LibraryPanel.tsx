@@ -21,6 +21,8 @@ export function LibraryPanel({
   onImport,
   onLoadPreset,
   presetPanel,
+  exportCurrentLabel = 'Exportar esta simulação',
+  emphasizeJson = false,
 }: {
   draftName: string;
   onDraftName: (name: string) => void;
@@ -36,6 +38,8 @@ export function LibraryPanel({
   onImport: (file: File) => void;
   onLoadPreset: (preset: StorePreset) => void;
   presetPanel?: ReactNode;
+  exportCurrentLabel?: string;
+  emphasizeJson?: boolean;
 }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -72,17 +76,23 @@ export function LibraryPanel({
           </button>
         </div>
         <div className="toolbar compact">
-          <button type="button" className="btn ghost" onClick={onExportCurrent}>
-            Exportar esta simulação
+          <button
+            type="button"
+            className={emphasizeJson ? 'btn primary' : 'btn ghost'}
+            data-testid="export-current"
+            onClick={onExportCurrent}
+          >
+            {exportCurrentLabel}
           </button>
-          <button type="button" className="btn ghost" onClick={onExportLibrary}>
+          <button type="button" className="btn ghost" data-testid="export-library" onClick={onExportLibrary}>
             Exportar biblioteca
           </button>
-          <label className="btn ghost file">
+          <label className={emphasizeJson ? 'btn file' : 'btn ghost file'} data-testid="import-json">
             Importar JSON
             <input
               type="file"
               accept="application/json"
+              data-testid="import-json-input"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) onImport(file);

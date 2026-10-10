@@ -42,10 +42,10 @@ describe('modelos com quadro de RH', () => {
     expect(rows[0].avoidedPayroll).toBeCloseTo(2 * factor61 * 4_200, 2);
     expect(rows[3].avoidedPayroll).toBeCloseTo(6 * factor61 * 4_200 + 3 * factor12 * 4_200 * 1.1, 2);
     expect(rows.map((row) => row.cells.map((cell) => formatPayback(cell.payback)))).toEqual([
-      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '58,5 meses'],
-      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '52,5 meses'],
-      ['54,5 meses', '39,1 meses', '33,6 meses'],
-      ['19,8 meses', '14,7 meses', '12,8 meses'],
+      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '59,2 meses'],
+      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '53,2 meses'],
+      ['55,3 meses', '39,6 meses', '34,0 meses'],
+      ['31,4 meses', '23,1 meses', '20,0 meses'],
     ]);
   });
 });

@@ -107,6 +107,9 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="more-actions"]')?.click();
     });
+    expect(host.querySelector('[data-testid="export-json"]')).toBeNull();
+    expect(host.querySelector('[data-testid="import-json"]')).toBeNull();
+    expect(host.textContent).toContain('Copiar resumo');
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="restore-example"]')?.click();
     });
@@ -247,6 +250,7 @@ describe('aplicação', () => {
       resultados().click();
     });
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+    expect(host.querySelector('[data-testid="quick-salarios-slider"]')).not.toBeNull();
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });

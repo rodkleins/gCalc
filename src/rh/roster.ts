@@ -1,13 +1,28 @@
 import type { Inputs, PlannedHire } from '../model/types';
 
-/** Escala de trabalho. A presença é a fração do ano em que a pessoa está no posto. */
+/** Escala de trabalho. O posto já é uma cadeira daquele turno. */
 export type ScaleId = '6x1' | '5x2' | '12x36';
 export type ShiftCount = 2 | 3;
 
-export const SCALE_PRESENCE: Record<ScaleId, number> = {
-  '6x1': 6 / 7,
-  '5x2': 5 / 7,
-  '12x36': 12 / 48,
+/**
+ * Pessoas contratadas para manter uma cadeira no turno, antes de férias e faltas.
+ * 6x1 trabalha 6 e folga 1 (7/6). 5x2 trabalha 5 e folga 2 (7/5).
+ * 12x36 trabalha um dia e folga o outro (2). Não é 12/48 nem 12/8:
+ * o turno de 8 horas e a escala de 12 horas não se multiplicam.
+ */
+export const SCALE_RATIO: Record<ScaleId, number> = {
+  '6x1': 7 / 6,
+  '5x2': 7 / 5,
+  '12x36': 2,
+};
+
+const SCALE_STORY: Record<ScaleId, { label: string; meaning: string }> = {
+  '6x1': { label: '7/6', meaning: 'Trabalha 6 dias e folga 1.' },
+  '5x2': { label: '7/5', meaning: 'Trabalha 5 dias e folga 2.' },
+  '12x36': {
+    label: '2',
+    meaning: 'Trabalha um dia e folga o outro, em turno de 12 horas. A cadeira do turno não vira 12/8 nem 12/48.',
+  },
 };
 
 export const DEFAULT_YEAR_DAYS = 365;
@@ -87,19 +102,46 @@ export function scaleLabel(scale: ScaleId): string {
   return '6x1';
 }
 
-export function productiveDays(scale: ScaleId, calendar: RosterCalendar): number {
-  return calendar.yearDays * SCALE_PRESENCE[scale] - calendar.vacationDays - calendar.absenceDays;
+export interface CoverageMemory {
+  scale: ScaleId;
+  /** Pessoas por cadeira antes de férias e faltas. */
+  peoplePerSeat: number;
+  /** Fração exibida na memória: 7/6, 7/5 ou 2. */
+  peoplePerSeatLabel: string;
+  /** Dias do ano em que a equipe está disponível: ano − férias − faltas. */
+  availableDays: number;
+  /** Dias do ano / dias disponíveis. Zero quando não há dia disponível. */
+  calendarFactor: number;
+  suggested: number;
+  /** Fator − 1, sem ficar negativo. */
+  folguista: number;
+  scaleMeaning: string;
 }
 
 /**
- * Pessoas contratadas para manter uma pessoa no turno o ano inteiro.
- * fator = dias do ano / (dias do ano × presença − férias − faltas).
+ * Pessoas contratadas para manter uma cadeira no turno o ano inteiro.
+ * fator = pessoas da escala × dias do ano / (dias do ano − férias − faltas).
  * O folguista é fator − 1.
  */
+export function coverageMemory(scale: ScaleId, calendar: RosterCalendar): CoverageMemory {
+  const story = SCALE_STORY[scale];
+  const availableDays = calendar.yearDays - calendar.vacationDays - calendar.absenceDays;
+  const calendarFactor = calendar.yearDays > 0 && availableDays > 0 ? calendar.yearDays / availableDays : 0;
+  const suggested = SCALE_RATIO[scale] * calendarFactor;
+  return {
+    scale,
+    peoplePerSeat: SCALE_RATIO[scale],
+    peoplePerSeatLabel: story.label,
+    availableDays,
+    calendarFactor,
+    suggested,
+    folguista: Math.max(0, suggested - 1),
+    scaleMeaning: story.meaning,
+  };
+}
+
 export function suggestedCoverageFactor(scale: ScaleId, calendar: RosterCalendar): number {
-  const days = productiveDays(scale, calendar);
-  if (!(calendar.yearDays > 0) || !(days > 0)) return 0;
-  return calendar.yearDays / days;
+  return coverageMemory(scale, calendar).suggested;
 }
 
 export function coverageFactor(post: RosterPost, roster: RosterCalendar & { posts?: RosterPost[] }): number {

@@ -24,6 +24,7 @@ export function QuickAdjust({
   onUndo,
   onOpen,
   storageKeys,
+  hiddenLevers = [],
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -32,6 +33,7 @@ export function QuickAdjust({
   onUndo: () => void;
   onOpen: (fieldId: string) => void;
   storageKeys?: { dock: string; adjust: string };
+  hiddenLevers?: LeverId[];
 }) {
   const dockKey = storageKeys?.dock ?? QUICK_DOCK_OPEN_KEY;
   const adjustKey = storageKeys?.adjust ?? QUICK_ADJUST_OPEN_KEY;
@@ -164,7 +166,7 @@ export function QuickAdjust({
         </div>
       </div>
       <div className="quick-levers" id="quick-adjust-body" hidden={!expanded}>
-        {QUICK_LEVERS.map((lever) => {
+        {QUICK_LEVERS.filter((lever) => !hiddenLevers.includes(lever.id)).map((lever) => {
           const delta = leverDelta(inputs, anchor, lever.id);
           const origin = leverValue(anchor, lever.id);
           const slider = delta === null ? 0 : Math.round(Math.min(ADJUST_MAX, Math.max(ADJUST_MIN, delta)) * 100);

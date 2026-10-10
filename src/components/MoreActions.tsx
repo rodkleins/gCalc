@@ -4,14 +4,19 @@ export function MoreActions({
   onCopy,
   onRestore,
   onClear,
+  onExportJson,
+  onImportJson,
 }: {
   onCopy: () => void;
   onRestore: () => void;
   onClear: () => void;
+  onExportJson?: () => void;
+  onImportJson?: (file: File) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const menuId = useId();
 
   useEffect(() => {
@@ -86,6 +91,31 @@ export function MoreActions({
               >
                 Copiar resumo
               </button>
+              {onExportJson ? (
+                <button
+                  type="button"
+                  className="menu-item"
+                  role="menuitem"
+                  data-testid="export-json"
+                  onClick={() => {
+                    onExportJson();
+                    close();
+                  }}
+                >
+                  Exportar JSON
+                </button>
+              ) : null}
+              {onImportJson ? (
+                <button
+                  type="button"
+                  className="menu-item"
+                  role="menuitem"
+                  data-testid="import-json"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  Importar JSON
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="menu-item"
@@ -110,6 +140,21 @@ export function MoreActions({
             </>
           )}
         </div>
+      ) : null}
+      {onImportJson ? (
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json"
+          hidden
+          data-testid="more-import-json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onImportJson(file);
+            event.target.value = '';
+            close();
+          }}
+        />
       ) : null}
     </div>
   );
