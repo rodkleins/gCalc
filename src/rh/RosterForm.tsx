@@ -100,22 +100,6 @@ export function RosterSummary({ roster, storeType }: { roster: Roster; storeType
   );
 }
 
-export function RosterStrip({ roster }: { roster: Roster }) {
-  const summary = summarizeRoster(roster);
-  const label = roster.shiftCount === 3 ? '3 turnos, loja 24h' : '2 turnos';
-  return (
-    <p className="storage-note" data-testid="roster-strip">
-      {label}
-      {summary.shifts.map((shift, index) => (
-        <span key={shiftName(index, roster.shiftCount)}>
-          {' '}
-          · {shiftName(index, roster.shiftCount)}: {peopleLabel(shift.present)} pessoas, {formatBRL(shift.payroll)}
-        </span>
-      ))}
-    </p>
-  );
-}
-
 function CountCell({
   value,
   testId,
@@ -165,7 +149,7 @@ export function RosterForm({
   }
 
   return (
-    <div className="stack">
+    <div className="stack roster-form">
       <StageNote>
         O quadro é por posto: cargo, balcão e quantas pessoas estão em cada turno. Não há horário. Três turnos significam
         loja 24h. O folguista cobre folga, férias e faltas. A vaga evitada sai da posição que o robô libera, já com esse

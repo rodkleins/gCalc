@@ -36,25 +36,37 @@ describe('versão em validação', () => {
     const notice = host.querySelector('[data-testid="rh-validation-notice"]');
     expect(notice?.textContent).toContain('Versão em validação');
     expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
-    expect(host.querySelector('[data-testid="roster-strip"]')?.textContent).toContain('2 turnos');
+    expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="roster-strip"]')).toBeNull();
+    expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
+    expect(host.querySelector('[data-testid="shift-count"]')).toBeNull();
     expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toContain(
       formatPayback(rhScorecard()[0].cells[1].payback),
     );
     expect(localStorage.getItem(RH_STORAGE_KEY)).toContain('gcalc-rh');
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    const quadro = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === 'Quadro');
+    const pessoas = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === 'Pessoas');
     await act(async () => {
-      quadro?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      pessoas?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(host.querySelector('[data-testid="roster-avoided"]')?.textContent).toContain('1 no turno 1');
     expect(host.querySelector('[data-testid="roster-summary"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="shift-count-2"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="night-premium"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="shift-present-2"]')).toBeNull();
     await act(async () => {
       host.querySelector('[data-testid="shift-count-3"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(host.querySelector('[data-testid="roster-strip"]')?.textContent).toContain('Turno da noite');
     expect(host.querySelector('[data-testid="shift-present-2"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="roster-summary"]')?.textContent).toContain('Turno da noite');
+    const resultados = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === 'Resultados');
+    await act(async () => {
+      resultados?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
+    expect(host.querySelector('[data-testid="shift-count"]')).toBeNull();
+    expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
@@ -72,8 +84,14 @@ describe('versão em validação', () => {
     await act(async () => {
       host.querySelector('[data-testid="preset-replace"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(host.querySelector('[data-testid="roster-strip"]')?.textContent).toContain('3 turnos');
+    expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
     expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toContain('14,7');
+    const pessoas = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === 'Pessoas');
+    await act(async () => {
+      pessoas?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(host.querySelector('[data-testid="roster-summary"]')?.textContent).toContain('Turno da noite');
+    expect(host.querySelector('[data-testid="shift-count-3"]')?.classList.contains('is-active')).toBe(true);
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 });

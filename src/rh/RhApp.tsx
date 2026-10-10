@@ -21,7 +21,7 @@ import type { Inputs, ScenarioId } from '../model/types';
 import { wizardSeed } from '../model/wizard';
 import { RhPresetPanel, RhStorePicker } from './RhPresets';
 import { RhPageNav, RhValidationNotice } from './RhPageNav';
-import { RosterForm, RosterStrip } from './RosterForm';
+import { RosterForm } from './RosterForm';
 import { exampleRoster, rhExample, rhStorePresets, type RhPreset } from './presets';
 import { applyRoster, type Roster } from './roster';
 import {
@@ -37,7 +37,7 @@ import {
 
 const SECTIONS = [
   { id: 'perfil', label: 'Perfil' },
-  { id: 'pessoas', label: 'Quadro' },
+  { id: 'pessoas', label: 'Pessoas' },
   { id: 'logistica', label: 'Logística' },
   { id: 'estoque', label: 'Estoque' },
   { id: 'investimento', label: 'Investimento' },
@@ -523,7 +523,6 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           </div>
         </div>
         <RhStorePicker presets={presets} onLoad={setPendingPreset} />
-        <RosterStrip roster={roster} />
         <p className="storage-note" data-testid="storage-note">
           Os dados desta versão ficam só neste navegador, separados da calculadora atual.
           {status ? ` ${status}` : ''}
