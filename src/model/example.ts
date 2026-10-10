@@ -4,11 +4,34 @@ import type { Inputs, ModelResult } from './types';
 export const SUGGESTED_PHARMACIST_MONTHLY_COST = 8_500;
 /** Sugestão fictícia por contratação, a validar. R$ 2.500 foi considerado baixo para drogaria. */
 export const SUGGESTED_TRAINING_PER_HIRE = 6_000;
+/** Nenhuma configuração do robô é lançada abaixo deste preço de equipamento. */
+export const MINIMUM_EQUIPMENT_PRICE = 1_000_000;
+/** Manutenção, suporte e o restante do custo mensal partem deste piso. */
+export const MINIMUM_MONTHLY_ROBOT_COST = 5_000;
+
+export function equipmentPriceBelowMinimum(equipment: number): boolean {
+  return equipment > 0 && equipment < MINIMUM_EQUIPMENT_PRICE;
+}
+
+export function monthlyRobotCostBelowMinimum(monthlyCost: number): boolean {
+  return monthlyCost > 0 && monthlyCost < MINIMUM_MONTHLY_ROBOT_COST;
+}
+
+export function equipmentFloorWarning(equipment: number): string | null {
+  if (!equipmentPriceBelowMinimum(equipment)) return null;
+  return 'O equipamento informado está abaixo de R$ 1.000.000. Nenhuma configuração do robô custa menos que isso.';
+}
+
+export function monthlyRobotCostWarning(monthlyCost: number): string | null {
+  if (!monthlyRobotCostBelowMinimum(monthlyCost)) return null;
+  return 'O custo mensal informado está abaixo de R$ 5.000. Manutenção, suporte e os demais gastos recorrentes partem desse piso.';
+}
 
 /**
  * Exemplo ilustrativo fictício do escopo.
- * Investimento líquido R$ 600.000, benefício líquido R$ 22.200/mês,
- * payback interpolado de 27,0 meses e ROI anual simples de 44,4%.
+ * Equipamento R$ 1.000.000, investimento líquido R$ 1.195.000,
+ * benefício líquido R$ 20.500/mês. O payback passa de 30 meses:
+ * o piso do robô não foi compensado com benefício novo.
  * Avarias ficam fora do caixa: as perdas entram uma vez só.
  */
 const EXAMPLE: Inputs = {
@@ -21,7 +44,7 @@ const EXAMPLE: Inputs = {
     source: 'Hipóteses do escopo funcional, não são dados de uma loja real',
     owner: 'Time comercial (exemplo)',
     notes:
-      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo.',
+      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo. O equipamento da configuração base é R$ 1.000.000 e o custo mensal do robô é R$ 5.000.',
   },
   assumptions: {
     includePotential: false,
@@ -238,20 +261,20 @@ const EXAMPLE: Inputs = {
   },
   robot: {
     capex: {
-      equipment: 480_000,
-      freightImportTaxes: 35_000,
-      installationTraining: 30_000,
+      equipment: 1_000_000,
+      freightImportTaxes: 60_000,
+      installationTraining: 40_000,
       civilElectrical: 50_000,
-      integration: 20_000,
-      implementationContingency: 25_000,
+      integration: 25_000,
+      implementationContingency: 60_000,
     },
     opexMonthly: {
-      maintenance: 1_800,
-      software: 700,
-      energy: 300,
-      downtime: 150,
-      insurance: 250,
-      other: 100,
+      maintenance: 2_800,
+      software: 900,
+      energy: 500,
+      downtime: 300,
+      insurance: 300,
+      other: 200,
     },
     availabilityPct: 1,
     capacityDispensationsPerDay: 1_200,
@@ -388,11 +411,11 @@ export function matchesIllustrativeExample(result: ModelResult): boolean {
     result.scenario === 'base' &&
     result.storeType === 'nova' &&
     result.storeCount === 1 &&
-    Math.abs(result.netInvestment - 600_000) < 1 &&
-    Math.abs(result.steadyNet - 22_200) < 1 &&
+    Math.abs(result.netInvestment - 1_195_000) < 1 &&
+    Math.abs(result.steadyNet - 20_500) < 1 &&
     result.payback !== null &&
-    Math.abs(result.payback - 600_000 / 22_200) < 0.05 &&
+    Math.abs(result.payback - 1_195_000 / 20_500) < 0.05 &&
     result.roi !== null &&
-    Math.abs(result.roi - 266_400 / 600_000) < 0.000_001
+    Math.abs(result.roi - 246_000 / 1_195_000) < 0.000_001
   );
 }

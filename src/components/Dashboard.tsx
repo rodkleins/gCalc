@@ -74,12 +74,12 @@ export function Dashboard({
       ) : null}
       {illustrative ? (
         <div className="banner ok" data-testid="example-check">
-          Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 600.000, benefício líquido de R$
-          22.200 por mês, payback de 27,0 meses e ROI de 44,4%.
+          Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 1.195.000, benefício líquido de R$
+          20.500 por mês, payback de 58,3 meses e ROI de 20,6%.
         </div>
       ) : (
         <div className="banner">
-          Os números do documento (R$ 600.000, R$ 22.200 por mês, payback de 27,0 meses, ROI de 44,4%) aparecem no
+          Os números do documento (R$ 1.195.000, R$ 20.500 por mês, payback de 58,3 meses, ROI de 20,6%) aparecem no
           exemplo fictício, cenário base e loja nova.
         </div>
       )}

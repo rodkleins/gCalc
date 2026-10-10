@@ -1,5 +1,7 @@
 import { Callout, ModuleImpact, NumberField, PercentField, SelectField, StageNote, Switch } from './Fields';
 import { opexLooksLikeEquipmentPrice } from '../model/calculate';
+import { equipmentFloorWarning, monthlyRobotCostWarning } from '../model/example';
+import { sum } from '../model/round';
 import { formatBRL, formatIrr, formatPercent } from '../model/format';
 import type { Inputs, ModelResult } from '../model/types';
 
@@ -47,6 +49,11 @@ export function InvestmentForm({
           Bruto {formatBRL(result.grossCapex)} − prateleiras evitadas {formatBRL(result.avoidedCapex)} = investimento
           líquido {formatBRL(result.netInvestment)}.
         </p>
+        {equipmentFloorWarning(robot.capex.equipment) ? (
+          <Callout tone="warn">
+            <span data-testid="equipment-floor-warning">{equipmentFloorWarning(robot.capex.equipment)}</span>
+          </Callout>
+        ) : null}
         <div className="form-grid">
           {CAPEX_FIELDS.map((field) => (
             <NumberField
@@ -68,6 +75,11 @@ export function InvestmentForm({
           Só manutenção, suporte e outros gastos recorrentes. Total {formatBRL(result.monthlyOpex)} por mês, a partir do
           go-live. O preço do equipamento não entra aqui.
         </p>
+        {monthlyRobotCostWarning(sum(Object.values(robot.opexMonthly))) ? (
+          <Callout tone="warn">
+            <span data-testid="opex-floor-warning">{monthlyRobotCostWarning(sum(Object.values(robot.opexMonthly)))}</span>
+          </Callout>
+        ) : null}
         {opexLooksLikeEquipmentPrice(result.grossCapex, result.monthlyOpex) ? (
           <Callout tone="warn">
             Em um ano, este custo passa de 20% do CAPEX. Confira se o preço do equipamento foi lançado no mensal. O

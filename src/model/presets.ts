@@ -34,7 +34,7 @@ interface Shape {
 }
 
 const NOTE =
-  'Modelo fictício para a conversa com o Fabio (DPSP). Não é dado de loja. Troque pelos parâmetros reais. O custo do farmacêutico, o do auxiliar e o treinamento são sugestões a validar. O quadro e a folha crescem com o porte: mais pessoas por cargo, mais turnos e mais balcões. O investimento do robô não acompanha o faturamento na mesma proporção. O estoque não cai por padrão: o robô pode até aumentá-lo.';
+  'Modelo fictício para a conversa com o Fabio (DPSP). Não é dado de loja. Troque pelos parâmetros reais. O custo do farmacêutico, o do auxiliar e o treinamento são sugestões a validar. O quadro e a folha crescem com o porte: mais pessoas por cargo, mais turnos e mais balcões. O equipamento parte de R$ 1.000.000. A loja de R$ 2 milhões soma um segundo braço. A de R$ 4 milhões soma segundo braço, carregador automático e módulo refrigerado. O custo mensal do robô fica entre R$ 5.000 e R$ 6.000. O estoque não cai por padrão: o robô pode até aumentá-lo.';
 
 const SHAPES: Shape[] = [
   {
@@ -48,7 +48,7 @@ const SHAPES: Shape[] = [
       { id: 'est', role: 'Estoquista', headcount: 1, monthlyCost: 3_400, shift: 'Comercial' },
       { id: 'ger', role: 'Gerente de loja', headcount: 1, monthlyCost: 9_500, shift: 'Comercial' },
     ],
-    positionsReduced: 2,
+    positionsReduced: 3,
     positionCost: 4_200,
     futureHeadcount: 1,
     supervisionHours: 24,
@@ -63,15 +63,15 @@ const SHAPES: Shape[] = [
     backroom: 40,
     capacity: 1_500,
     capex: {
-      equipment: 340_000,
-      freightImportTaxes: 30_000,
-      installationTraining: 28_000,
+      equipment: 1_000_000,
+      freightImportTaxes: 60_000,
+      installationTraining: 40_000,
       civilElectrical: 50_000,
-      integration: 18_000,
-      implementationContingency: 24_000,
+      integration: 25_000,
+      implementationContingency: 60_000,
     },
-    opex: { maintenance: 1_800, software: 800, energy: 350, downtime: 150, insurance: 300, other: 100 },
-    severance: 8_400,
+    opex: { maintenance: 2_800, software: 900, energy: 500, downtime: 300, insurance: 300, other: 200 },
+    severance: 12_600,
   },
   {
     id: 'loja-2m',
@@ -84,7 +84,7 @@ const SHAPES: Shape[] = [
       { id: 'est', role: 'Estoquista', headcount: 2, monthlyCost: 3_400, shift: 'Comercial' },
       { id: 'ger', role: 'Gerente de loja', headcount: 2, monthlyCost: 9_500, shift: 'Comercial' },
     ],
-    positionsReduced: 4,
+    positionsReduced: 6,
     positionCost: 4_200,
     futureHeadcount: 2,
     supervisionHours: 40,
@@ -99,15 +99,15 @@ const SHAPES: Shape[] = [
     backroom: 70,
     capacity: 2_200,
     capex: {
-      equipment: 620_000,
-      freightImportTaxes: 40_000,
-      installationTraining: 36_000,
+      equipment: 1_350_000,
+      freightImportTaxes: 80_000,
+      installationTraining: 55_000,
       civilElectrical: 50_000,
-      integration: 24_000,
-      implementationContingency: 30_000,
+      integration: 35_000,
+      implementationContingency: 80_000,
     },
-    opex: { maintenance: 2_400, software: 1_000, energy: 450, downtime: 200, insurance: 400, other: 150 },
-    severance: 16_800,
+    opex: { maintenance: 3_100, software: 950, energy: 550, downtime: 300, insurance: 400, other: 200 },
+    severance: 25_200,
   },
   {
     id: 'loja-4m',
@@ -137,14 +137,14 @@ const SHAPES: Shape[] = [
     backroom: 120,
     capacity: 4_200,
     capex: {
-      equipment: 860_000,
-      freightImportTaxes: 50_000,
-      installationTraining: 42_000,
+      equipment: 1_850_000,
+      freightImportTaxes: 110_000,
+      installationTraining: 75_000,
       civilElectrical: 50_000,
-      integration: 30_000,
-      implementationContingency: 38_000,
+      integration: 45_000,
+      implementationContingency: 105_000,
     },
-    opex: { maintenance: 3_200, software: 1_300, energy: 600, downtime: 250, insurance: 500, other: 200 },
+    opex: { maintenance: 3_400, software: 1_000, energy: 600, downtime: 350, insurance: 450, other: 200 },
     severance: 37_800,
   },
 ];

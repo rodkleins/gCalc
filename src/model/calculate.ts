@@ -1,4 +1,5 @@
 import { applyDriver, DRIVER_IDS } from './drivers';
+import { equipmentFloorWarning, monthlyRobotCostWarning } from './example';
 import {
   annualizeMonthlyRate,
   discountedPayback,
@@ -930,6 +931,10 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
       'O custo mensal do robô, em um ano, passa de 20% do CAPEX. O preço do equipamento entra só no CAPEX; aqui ficam manutenção, suporte e os demais gastos recorrentes.',
     );
   }
+  const equipmentWarning = equipmentFloorWarning(inputs.robot.capex.equipment);
+  if (equipmentWarning) warnings.push(equipmentWarning);
+  const robotCostWarning = monthlyRobotCostWarning(sum(Object.values(inputs.robot.opexMonthly)));
+  if (robotCostWarning) warnings.push(robotCostWarning);
   if (
     inputs.profile.demandGrowthPctPerYear !== 0 &&
     inputs.profile.wageGrowthPctPerYear === 0 &&

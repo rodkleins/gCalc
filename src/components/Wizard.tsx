@@ -9,7 +9,8 @@ import {
   withTotalOpex,
   WIZARD_STEPS,
 } from '../model/wizard';
-import { NumberField, PercentField, StageNote, Switch, TextField } from './Fields';
+import { equipmentFloorWarning, monthlyRobotCostWarning } from '../model/example';
+import { Callout, NumberField, PercentField, StageNote, Switch, TextField } from './Fields';
 
 export function Wizard({
   inputs,
@@ -480,6 +481,16 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
   const robot = inputs.robot;
   return (
     <div className="stack">
+      {equipmentFloorWarning(robot.capex.equipment) ? (
+        <Callout tone="warn">
+          <span data-testid="equipment-floor-warning">{equipmentFloorWarning(robot.capex.equipment)}</span>
+        </Callout>
+      ) : null}
+      {monthlyRobotCostWarning(totalOpex(inputs)) ? (
+        <Callout tone="warn">
+          <span data-testid="opex-floor-warning">{monthlyRobotCostWarning(totalOpex(inputs))}</span>
+        </Callout>
+      ) : null}
       <div className="form-grid">
         <NumberField
           label="Equipamento"

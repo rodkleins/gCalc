@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate, opexLooksLikeEquipmentPrice } from './calculate';
-import { exampleInputs, SUGGESTED_PHARMACIST_MONTHLY_COST, SUGGESTED_TRAINING_PER_HIRE } from './example';
+import {
+  equipmentFloorWarning,
+  exampleInputs,
+  monthlyRobotCostWarning,
+  SUGGESTED_PHARMACIST_MONTHLY_COST,
+  SUGGESTED_TRAINING_PER_HIRE,
+} from './example';
 import { normalizeInputs } from './normalize';
 import { storePresets } from './presets';
 
@@ -34,20 +40,20 @@ describe('modelos de loja', () => {
   it('fecha a loja de R$ 1 milhão na mão e zera contratação futura em loja nova', () => {
     const preset = storePresets()[0];
     const result = evaluate(preset.inputs);
-    const payroll = 2 * 4_200;
+    const payroll = 3 * 4_200;
     const future = 1 * 4_200;
-    const turnover = ((2 + 1) * 0.3 * 8_000) / 12;
+    const turnover = ((3 + 1) * 0.3 * 8_000) / 12;
     const supervision = 24 * 45;
     const movement = 28 * 40;
     const count = 12 * 40;
     const losses = 14_000 - 6_000;
     const maintenance = 600;
     const benefit = payroll + future + turnover + supervision + movement + count + losses + maintenance;
-    const opex = 1_800 + 800 + 350 + 150 + 300 + 100;
-    expect(benefit).toBe(24_480);
+    const opex = 2_800 + 900 + 500 + 300 + 300 + 200;
+    expect(benefit).toBe(28_880);
     expect(result.steadyBenefit).toBe(benefit);
     expect(result.steadyNet).toBe(benefit - opex);
-    expect(result.netInvestment).toBe(490_000);
+    expect(result.netInvestment).toBe(1_235_000);
     expect(result.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
 
     const asNew = evaluate(preset.inputs, { storeTypeOverride: 'nova' });
@@ -57,13 +63,13 @@ describe('modelos de loja', () => {
     const severance = asNew.audit.find((line) => line.id === 'severance');
     expect(severance?.includedInCashFlow).toBe(false);
     expect(severance?.reason).toMatch(/loja nova/i);
-    const payrollOnly = 2 * 4_200;
-    const turnoverNew = (2 * 0.3 * 8_000) / 12;
+    const payrollOnly = 3 * 4_200;
+    const turnoverNew = (3 * 0.3 * 8_000) / 12;
     const benefitNew = payrollOnly + turnoverNew + supervision + movement + count + losses;
     expect(asNew.steadyBenefit).toBe(benefitNew);
   });
 
-  it('aumenta equipe e folha com o porte e abre com payback de até 30 meses', () => {
+  it('aumenta equipe, folha e equipamento com o porte e respeita o piso do robô', () => {
     const presets = storePresets();
     const headcount = presets.map((preset) =>
       preset.inputs.profile.roles.reduce((total, role) => total + role.headcount, 0),
@@ -89,26 +95,56 @@ describe('modelos de loja', () => {
     expect(presets[0].inputs.robot.capex.civilElectrical).toBe(50_000);
     expect(presets[1].inputs.robot.capex.civilElectrical).toBe(50_000);
     expect(presets[2].inputs.robot.capex.civilElectrical).toBe(50_000);
+    const equipment = presets.map((preset) => preset.inputs.robot.capex.equipment);
+    const opex = presets.map((preset) =>
+      Object.values(preset.inputs.robot.opexMonthly).reduce((total, value) => total + value, 0),
+    );
+    expect(equipment).toEqual([1_000_000, 1_350_000, 1_850_000]);
+    expect(opex).toEqual([5_000, 5_500, 6_000]);
+    expect(presets[0].inputs.people.payroll.positionsReduced).toBe(3);
+    expect(presets[1].inputs.people.payroll.positionsReduced).toBe(6);
+    expect(presets[2].inputs.people.payroll.positionsReduced).toBe(9);
 
     const base = presets.map((preset) => evaluate(preset.inputs));
-    const conservative = presets.map((preset) => evaluate(preset.inputs, { scenario: 'conservador' }));
     for (const result of base) {
       expect(result.payback).not.toBeNull();
-      expect(result.payback as number).toBeLessThanOrEqual(30);
       expect(result.roi).toBeGreaterThan(0);
-      expect(result.npv).toBeGreaterThan(0);
       expect(result.audit.find((line) => line.id === 'shrinkage')?.includedInCashFlow).toBe(false);
+      expect(result.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
     }
-    for (const result of conservative) {
-      expect(result.payback).not.toBeNull();
-      expect(result.payback as number).toBeLessThan(40);
-    }
+    expect(base[0].payback as number).toBeGreaterThan(30);
+    expect(base[1].payback as number).toBeGreaterThan(30);
+    expect(base[2].payback as number).toBeLessThanOrEqual(30);
+    expect(base[2].npv).toBeGreaterThan(0);
     expect(base[1].payback as number).toBeLessThan(base[0].payback as number);
     expect(base[2].payback as number).toBeLessThan(base[1].payback as number);
   });
 });
 
 describe('avisos de leitura', () => {
+  it('avisa equipamento abaixo de R$ 1.000.000 e custo mensal abaixo de R$ 5.000', () => {
+    const inputs = exampleInputs();
+    expect(evaluate(inputs).warnings.some((warning) => /1\.000\.000/.test(warning))).toBe(false);
+    expect(evaluate(inputs).warnings.some((warning) => /5\.000/.test(warning))).toBe(false);
+    inputs.robot.capex.equipment = 900_000;
+    expect(evaluate(inputs).warnings).toContain(equipmentFloorWarning(900_000));
+    inputs.robot.capex.equipment = 1_000_000;
+    inputs.robot.opexMonthly = {
+      maintenance: 4_000,
+      software: 0,
+      energy: 0,
+      downtime: 0,
+      insurance: 0,
+      other: 0,
+    };
+    expect(evaluate(inputs).warnings).toContain(monthlyRobotCostWarning(4_000));
+    inputs.robot.capex.equipment = 0;
+    inputs.robot.opexMonthly.maintenance = 0;
+    const empty = evaluate(inputs);
+    expect(empty.warnings.some((warning) => /1\.000\.000/.test(warning))).toBe(false);
+    expect(empty.warnings.some((warning) => /partem desse piso/.test(warning))).toBe(false);
+  });
+
   it('avisa quando o OPEX anual passa de 20% do CAPEX', () => {
     const inputs = exampleInputs();
     inputs.robot.opexMonthly = {

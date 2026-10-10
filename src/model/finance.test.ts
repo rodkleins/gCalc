@@ -38,11 +38,11 @@ describe('TIR', () => {
 });
 
 describe('payback', () => {
-  it('reproduz o exemplo ilustrativo de 27,0 meses', () => {
-    const flows = [-600_000, ...Array.from({ length: 60 }, () => 22_200)];
-    expect(simplePayback(flows)).toBeCloseTo(600_000 / 22_200, 8);
-    expect(simplePayback(flows)).toBeCloseTo(27.027027027, 8);
-    expect(firstNonNegativeMonth(flows)).toBe(28);
+  it('reproduz o exemplo ilustrativo de 58,3 meses', () => {
+    const flows = [-1_195_000, ...Array.from({ length: 60 }, () => 20_500)];
+    expect(simplePayback(flows)).toBeCloseTo(1_195_000 / 20_500, 8);
+    expect(simplePayback(flows)).toBeCloseTo(58.292682927, 8);
+    expect(firstNonNegativeMonth(flows)).toBe(59);
   });
 
   it('interpola dentro do mês em que o acumulado cruza zero', () => {
@@ -69,8 +69,8 @@ describe('payback', () => {
 
 describe('ROI anual simples', () => {
   it('é benefício anual dividido pelo investimento, e não a TIR', () => {
-    expect(simpleAnnualRoi(266_400, 600_000)).toBeCloseTo(266_400 / 600_000, 10);
-    expect(simpleAnnualRoi(22_200 * 12, 600_000)).toBeCloseTo(266_400 / 600_000, 10);
+    expect(simpleAnnualRoi(246_000, 1_195_000)).toBeCloseTo(246_000 / 1_195_000, 10);
+    expect(simpleAnnualRoi(20_500 * 12, 1_195_000)).toBeCloseTo(246_000 / 1_195_000, 10);
   });
 
   it('não divide por investimento nulo ou negativo', () => {
