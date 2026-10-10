@@ -1,4 +1,4 @@
-# Publica a calculadora, /headtohead/ e /calculos/ em /gCalc/, sem o subcaminho /preview/.
+# Publica a calculadora, /headtohead/, /calculos/ e a versão em validação /rh/ em /gCalc/, sem /preview/.
 name: Publicar no GitHub Pages
 
 on:
@@ -42,6 +42,8 @@ jobs:
           test -f dist/index.html
           test -f dist/headtohead/index.html
           test -f dist/calculos/index.html
+          test -f dist/rh/index.html
+          test -f dist/rh/calculos/index.html
           if grep -q '/gCalc/preview/' dist/index.html; then
             echo "A raiz não pode apontar para /preview/."
             exit 1

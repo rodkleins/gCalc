@@ -14,6 +14,8 @@ export default defineConfig({
         main: resolve(rootDir, 'index.html'),
         headtohead: resolve(rootDir, 'headtohead/index.html'),
         calculos: resolve(rootDir, 'calculos/index.html'),
+        rh: resolve(rootDir, 'rh/index.html'),
+        rhCalculos: resolve(rootDir, 'rh/calculos/index.html'),
       },
     },
   },

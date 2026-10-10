@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import type { StorePreset } from '../model/presets';
@@ -20,6 +20,7 @@ export function LibraryPanel({
   onExportLibrary,
   onImport,
   onLoadPreset,
+  presetPanel,
 }: {
   draftName: string;
   onDraftName: (name: string) => void;
@@ -34,6 +35,7 @@ export function LibraryPanel({
   onExportLibrary: () => void;
   onImport: (file: File) => void;
   onLoadPreset: (preset: StorePreset) => void;
+  presetPanel?: ReactNode;
 }) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -52,7 +54,7 @@ export function LibraryPanel({
         Esta tela guarda casos neste navegador e compara dois deles. Os três portes também ficam no topo da calculadora.
         Carregar um modelo pede confirmação e oferece salvar o rascunho atual antes de substituir.
       </StageNote>
-      <StorePresets onLoad={onLoadPreset} />
+      {presetPanel ?? <StorePresets onLoad={onLoadPreset} />}
       <section className="card">
         <h2>Salvar com nome</h2>
         <p className="lede">

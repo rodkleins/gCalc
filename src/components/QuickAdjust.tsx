@@ -13,13 +13,7 @@ import {
   type LeverId,
 } from '../model/premises';
 import type { Inputs, ScenarioId } from '../model/types';
-import {
-  QUICK_ADJUST_OPEN_KEY,
-  QUICK_DOCK_OPEN_KEY,
-  initialQuickAdjustOpen,
-  initialQuickDockOpen,
-  writeUiFlag,
-} from '../model/uiChrome';
+import { QUICK_ADJUST_OPEN_KEY, QUICK_DOCK_OPEN_KEY, readUiFlag, writeUiFlag } from '../model/uiChrome';
 import { NumberField, PercentField } from './Fields';
 
 export function QuickAdjust({
@@ -29,6 +23,7 @@ export function QuickAdjust({
   onAdjust,
   onUndo,
   onOpen,
+  storageKeys,
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -36,21 +31,24 @@ export function QuickAdjust({
   onAdjust: (inputs: Inputs) => void;
   onUndo: () => void;
   onOpen: (fieldId: string) => void;
+  storageKeys?: { dock: string; adjust: string };
 }) {
+  const dockKey = storageKeys?.dock ?? QUICK_DOCK_OPEN_KEY;
+  const adjustKey = storageKeys?.adjust ?? QUICK_ADJUST_OPEN_KEY;
   const current = evaluate(inputs, { scenario });
   const base = evaluate(anchor, { scenario });
   const changed = leversDiffer(inputs, anchor);
   const dockRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(() => initialQuickDockOpen(localStorage));
-  const [expanded, setExpanded] = useState(() => initialQuickAdjustOpen(localStorage));
+  const [open, setOpen] = useState(() => readUiFlag(localStorage, dockKey) === true);
+  const [expanded, setExpanded] = useState(() => readUiFlag(localStorage, adjustKey) !== false);
 
   useEffect(() => {
-    writeUiFlag(localStorage, QUICK_DOCK_OPEN_KEY, open);
-  }, [open]);
+    writeUiFlag(localStorage, dockKey, open);
+  }, [open, dockKey]);
 
   useEffect(() => {
-    writeUiFlag(localStorage, QUICK_ADJUST_OPEN_KEY, expanded);
-  }, [expanded]);
+    writeUiFlag(localStorage, adjustKey, expanded);
+  }, [expanded, adjustKey]);
 
   useEffect(() => {
     if (!open) return;

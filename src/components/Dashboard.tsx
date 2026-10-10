@@ -32,6 +32,7 @@ export function Dashboard({
   onAdjust,
   onUndo,
   onOpenPremise,
+  uiKeys,
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -42,6 +43,7 @@ export function Dashboard({
   onAdjust: (inputs: Inputs) => void;
   onUndo: () => void;
   onOpenPremise: (fieldId: string) => void;
+  uiKeys?: { dock: string; adjust: string };
 }) {
   const illustrative = matchesIllustrativeExample(result);
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
@@ -162,6 +164,7 @@ export function Dashboard({
         onAdjust={onAdjust}
         onUndo={onUndo}
         onOpen={onOpenPremise}
+        storageKeys={uiKeys}
       />
 
       <StageNote testId="stage-note-kpis">

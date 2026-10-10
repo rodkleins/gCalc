@@ -36,6 +36,8 @@ Abra [http://localhost:5173/gCalc/](http://localhost:5173/gCalc/). O `base` do V
 
 O rascunho de comparação head-to-head fica em [http://localhost:5173/gCalc/headtohead/](http://localhost:5173/gCalc/headtohead/). Ele não substitui a calculadora atual. No Pages, o endereço é [https://rodkleins.github.io/gCalc/headtohead/](https://rodkleins.github.io/gCalc/headtohead/).
 
+A versão em validação, com quadro de RH por turno, fica em [http://localhost:5173/gCalc/rh/](http://localhost:5173/gCalc/rh/) e no Pages em [https://rodkleins.github.io/gCalc/rh/](https://rodkleins.github.io/gCalc/rh/). Ela não altera a calculadora desta raiz. Os cálculos dela estão em [/gCalc/rh/calculos/](https://rodkleins.github.io/gCalc/rh/calculos/).
+
 ```bash
 npm run build
 npm run preview
@@ -93,7 +95,7 @@ A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 1.195.000
 
 ## Publicar no GitHub Pages
 
-O build usa o caminho base `/gCalc/` e gera três páginas no mesmo `dist`: a calculadora atual (`index.html`), o rascunho head-to-head (`headtohead/index.html`) e a documentação dos cálculos (`calculos/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere os três arquivos e publica os três no Pages a cada push na branch `main`.
+O build usa o caminho base `/gCalc/` e gera as páginas no mesmo `dist`: a calculadora atual (`index.html`), o rascunho head-to-head (`headtohead/index.html`), a documentação dos cálculos (`calculos/index.html`) e a versão em validação (`rh/index.html` e `rh/calculos/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere esses arquivos e publica no Pages a cada push na branch `main`. A raiz continua sem o caminho `/preview/`.
 
 A página de cálculos fica em [https://rodkleins.github.io/gCalc/calculos/](https://rodkleins.github.io/gCalc/calculos/) e descreve o motor da calculadora atual.
 
@@ -107,6 +109,12 @@ Para o endereço [https://rodkleins.github.io/gCalc/](https://rodkleins.github.i
 ## Stack
 
 Vite, React e TypeScript. Gráficos com Recharts. Testes com Vitest. Não há servidor de aplicação: o cálculo inteiro roda no browser. O build estático serve no GitHub Pages, na Vercel ou na Netlify, desde que o caminho base `/gCalc/` seja respeitado. Num host na raiz do domínio, altere `base` em `vite.config.ts`.
+
+## Versão em validação — quadro de RH
+
+[https://rodkleins.github.io/gCalc/rh/](https://rodkleins.github.io/gCalc/rh/) é uma cópia da calculadora com quadro de gente por turno. A raiz, `/headtohead/` e `/calculos/` seguem iguais até essa versão ser promovida.
+
+A sessão fica em `gcalc.rh.library.v1`. Ela não lê nem grava `gcalc.library.v2`. A tela avisa “Versão em validação” e aponta de volta para a calculadora atual. O detalhe das fórmulas e a tabela dos modelos estão em [docs/RH_QUADRO.md](docs/RH_QUADRO.md) e em [/gCalc/rh/calculos/](https://rodkleins.github.io/gCalc/rh/calculos/).
 
 ## Rascunho head-to-head
 
