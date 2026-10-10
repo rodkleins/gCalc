@@ -28,8 +28,12 @@ const SCALE_STORY: Record<ScaleId, { label: string; meaning: string }> = {
 export const DEFAULT_YEAR_DAYS = 365;
 export const DEFAULT_VACATION_DAYS = 30;
 export const DEFAULT_ABSENCE_DAYS = 6;
-/** 10%. Só multiplica o terceiro turno, e só quando a loja tem 3 turnos. */
-export const DEFAULT_NIGHT_PREMIUM = 0.1;
+/**
+ * 100% = 1,0. Só multiplica o terceiro turno, e só quando a loja tem 3 turnos.
+ * O quadro não grava valor abaixo de 100%.
+ */
+export const NIGHT_PREMIUM_MIN = 1;
+export const DEFAULT_NIGHT_PREMIUM = NIGHT_PREMIUM_MIN;
 export const FUTURE_HIRE_MONTH = 13;
 
 export interface RosterCalendar {

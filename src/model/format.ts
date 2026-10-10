@@ -66,6 +66,52 @@ export function parseLocaleNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function moneySignificant(char: string): boolean {
+  return (char >= '0' && char <= '9') || char === ',' || char === '-';
+}
+
+/**
+ * Agrupa o milhar com ponto enquanto a pessoa digita. A vírgula é o centavo, com no máximo duas casas.
+ * 1000000 vira 1.000.000. 1000,5 vira 1.000,5.
+ */
+export function formatMoneyDraft(raw: string): string {
+  const text = raw.replace(/\s/g, '').replace(/R\$/gi, '');
+  if (!text) return '';
+  const negative = text.startsWith('-');
+  const body = (negative ? text.slice(1) : text).replace(/\./g, '');
+  let integer = '';
+  let fraction: string | null = null;
+  for (const char of body) {
+    if (char >= '0' && char <= '9') {
+      if (fraction === null) integer += char;
+      else if (fraction.length < 2) fraction += char;
+    } else if (char === ',' && fraction === null) {
+      fraction = '';
+    }
+  }
+  integer = integer.replace(/^0+(?=\d)/, '');
+  const sign = negative ? '-' : '';
+  if (!integer && fraction === null) return sign;
+  if (!integer) integer = '0';
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return fraction === null ? sign + grouped : `${sign}${grouped},${fraction}`;
+}
+
+/** Coloca o cursor depois dos mesmos dígitos, vírgula e sinal que havia antes da formatação. */
+export function caretAfterFormat(before: string, caret: number, after: string): number {
+  const end = Math.max(0, Math.min(caret, before.length));
+  let target = 0;
+  for (let index = 0; index < end; index += 1) {
+    if (moneySignificant(before[index] ?? '')) target += 1;
+  }
+  let seen = 0;
+  for (let index = 0; index < after.length; index += 1) {
+    if (seen === target) return index;
+    if (moneySignificant(after[index] ?? '')) seen += 1;
+  }
+  return after.length;
+}
+
 export function scenarioLabel(id: string): string {
   if (id === 'conservador') return 'Conservador';
   if (id === 'otimista') return 'Otimista';

@@ -1,10 +1,11 @@
-import { formatPercent } from '../model/format';
+import { MINIMUM_EQUIPMENT_PRICE, MINIMUM_MONTHLY_ROBOT_COST } from '../model/example';
+import { formatBRL, formatPercent } from '../model/format';
 import type { Inputs } from '../model/types';
-import { applyRoster, type Roster } from './roster';
+import { applyRoster, NIGHT_PREMIUM_MIN, shiftNightMultiplier, type Roster, type RosterPost } from './roster';
 
-/** Acima de 50% o adicional deixa de ser a faixa das notas (padrão 10% = 0,10). */
-export const NIGHT_PREMIUM_MAX = 0.5;
 const CHARGES_FACTOR = 1.3333;
+const INSTALLATION_TRAINING = 50_000;
+const MONTHLY_COST_MAX = 6_000;
 
 function near(value: number, target: number): boolean {
   return Math.abs(value - target) <= 0.02 * Math.max(1, Math.abs(target));
@@ -14,6 +15,13 @@ function active(values: number[], shiftCount: number): number[] {
   return values.slice(0, shiftCount);
 }
 
+/** Avisa quando o arquivo traz adicional abaixo de 100%. A unidade no JSON é fração: 100% = 1,0. */
+export function nightPremiumBelowMinimum(premium: number): string | null {
+  if (Number.isFinite(premium) && premium >= NIGHT_PREMIUM_MIN) return null;
+  const shown = Number.isFinite(premium) ? formatPercent(premium) : 'inválido';
+  return `Adicional noturno abaixo de 100% (${shown}). No JSON a unidade é fração: 100% = 1,0. O padrão é 100% e o valor não fica abaixo disso. O quadro usa 100%.`;
+}
+
 export function rosterWarnings(roster: Roster): string[] {
   const messages: string[] = [];
   const present = roster.posts.some((post) => active(post.onDuty, roster.shiftCount).some((value) => value > 0));
@@ -21,17 +29,11 @@ export function rosterWarnings(roster: Roster): string[] {
   if (present && !freed) {
     messages.push('Nenhum posto liberado pelo robô (freed zerado em todos). A economia de pessoal fica em zero.');
   }
-  const premium = roster.nightPremiumPct;
-  if (!Number.isFinite(premium) || premium < 0 || premium > NIGHT_PREMIUM_MAX) {
-    const shown = Number.isFinite(premium) ? formatPercent(premium) : 'inválido';
-    const unit = Math.abs(premium - 1) < 1e-9 ? ' O valor 1 significa 100%, não 10%.' : '';
-    messages.push(
-      `Adicional noturno fora da faixa de 0% a 50% (${shown}). No JSON a unidade é fração: 0,10 significa 10%. O padrão das notas é 10%.${unit}`,
-    );
-  }
+  const night = nightPremiumBelowMinimum(roster.nightPremiumPct);
+  if (night) messages.push(night);
   const costs = new Map<string, Set<number>>();
   for (const post of roster.posts) {
-    const key = `${post.role.trim() || 'Cargo'} / ${post.counter.trim() || 'Balcão'}`;
+    const key = `${post.role.trim() || 'Cargo'} / ${post.counter.trim() || 'sem balcão'}`;
     const seen = costs.get(key) ?? new Set<number>();
     seen.add(Math.round(post.monthlyCost));
     costs.set(key, seen);
@@ -44,6 +46,18 @@ export function rosterWarnings(roster: Roster): string[] {
   return messages;
 }
 
+/** Média do adicional noturno neste posto. Com 100% e gente igual nos 3 turnos, dá 4/3. */
+function nightBlend(post: RosterPost, roster: Roster): number {
+  let weight = 0;
+  let blended = 0;
+  for (let index = 0; index < roster.shiftCount; index += 1) {
+    const seats = Math.max(0, post.onDuty[index] ?? 0);
+    weight += seats;
+    blended += seats * shiftNightMultiplier(index, roster);
+  }
+  return weight > 0 ? blended / weight : 1;
+}
+
 function chargesSplit(inputs: Inputs, roster: Roster): boolean {
   let charged = false;
   let plain = false;
@@ -52,8 +66,9 @@ function chargesSplit(inputs: Inputs, roster: Roster): boolean {
     for (const post of posts) {
       if (post.monthlyCost <= 0) continue;
       const ratio = role.monthlyCost / post.monthlyCost;
-      if (near(ratio, CHARGES_FACTOR)) charged = true;
-      if (near(ratio, 1)) plain = true;
+      const blend = nightBlend(post, roster);
+      if (near(ratio, blend) || near(ratio, 1)) plain = true;
+      if (!near(ratio, blend) && (near(ratio, CHARGES_FACTOR) || near(ratio / blend, CHARGES_FACTOR))) charged = true;
     }
   }
   return charged && plain;
@@ -69,12 +84,36 @@ function profileDiverges(inputs: Inputs, roster: Roster): boolean {
   return signature(inputs.profile.roles) !== signature(aligned);
 }
 
+function monthlyRobotCost(inputs: Inputs): number {
+  return Object.values(inputs.robot.opexMonthly).reduce((total, value) => total + value, 0);
+}
+
 /**
  * Inconsistências do JSON antes de o quadro reescrever o perfil.
  * `explicitRoster` falso é migração da calculadora antiga: o perfil ainda não é um quadro.
  */
 export function rhImportWarnings(inputs: Inputs, roster: Roster, explicitRoster: boolean): string[] {
   const messages = rosterWarnings(roster);
+  const equipment = inputs.robot.capex.equipment;
+  if (equipment < MINIMUM_EQUIPMENT_PRICE) {
+    messages.push(
+      `Equipamento abaixo de R$ 1.000.000 (${formatBRL(equipment)}). O piso dos modelos é R$ 1.000.000, sem fator escondido.`,
+    );
+  } else if (Math.round(equipment) % 1_000 !== 0) {
+    messages.push(
+      `Equipamento de ${formatBRL(equipment)} não está em milhar cheio. Os modelos não aplicam um fator escondido, como 1,05 sobre o preço.`,
+    );
+  }
+  const installation = inputs.robot.capex.installationTraining;
+  if (installation !== INSTALLATION_TRAINING) {
+    messages.push(
+      `Instalação do robô em ${formatBRL(installation)} em vez de R$ 50.000. Os modelos desta versão usam R$ 50.000, sem fator de 1,05.`,
+    );
+  }
+  const monthly = monthlyRobotCost(inputs);
+  if (monthly < MINIMUM_MONTHLY_ROBOT_COST || monthly > MONTHLY_COST_MAX) {
+    messages.push(`Custo mensal do robô em ${formatBRL(monthly)}, fora da faixa de R$ 5.000 a R$ 6.000.`);
+  }
   if (!explicitRoster) return messages;
   if (inputs.people.payroll.chargesPct > 0) {
     messages.push(

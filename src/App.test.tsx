@@ -226,6 +226,7 @@ describe('aplicação', () => {
     const investment = host.querySelector<HTMLLabelElement>('.field.is-target');
     expect(investment?.textContent).toContain('Equipamento');
     expect(document.activeElement).toBe(investment?.querySelector('input'));
+    expect(investment?.querySelector('input')?.value).toBe('1000000');
 
     const resultados = () =>
       [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Resultados') as HTMLButtonElement;

@@ -5,7 +5,7 @@ import type { Inputs, ScenarioId } from '../model/types';
 import { applyRoster, summarizeRoster, type Roster, type RosterPost, type ShiftCount } from './roster';
 
 const RH_SENTENCE =
-  'Versão em validação com quadro de RH por turno. O folguista sai da escala (6x1, 5x2 ou 12x36), com 30 dias de férias e 6 faltas em 365 dias. O adicional noturno sugerido é 10% e só vale no terceiro turno. Vagas evitadas, rescisão, turnover e contratação futura saem das posições que o robô libera, já com o folguista proporcional. Supervisão, movimentação, inventário e horas realocadas não entram de novo. Premissas fictícias, a validar.';
+  'Versão em validação com quadro de RH por turno. O folguista sai da escala (6x1, 5x2 ou 12x36), com 30 dias de férias e 6 faltas em 365 dias. O adicional noturno padrão é 100% (1,0 no JSON) e só vale no terceiro turno. Não fica abaixo de 100%. Vagas evitadas, rescisão, turnover e contratação futura saem das posições que o robô libera, já com o folguista proporcional. Supervisão, movimentação, inventário e horas realocadas não entram de novo. Premissas fictícias, a validar.';
 
 export interface RhPreset {
   id: 'exemplo' | StorePreset['id'];
@@ -27,7 +27,7 @@ function post(fields: Omit<RosterPost, 'coverageOverride' | 'future' | 'freed'> 
 function calendar(shiftCount: ShiftCount, posts: RosterPost[]): Roster {
   return {
     shiftCount,
-    nightPremiumPct: 0.1,
+    nightPremiumPct: 1,
     yearDays: 365,
     vacationDays: 30,
     absenceDays: 6,

@@ -147,6 +147,14 @@ describe('vagas evitadas a partir do quadro', () => {
     expect(summary.severance).toBe(0);
   });
 
+  it('libera meia posição com folguista proporcional', () => {
+    const summary = summarizeRoster(roster({}, [post({ onDuty: [1, 0, 0], freed: [0.5, 0, 0], future: [0, 0, 0] })]));
+    expect(summary.shifts[0].freedPresent).toBeCloseTo(0.5, 8);
+    expect(summary.avoidedHired).toBeCloseTo(0.5 * factor61(), 8);
+    expect(summary.avoidedPayroll).toBeCloseTo(0.5 * factor61() * 4_200, 6);
+    expect(summary.hired).toBeCloseTo(factor61(), 8);
+  });
+
   it('a sobrescrita troca o fator sugerido e não deixa liberar mais gente do que está no turno', () => {
     const summary = summarizeRoster(
       roster({}, [post({ onDuty: [1, 0, 0], freed: [3, 0, 0], future: [0, 0, 0], coverageOverride: 1.5 })]),

@@ -40,12 +40,12 @@ describe('modelos com quadro de RH', () => {
     const factor61 = suggestedCoverageFactor('6x1', { yearDays: 365, vacationDays: 30, absenceDays: 6 });
     const factor12 = suggestedCoverageFactor('12x36', { yearDays: 365, vacationDays: 30, absenceDays: 6 });
     expect(rows[0].avoidedPayroll).toBeCloseTo(2 * factor61 * 4_200, 2);
-    expect(rows[3].avoidedPayroll).toBeCloseTo(6 * factor61 * 4_200 + 3 * factor12 * 4_200 * 1.1, 2);
+    expect(rows[3].avoidedPayroll).toBeCloseTo(6 * factor61 * 4_200 + 3 * factor12 * 4_200 * 2, 2);
     expect(rows.map((row) => row.cells.map((cell) => formatPayback(cell.payback)))).toEqual([
       ['Não recupera em 60 meses', 'Não recupera em 60 meses', '59,7 meses'],
       ['Não recupera em 60 meses', 'Não recupera em 60 meses', '53,6 meses'],
       ['55,1 meses', '39,5 meses', '33,9 meses'],
-      ['31,1 meses', '22,9 meses', '19,8 meses'],
+      ['25,2 meses', '18,6 meses', '16,2 meses'],
     ]);
   });
 });

@@ -38,7 +38,7 @@ describe('sessão do quadro de RH', () => {
     expect(importRhPayload(raw)).toBeNull();
   });
 
-  it('completa posto antigo sem futuro, sem sobrescrita e sem adicional', () => {
+  it('completa posto antigo sem futuro, sem sobrescrita e com adicional de 100%', () => {
     const inputs = applyRoster(exampleInputs(), exampleRoster());
     const raw = JSON.stringify({
       kind: RH_KIND,
@@ -58,13 +58,36 @@ describe('sessão do quadro de RH', () => {
     const post = loaded.draft?.roster.posts[0];
     expect(loaded.source).toBe('current');
     expect(loaded.draft?.roster.shiftCount).toBe(3);
-    expect(loaded.draft?.roster.nightPremiumPct).toBe(0.1);
+    expect(loaded.draft?.roster.nightPremiumPct).toBe(1);
     expect(loaded.draft?.roster.vacationDays).toBe(30);
     expect(loaded.draft?.roster.absenceDays).toBe(6);
     expect(post?.future).toEqual([0, 0, 0]);
     expect(post?.onDuty).toEqual([1, 2, 0]);
     expect(post?.coverageOverride).toBeNull();
     expect(post?.freed).toEqual([0, 0, 0]);
+  });
+
+  it('não preenche Balcão quando o posto vem sem nome e guarda fração liberada', () => {
+    const inputs = applyRoster(exampleInputs(), exampleRoster());
+    const raw = JSON.stringify({
+      kind: RH_KIND,
+      version: 1,
+      draft: {
+        inputs,
+        roster: {
+          shiftCount: 2,
+          nightPremiumPct: 0.1,
+          posts: [{ id: 'novo', role: 'Auxiliar', counter: '', scale: '6x1', monthlyCost: 4_200, onDuty: [1, 1], freed: [0.5, 0] }],
+        },
+        scenario: 'base',
+        section: 'pessoas',
+      },
+    });
+    const loaded = parseRhSession(raw);
+    const post = loaded.draft?.roster.posts[0];
+    expect(post?.counter).toBe('');
+    expect(post?.freed).toEqual([0.5, 0, 0]);
+    expect(loaded.draft?.roster.nightPremiumPct).toBe(1);
   });
 
   it('migra uma simulação sem quadro sem contar folguista duas vezes', () => {

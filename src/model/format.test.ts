@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBRL, formatIrr, formatPayback, formatPercent, parseLocaleNumber } from './format';
+import { caretAfterFormat, formatBRL, formatIrr, formatMoneyDraft, formatPayback, formatPercent, parseLocaleNumber } from './format';
 
 describe('números em português', () => {
   it('entende milhar brasileiro e decimal com vírgula', () => {
@@ -9,6 +9,19 @@ describe('números em português', () => {
     expect(parseLocaleNumber('65.000')).toBe(65000);
     expect(parseLocaleNumber('12,5')).toBeCloseTo(12.5, 2);
     expect(parseLocaleNumber('9200.5')).toBeCloseTo(9200.5, 2);
+  });
+
+  it('agrupa milhar enquanto se digita e devolve o cursor', () => {
+    expect(formatMoneyDraft('1000000')).toBe('1.000.000');
+    expect(formatMoneyDraft('1.000.000')).toBe('1.000.000');
+    expect(formatMoneyDraft('1000,5')).toBe('1.000,5');
+    expect(formatMoneyDraft('1000,505')).toBe('1.000,50');
+    expect(formatMoneyDraft('R$ 1.000,50')).toBe('1.000,50');
+    expect(parseLocaleNumber(formatMoneyDraft('1000000'))).toBe(1_000_000);
+    expect(parseLocaleNumber(formatMoneyDraft('1000,5'))).toBeCloseTo(1000.5, 2);
+    expect(caretAfterFormat('1000000', 7, '1.000.000')).toBe('1.000.000'.length);
+    expect(caretAfterFormat('1.000.000', 5, '1.000.000')).toBe(5);
+    expect(caretAfterFormat('1000,5', 4, '1.000,5')).toBe('1.000'.length);
   });
 
   it('formata o exemplo ilustrativo', () => {

@@ -2,12 +2,13 @@ import { isInputs, isScenarioId, isSectionId, type KeyValueStore, type SectionId
 import { normalizeInputs } from '../model/normalize';
 import { normalizeWizardStep } from '../model/wizard';
 import type { Inputs, ScenarioId } from '../model/types';
-import { rhImportWarnings } from './importCheck';
+import { nightPremiumBelowMinimum, rhImportWarnings } from './importCheck';
 import {
   DEFAULT_ABSENCE_DAYS,
   DEFAULT_NIGHT_PREMIUM,
   DEFAULT_VACATION_DAYS,
   DEFAULT_YEAR_DAYS,
+  NIGHT_PREMIUM_MIN,
   applyRoster,
   type Roster,
   type RosterPost,
@@ -93,7 +94,7 @@ export function normalizeRoster(value: unknown): Roster | null {
   const posts = Array.isArray(value.posts) ? value.posts : [];
   return {
     shiftCount: shiftCountOf(value.shiftCount),
-    nightPremiumPct: Math.max(0, finiteNumber(value.nightPremiumPct, DEFAULT_NIGHT_PREMIUM)),
+    nightPremiumPct: Math.max(NIGHT_PREMIUM_MIN, finiteNumber(value.nightPremiumPct, DEFAULT_NIGHT_PREMIUM)),
     yearDays: Math.max(1, finiteNumber(value.yearDays, DEFAULT_YEAR_DAYS)),
     vacationDays: Math.max(0, finiteNumber(value.vacationDays, DEFAULT_VACATION_DAYS)),
     absenceDays: Math.max(0, finiteNumber(value.absenceDays, DEFAULT_ABSENCE_DAYS)),
@@ -107,7 +108,7 @@ function normalizePost(value: unknown, index: number): RosterPost | null {
   return {
     id,
     role: typeof value.role === 'string' && value.role.trim() ? value.role : 'Cargo',
-    counter: typeof value.counter === 'string' && value.counter.trim() ? value.counter : 'Balcão',
+    counter: typeof value.counter === 'string' ? value.counter.trim() : '',
     scale: scaleOf(value.scale),
     monthlyCost: Math.max(0, finiteNumber(value.monthlyCost, 0)),
     onDuty: triple(value.onDuty),
@@ -279,9 +280,15 @@ function importWarnings(value: Record<string, unknown>): string[] {
   for (const chunk of chunks) {
     if (!isInputs(chunk.inputs)) continue;
     const inputs = normalizeInputs(chunk.inputs);
+    const rawPremium = isRecord(chunk.roster) && 'nightPremiumPct' in chunk.roster ? chunk.roster.nightPremiumPct : undefined;
     const explicitRoster = normalizeRoster(chunk.roster);
     const roster = explicitRoster ?? rosterFromLegacyInputs(inputs);
     messages.push(...rhImportWarnings(inputs, roster, explicitRoster !== null));
+    if (rawPremium !== undefined) {
+      const premium = typeof rawPremium === 'number' ? rawPremium : Number.NaN;
+      const night = nightPremiumBelowMinimum(premium);
+      if (night) messages.push(night);
+    }
   }
   return messages;
 }

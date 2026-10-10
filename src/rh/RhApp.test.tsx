@@ -107,14 +107,56 @@ describe('versão em validação', () => {
     expect(host.querySelector('[data-testid="roster-role-totals"]')?.textContent).toContain('Auxiliar noturno');
     expect(host.querySelector('[data-testid="roster-advanced"]')?.tagName).toBe('DETAILS');
     expect(host.querySelector('[data-testid="roster-advanced"]')?.hasAttribute('open')).toBe(false);
-    const advanced = host.querySelector('[data-testid="post-override-advanced-aux-noite-1"]');
-    expect(advanced?.tagName).toBe('DETAILS');
-    expect(advanced?.hasAttribute('open')).toBe(false);
-    expect(advanced?.textContent).toContain('substitui o cálculo');
+    expect(host.querySelector('[data-testid="post-override-advanced-aux-noite-1"]')).toBeNull();
+    expect(host.querySelector('[data-testid="post-override-aux-noite-1"]')).toBeNull();
+    expect(host.textContent).toContain('100% = 1,0');
+    expect(host.querySelector<HTMLInputElement>('[data-testid="night-premium"]')?.value).toBe('100');
     expect(host.querySelector<HTMLInputElement>('[data-testid="vacation-days"]')?.readOnly).toBe(false);
     expect(host.querySelector<HTMLInputElement>('[data-testid="absence-days"]')?.readOnly).toBe(false);
     expect(host.textContent).not.toContain('Fator de cobertura manual');
+    expect(host.textContent).not.toContain('Sobrescrever fator');
+    expect(host.textContent).not.toContain('substitui o cálculo');
     expect(host.querySelector('[data-testid="roster-summary"]')?.textContent).not.toContain('328.571');
+
+    const before = new Set(
+      [...host.querySelectorAll('[data-testid^="roster-post-"]')].map((node) => node.getAttribute('data-testid')),
+    );
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="add-roster-post"]')?.click();
+    });
+    const added = [...host.querySelectorAll('[data-testid^="roster-post-"]')].find(
+      (node) => !before.has(node.getAttribute('data-testid')),
+    );
+    const addedId = added?.getAttribute('data-testid')?.replace('roster-post-', '') ?? '';
+    expect(host.querySelector<HTMLInputElement>(`[data-testid="post-counter-${addedId}"]`)?.value).toBe('');
+    expect(host.querySelector<HTMLInputElement>(`[data-testid="onDuty-${addedId}-0"]`)?.value).toBe('1');
+    expect(host.querySelector<HTMLInputElement>(`[data-testid="onDuty-${addedId}-1"]`)?.value).toBe('1');
+    expect(host.querySelector<HTMLInputElement>(`[data-testid="onDuty-${addedId}-2"]`)?.value).toBe('1');
+
+    const freed = host.querySelector<HTMLInputElement>('[data-testid="freed-aux-noite-1-2"]');
+    const cost = host.querySelector<HTMLInputElement>('[data-testid="post-cost-farm-1"]');
+    const setValue = (input: HTMLInputElement | null, value: string) => {
+      if (!input) throw new Error('campo');
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      const tracker = (input as HTMLInputElement & { _valueTracker?: { setValue: (next: string) => void } })._valueTracker;
+      tracker?.setValue('');
+      setter?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    await act(async () => {
+      cost?.focus();
+    });
+    expect(cost?.value).toBe('8.500');
+    await act(async () => {
+      setValue(cost, '1000000');
+    });
+    expect(cost?.value).toBe('1.000.000');
+    await act(async () => {
+      setValue(freed ?? null, '0,5');
+      freed?.dispatchEvent(new Event('blur', { bubbles: true }));
+    });
+    expect(freed?.value).toBe('0,5');
+    expect(host.querySelector('[data-testid="shift-freed-2"]')?.textContent).toContain('2,50');
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import type { Confidence } from '../model/types';
-import { formatNumber, parseLocaleNumber } from '../model/format';
+import { caretAfterFormat, formatMoneyDraft, formatNumber, parseLocaleNumber } from '../model/format';
 import type { ModelResult } from '../model/types';
 import { formatBRL } from '../model/format';
 
@@ -110,29 +110,43 @@ export function NumberField({
   const description = helpText(help, hint);
   const active = fieldId !== undefined && focused === fieldId;
   const root = useRef<HTMLLabelElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const caretRef = useRef<number | null>(null);
+  const money = helpOn && suffix === 'R$';
   const shown = draft ?? (Number.isInteger(value) ? formatNumber(value) : formatNumber(value, 2));
   useEffect(() => {
     if (!active || !root.current) return;
     root.current.scrollIntoView?.({ block: 'center', inline: 'nearest' });
     root.current.querySelector('input')?.focus();
   }, [active]);
+  useEffect(() => {
+    const pos = caretRef.current;
+    const input = inputRef.current;
+    if (pos === null || !input) return;
+    caretRef.current = null;
+    input.setSelectionRange(pos, pos);
+  }, [draft]);
   return (
     <label className={`field${active ? ' is-target' : ''}`} ref={root} data-field={fieldId}>
       <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
         <input
+          ref={inputRef}
           data-testid={testId}
           {...fieldHelpAttr(helpOn, description)}
           inputMode="decimal"
           value={shown}
           onFocus={(event) => {
             const plain = Number.isInteger(value) ? String(value) : String(value).replace('.', ',');
-            setDraft(plain);
+            setDraft(money ? formatMoneyDraft(plain) : plain);
             requestAnimationFrame(() => event.target.select());
           }}
           onChange={(event) => {
-            setDraft(event.target.value);
-            const parsed = parseLocaleNumber(event.target.value);
+            const typed = event.target.value;
+            const nextDraft = money ? formatMoneyDraft(typed) : typed;
+            if (money) caretRef.current = caretAfterFormat(typed, event.target.selectionStart ?? typed.length, nextDraft);
+            setDraft(nextDraft);
+            const parsed = parseLocaleNumber(nextDraft);
             if (parsed === null) return;
             onChange(min !== undefined ? Math.max(min, parsed) : parsed);
           }}

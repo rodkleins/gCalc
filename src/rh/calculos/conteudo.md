@@ -8,7 +8,7 @@ O caixa continua o mesmo motor `evaluate`. O quadro não cria uma fórmula paral
 
 A loja escolhe 2 ou 3 turnos. Três turnos significam loja 24h. Não há horário de entrada nem de saída: o turno 1, o turno 2 e, quando existe, o turno da noite.
 
-O adicional noturno sugerido é 10%. No JSON a unidade é fração: 0,10 significa 10%. A faixa aceita é de 0% a 50%. O valor 1 significa 100%, não 10%. Ele multiplica só o turno da noite, e só quando a loja tem 3 turnos. Com 2 turnos o percentual fica guardado e não entra na conta.
+O adicional noturno padrão é 100%. No JSON a unidade é fração: 100% = 1,0. O valor não fica abaixo de 100%. Um arquivo com 0,10 (10%) é avisado e o quadro passa a usar 100%. Ele multiplica só o turno da noite, e só quando a loja tem 3 turnos. Com 2 turnos o percentual fica guardado e não entra na conta.
 
 ## 2. Posto
 
@@ -40,7 +40,7 @@ O padrão visível é 365 dias, 30 de férias e 6 faltas. Com 329 dias disponív
 - 5x2 fica em 1,5532 (folguista de 0,5532);
 - 12x36 fica em 2,2188 (folguista de 1,2188).
 
-Sem férias nem faltas, os fatores ficam em 7/6, 7/5 e 2. Na tela o quadro é uma tabela: cargo, balcão, escala e custo na mesma linha, pessoas em cada turno, folguista somente leitura e as colunas do que o robô evita. O total de cada cargo e o total de cada turno são calculados. Férias, faltas, adicional noturno, contratação futura e a substituição do fator ficam recolhidos. O fator é calculado e não se digita. Se férias e faltas cobrem o ano, o fator vai a zero em vez de inverter o sinal.
+Sem férias nem faltas, os fatores ficam em 7/6, 7/5 e 2. Na tela o quadro é uma tabela: cargo, balcão, escala e custo na mesma linha, pessoas em cada turno, folguista somente leitura e as colunas do que o robô evita. O total de cada cargo e o total de cada turno são calculados. Uma linha nova começa com o balcão vazio e com 1 pessoa em cada turno. A posição liberada aceita fração, como 0,5, e o folguista sai proporcional. Férias, faltas, adicional noturno e contratação futura ficam recolhidos. O fator é calculado e não se digita. Se férias e faltas cobrem o ano, o fator vai a zero em vez de inverter o sinal.
 
 O custo da linha já inclui encargos e benefícios, no mesmo critério para todos os cargos. Não há um segundo fator, como 1,3333, aplicado só ao gerente. O perfil repete o custo do quadro.
 
@@ -80,8 +80,8 @@ O exemplo e a loja de R$ 1 milhão têm 2 turnos e 1 balcão. O robô libera 1 a
 
 A de R$ 2 milhões tem 2 turnos e 2 balcões, com 1 auxiliar liberado por turno em cada balcão.
 
-A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1, e o gerente fica em 5x2. À noite, farmacêutico noturno e auxiliar noturno usam 12x36, com adicional de 10%. O nome da função separa esses custos dos cargos do dia. Estoquista e gerente da noite continuam em 6x1 e 5x2. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. O fator 2,2188 entra só nas cadeiras 12x36. Se a operação real não cobre a noite assim, mude a escala, as férias, as faltas ou a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
+A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1, e o gerente fica em 5x2. À noite, farmacêutico noturno e auxiliar noturno usam 12x36, com adicional de 100%. O nome da função separa esses custos dos cargos do dia. Estoquista e gerente da noite continuam em 6x1 e 5x2. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. O fator 2,2188 entra só nas cadeiras 12x36. Se a operação real não cobre a noite assim, mude a escala, as férias, as faltas ou a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
 
-A importação avisa se o arquivo vier com todos os postos liberados zerados, adicional noturno fora de 0% a 50%, dois custos para o mesmo cargo no mesmo balcão, ou perfil diferente do quadro. O quadro importado prevalece.
+A importação avisa se o arquivo vier com todos os postos liberados zerados, adicional noturno abaixo de 100%, dois custos para o mesmo cargo no mesmo balcão, equipamento abaixo de R$ 1.000.000 ou fora de milhar cheio, instalação diferente de R$ 50.000, custo mensal fora de R$ 5.000 a R$ 6.000, ou perfil diferente do quadro. O quadro importado prevalece.
 
 A tabela no fim desta página sai dos mesmos modelos, nos cenários conservador, base e otimista.

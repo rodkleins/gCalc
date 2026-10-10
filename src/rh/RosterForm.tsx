@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createId } from '../model/storage';
-import { formatBRL, formatNumber, parseLocaleNumber } from '../model/format';
+import { caretAfterFormat, formatBRL, formatMoneyDraft, formatNumber, parseLocaleNumber } from '../model/format';
 import { Callout, FieldLabel, FieldTip, NumberField, PercentField, RemoveButton, StageNote, fieldHelpAttr, useFieldHelpEnabled } from '../components/Fields';
 import { rosterWarnings } from './importCheck';
 import {
@@ -30,20 +30,19 @@ const HELP = {
     'Escala da linha. 6x1 pede 7/6 pessoas por cadeira, 5x2 pede 7/5 e 12x36 pede 2. Férias e faltas multiplicam esse número. O posto já é a cadeira do turno.',
   cost: 'Custo completo por pessoa por mês, em R$, já com encargos e benefícios. A mesma regra vale para todos os cargos, inclusive o gerente. Não há um fator extra de 1,3333. O adicional noturno entra à parte, só na noite.',
   onDuty:
-    'Pessoas presentes neste turno, em quantidade. A folha multiplica este número pelo fator de cobertura e pelo custo mensal do cargo.',
+    'Pessoas presentes neste turno, em quantidade. Aceita fração, como 0,5. A folha multiplica este número pelo fator de cobertura e pelo custo mensal do cargo.',
   freed:
-    'Posições deste turno que o robô libera, em quantidade, no máximo as pessoas no posto. A vaga evitada é este número vezes o fator de cobertura. Zero em todos zera a economia de pessoal.',
+    'Posições deste turno que o robô libera, em quantidade. Aceita fração, como 0,5, e o folguista sai proporcional. Não passa das pessoas no posto. A vaga evitada é este número vezes o fator de cobertura. Zero em todos zera a economia de pessoal.',
   future:
     'Contratações que a loja faria neste turno a partir do mês 13, em quantidade. Entram no caixa só em loja existente, já com o fator de cobertura.',
   factor:
-    'Fator calculado automaticamente pela escala, pelos dias de férias e pelas faltas. A unidade é pessoas contratadas por pessoa no turno. Não se digita.',
-  night: 'Percentual do adicional noturno. No JSON a unidade é fração: 10% fica gravado como 0,10. A faixa é de 0% a 50%. O padrão das notas é 10%. Só multiplica a folha do turno da noite, e só com 3 turnos.',
+    'Fator calculado automaticamente pela escala, pelos dias de férias e pelas faltas. A unidade é pessoas contratadas por pessoa no turno. Não se digita e não tem substituição manual.',
+  night:
+    'Adicional noturno. Na tela, 100 significa 100%. No JSON a unidade é fração: 100% = 1,0. O padrão é 100% e o valor não fica abaixo disso. Só multiplica a folha do turno da noite, e só com 3 turnos. Com 2 turnos fica guardado e não entra na conta.',
   vacation:
     'Dias de férias por pessoa no ano. Entram no denominador do fator: dias do ano − férias − faltas. O padrão é 30. Mudar este número recalcula o folguista de cada linha.',
   absence:
     'Dias de falta previstos no ano, não um percentual. Entram no denominador do fator junto com as férias. O padrão é 6. Mudar este número recalcula o folguista.',
-  override:
-    'Substitui o fator calculado só nesta linha. A unidade é pessoas contratadas por pessoa no turno. Preenchido, a folha usa este número no lugar da escala, das férias e das faltas. Vazio volta ao cálculo automático.',
 } as const;
 
 function peopleLabel(value: number): string {
@@ -72,6 +71,8 @@ function CountCell({
   onChange: (value: number) => void;
 }) {
   const helpOn = useFieldHelpEnabled();
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? (Number.isInteger(value) ? String(value) : String(value).replace('.', ','));
   return (
     <input
       className="roster-count"
@@ -79,11 +80,17 @@ function CountCell({
       aria-label={label}
       inputMode="decimal"
       {...fieldHelpAttr(helpOn, help)}
-      value={Number.isInteger(value) ? String(value) : String(value).replace('.', ',')}
+      value={shown}
+      onFocus={() => setDraft(Number.isInteger(value) ? String(value) : String(value).replace('.', ','))}
       onChange={(event) => {
+        setDraft(event.target.value);
         const parsed = parseLocaleNumber(event.target.value);
         if (parsed === null) return;
         onChange(Math.max(0, parsed));
+      }}
+      onBlur={(event) => {
+        if (parseLocaleNumber(event.target.value) === null) onChange(0);
+        setDraft(null);
       }}
     />
   );
@@ -100,9 +107,19 @@ function MoneyCell({
 }) {
   const helpOn = useFieldHelpEnabled();
   const [draft, setDraft] = useState<string | null>(null);
-  const shown = draft ?? formatNumber(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const caretRef = useRef<number | null>(null);
+  const shown = draft ?? formatNumber(Number.isInteger(value) ? value : value, Number.isInteger(value) ? 0 : 2);
+  useEffect(() => {
+    const pos = caretRef.current;
+    const input = inputRef.current;
+    if (pos === null || !input) return;
+    caretRef.current = null;
+    input.setSelectionRange(pos, pos);
+  }, [draft]);
   return (
     <input
+      ref={inputRef}
       className="roster-count"
       data-testid={testId}
       aria-label="Custo por pessoa"
@@ -111,12 +128,15 @@ function MoneyCell({
       value={shown}
       onFocus={(event) => {
         const plain = Number.isInteger(value) ? String(value) : String(value).replace('.', ',');
-        setDraft(plain);
+        setDraft(formatMoneyDraft(plain));
         requestAnimationFrame(() => event.target.select());
       }}
       onChange={(event) => {
-        setDraft(event.target.value);
-        const parsed = parseLocaleNumber(event.target.value);
+        const typed = event.target.value;
+        const nextDraft = formatMoneyDraft(typed);
+        caretRef.current = caretAfterFormat(typed, event.target.selectionStart ?? typed.length, nextDraft);
+        setDraft(nextDraft);
+        const parsed = parseLocaleNumber(nextDraft);
         if (parsed === null) return;
         onChange(Math.max(0, parsed));
       }}
@@ -183,8 +203,8 @@ export function RosterForm({
       </StageNote>
       <Callout>
         O custo da linha já inclui encargos e benefícios. Não existe um fator extra, como 1,3333, aplicado só ao gerente
-        ou só a alguns cargos. O perfil da loja repete estes custos. O adicional noturno é outra conta: no JSON, 10% é a
-        fração 0,10 e só entra no turno da noite.
+        ou só a alguns cargos. O perfil da loja repete estes custos. O adicional noturno é fração no JSON: 100% = 1,0. O
+        padrão é 100% e não fica abaixo disso. Só entra no turno da noite, com 3 turnos.
       </Callout>
       {warnings.length > 0 ? (
         <div className="callout warn" data-testid="roster-warnings">
@@ -211,9 +231,10 @@ export function RosterForm({
             </button>
           ))}
         </div>
-        <p className="lede">
+        <p className="lede" data-testid="night-premium-unit">
           As células são o número de postos naquele turno. O total de cada linha e o total de cada turno são calculados.
-          O folguista é somente leitura. As colunas marcadas são os postos que o robô evita.
+          O folguista é somente leitura. As colunas marcadas são os postos que o robô evita, e aceitam fração (0,5) com
+          folguista proporcional. Adicional noturno: 100% = 1,0. O padrão é 100% e o valor não fica abaixo disso.
         </p>
         <div className="table-wrap roster-sheet" data-testid="roster-sheet">
           <table data-testid="roster-summary">
@@ -334,7 +355,6 @@ export function RosterForm({
                       <span className="roster-memory" data-testid={`post-coverage-${item.id}`}>
                         {sentence}
                       </span>
-                      {coverage.overridden ? <span className="cell-note">substituído por {formatNumber(coverage.applied, 4)}</span> : null}
                     </td>
                     <td className="num">{peopleLabel(Math.max(0, folguista))}</td>
                     <td className="num">{peopleLabel(hired)}</td>
@@ -421,10 +441,10 @@ export function RosterForm({
                 {
                   id: createId(),
                   role: 'Auxiliar de farmácia',
-                  counter: 'Balcão',
+                  counter: '',
                   scale: '6x1',
                   monthlyCost: 4_200,
-                  onDuty: [0, 0, 0],
+                  onDuty: [1, 1, 1],
                   freed: [0, 0, 0],
                   future: [0, 0, 0],
                   coverageOverride: null,
@@ -439,16 +459,16 @@ export function RosterForm({
           <summary>Parâmetros avançados</summary>
           <p className="lede">
             Férias, faltas e o adicional noturno recalculam o folguista de todas as linhas. A contratação futura entra no mês
-            13. Substituir o fator troca a conta só naquela linha e deixa de usar a escala.
+            13. O fator é calculado pelo sistema e não se digita.
           </p>
           <div className="form-grid">
             <PercentField
               label="Adicional noturno"
               value={roster.nightPremiumPct}
               testId="night-premium"
-              hint="Fração no JSON: 10% = 0,10. Faixa de 0% a 50%. Só vale no turno da noite, com 3 turnos."
+              hint="Unidade: 100% = 1,0 no JSON. Nunca abaixo de 100%. Só vale no turno da noite, com 3 turnos."
               help={HELP.night}
-              onChange={(nightPremiumPct) => onChange({ ...roster, nightPremiumPct: Math.min(0.5, Math.max(0, nightPremiumPct)) })}
+              onChange={(nightPremiumPct) => onChange({ ...roster, nightPremiumPct: Math.max(1, nightPremiumPct) })}
             />
             <NumberField
               label="Dias de férias no ano"
@@ -469,58 +489,25 @@ export function RosterForm({
               onChange={(absenceDays) => onChange({ ...roster, absenceDays })}
             />
           </div>
-          {roster.posts.map((item) => {
-            const coverage = postCoverage(item, roster);
-            return (
-              <details key={item.id} className="advanced" data-testid={`post-override-advanced-${item.id}`}>
-                <summary>
-                  {item.role || 'Cargo'} · {item.counter || 'Balcão'}
-                </summary>
-                <p className="lede">
-                  Preencher o fator substitui o cálculo automático só nesta linha. A folha deixa de usar a escala, as férias e as
-                  faltas e passa a usar o número digitado. Vazio volta ao fator calculado ({formatNumber(coverage.suggested, 4)}).
-                </p>
-                <label className="field">
-                  <FieldLabel label="Fator que substitui o cálculo" help={HELP.override} />
-                  <span className="control">
-                    <input
-                      data-testid={`post-override-${item.id}`}
-                      aria-label="Fator que substitui o cálculo"
-                      {...fieldHelpAttr(true, HELP.override)}
-                      inputMode="decimal"
-                      placeholder={formatNumber(coverage.suggested, 4)}
-                      value={item.coverageOverride === null ? '' : String(item.coverageOverride).replace('.', ',')}
-                      onChange={(event) => {
-                        const text = event.target.value.trim();
-                        if (!text) {
-                          updatePost(item.id, { coverageOverride: null });
-                          return;
-                        }
-                        const parsed = parseLocaleNumber(text);
-                        if (parsed === null) return;
-                        updatePost(item.id, { coverageOverride: Math.max(0, parsed) });
-                      }}
-                    />
-                  </span>
-                  <small>Vazio usa o fator calculado. Preenchido substitui a conta.</small>
+          {roster.posts.map((item) => (
+            <div key={item.id} className="form-grid" data-testid={`post-future-${item.id}`}>
+              {Array.from({ length: roster.shiftCount }, (_, index) => (
+                <label key={index} className="field">
+                  <FieldLabel
+                    label={`Contratação futura · ${item.role || 'Cargo'} · ${shiftName(index, roster.shiftCount)}`}
+                    help={HELP.future}
+                  />
+                  <CountCell
+                    value={item.future[index]}
+                    testId={`future-${item.id}-${index}`}
+                    help={HELP.future}
+                    label={`Contratação futura no ${shiftName(index, roster.shiftCount)}`}
+                    onChange={(value) => setSlot(item.id, 'future', index, value)}
+                  />
                 </label>
-                <div className="form-grid">
-                  {Array.from({ length: roster.shiftCount }, (_, index) => (
-                    <label key={index} className="field">
-                      <FieldLabel label={`Contratação futura · ${shiftName(index, roster.shiftCount)}`} help={HELP.future} />
-                      <CountCell
-                        value={item.future[index]}
-                        testId={`future-${item.id}-${index}`}
-                        help={HELP.future}
-                        label={`Contratação futura no ${shiftName(index, roster.shiftCount)}`}
-                        onChange={(value) => setSlot(item.id, 'future', index, value)}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </details>
-            );
-          })}
+              ))}
+            </div>
+          ))}
         </details>
       </section>
     </div>
