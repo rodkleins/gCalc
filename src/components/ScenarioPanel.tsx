@@ -41,10 +41,10 @@ export function ScenarioPanel({
                 </button>
               </header>
               <div className="stack tight">
-                <PercentField label="Benefícios" value={factors.benefitFactor} onChange={(benefitFactor) => update({ benefitFactor })} />
-                <PercentField label="Vendas" value={factors.salesFactor} onChange={(salesFactor) => update({ salesFactor })} />
-                <PercentField label="OPEX" value={factors.opexFactor} onChange={(opexFactor) => update({ opexFactor })} />
-                <PercentField label="CAPEX" value={factors.capexFactor} onChange={(capexFactor) => update({ capexFactor })} />
+                <PercentField label="Benefícios" help="Percentual aplicado aos ganhos operacionais deste cenário. 100% é o caso base. Não altera o que foi digitado nos módulos." value={factors.benefitFactor} onChange={(benefitFactor) => update({ benefitFactor })} />
+                <PercentField label="Vendas" help="Percentual extra sobre as margens de venda deste cenário. 100% repete a venda digitada. Multiplica só a margem incremental." value={factors.salesFactor} onChange={(salesFactor) => update({ salesFactor })} />
+                <PercentField label="OPEX" help="Percentual do custo mensal do robô neste cenário. 100% usa o OPEX digitado. O otimista pode exibir um valor abaixo do piso digitado." value={factors.opexFactor} onChange={(opexFactor) => update({ opexFactor })} />
+                <PercentField label="CAPEX" help="Percentual do investimento neste cenário. 100% usa o CAPEX digitado, inclusive prateleira evitada. Entra no investimento líquido do cenário." value={factors.capexFactor} onChange={(capexFactor) => update({ capexFactor })} />
               </div>
               <dl className="mini-metrics">
                 <div>

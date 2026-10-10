@@ -10,7 +10,7 @@ A calculadora em `/gCalc/`, o rascunho `/gCalc/headtohead/` e a página `/gCalc/
 
 O posto já é uma cadeira daquele turno. A escala diz quantas pessoas contratadas mantêm uma pessoa presente cada vez que o turno acontece. Um turno de 8 horas e uma escala de 12 horas não se multiplicam: 12x36 não é 12/48 nem 12/8.
 
-Padrão visível: 365 dias, 30 de férias e 6 faltas. Cada posto pode sobrescrever o fator. A memória dessa conta aparece em cada posto.
+Padrão visível: 365 dias, 30 de férias e 6 faltas. Cada posto tem o campo Fator de cobertura manual: vazio usa esta conta; preenchido substitui o fator só naquele posto. A memória aparece em cada posto.
 
 ```
 6x1 trabalha 6 e folga 1 → 7/6 pessoas por cadeira

@@ -153,6 +153,87 @@ describe('versão em validação', () => {
   });
 });
 
+function controlsMissingHelp(host: ParentNode): string[] {
+  return [...host.querySelectorAll('input, select, textarea, button[role="switch"]')].flatMap((control) => {
+    if (!(control instanceof HTMLElement)) return [];
+    if (control.getAttribute('type') === 'hidden') return [];
+    const help = control.getAttribute('data-field-help')?.trim() ?? '';
+    if (help.length >= 12) return [];
+    const name =
+      control.getAttribute('data-testid') ??
+      control.getAttribute('aria-label') ??
+      control.closest('label')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 90) ??
+      control.tagName;
+    return [name];
+  });
+}
+
+async function openSection(host: HTMLElement, label: string) {
+  const item = [...host.querySelectorAll('.nav-label')].find((node) => node.textContent === label);
+  await act(async () => {
+    item?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+describe('ajuda dos campos', () => {
+  let root: Root | null = null;
+
+  afterEach(() => {
+    act(() => root?.unmount());
+    root = null;
+    document.body.innerHTML = '';
+    localStorage.clear();
+  });
+
+  it('falha se algum campo de entrada não tiver descrição', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => {
+      root?.render(<RhApp />);
+    });
+    const missing = new Set<string>();
+    const collect = () => {
+      for (const name of controlsMissingHelp(host)) missing.add(name);
+    };
+    collect();
+    for (const label of ['Perfil', 'Pessoas', 'Logística', 'Estoque', 'Investimento', 'Cenários', 'Sensibilidade', 'Fluxo', 'Auditoria', 'Simulações', 'Resultados']) {
+      await openSection(host, label);
+      if (label === 'Perfil') {
+        const addStore = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Adicionar loja');
+        await act(async () => {
+          addStore?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+      }
+      if (label === 'Simulações') {
+        const save = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Salvar simulação');
+        await act(async () => {
+          save?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          save?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        const rename = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Renomear');
+        await act(async () => {
+          rename?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+      }
+      collect();
+    }
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="open-wizard"]')?.click();
+    });
+    for (let step = 0; step < 8; step += 1) {
+      collect();
+      const next = host.querySelector<HTMLButtonElement>('[data-testid="wizard-next"]');
+      if (!next) break;
+      await act(async () => {
+        next.click();
+      });
+    }
+    expect([...missing]).toEqual([]);
+  });
+});
+
 describe('página de cálculos desta versão', () => {
   let root: Root | null = null;
 

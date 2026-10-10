@@ -3,7 +3,7 @@ import { evaluate } from '../model/calculate';
 import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import type { StorePreset } from '../model/presets';
 import type { SimulationRecord } from '../model/storage';
-import { RemoveButton, StageNote } from './Fields';
+import { FieldLabel, RemoveButton, StageNote, fieldHelpAttr, useFieldHelpEnabled } from './Fields';
 import { StorePresets } from './StorePresets';
 
 export function LibraryPanel({
@@ -41,6 +41,7 @@ export function LibraryPanel({
   exportCurrentLabel?: string;
   emphasizeJson?: boolean;
 }) {
+  const helpOn = useFieldHelpEnabled();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [leftId, setLeftId] = useState(simulations[0]?.id ?? '');
@@ -66,9 +67,16 @@ export function LibraryPanel({
         </p>
         <div className="save-row">
           <label className="field grow">
-            <span>Nome</span>
+            <FieldLabel
+              label="Nome"
+              help={helpOn ? 'Nome da simulação neste navegador. Identifica o caso salvo e não entra no payback, no ROI nem no VPL.' : undefined}
+            />
             <span className="control">
-              <input value={draftName} onChange={(event) => onDraftName(event.target.value)} />
+              <input
+                {...fieldHelpAttr(helpOn, 'Nome da simulação neste navegador. Identifica o caso salvo e não entra no payback, no ROI nem no VPL.')}
+                value={draftName}
+                onChange={(event) => onDraftName(event.target.value)}
+              />
             </span>
           </label>
           <button type="button" className="btn" onClick={onSave}>
@@ -93,6 +101,10 @@ export function LibraryPanel({
               type="file"
               accept="application/json"
               data-testid="import-json-input"
+              {...fieldHelpAttr(
+                helpOn,
+                'Arquivo JSON de uma simulação ou da biblioteca. A importação acrescenta os casos neste navegador e não altera a calculadora da raiz.',
+              )}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) onImport(file);
@@ -111,9 +123,16 @@ export function LibraryPanel({
           <>
             <div className="form-grid">
               <label className="field">
-                <span>Simulação A</span>
+                <FieldLabel
+                  label="Simulação A"
+                  help={helpOn ? 'Primeiro caso da comparação. Os indicadores ao lado usam o cenário salvo nesse caso. Não altera a simulação aberta.' : undefined}
+                />
                 <span className="control">
-                  <select value={left?.id ?? ''} onChange={(event) => setLeftId(event.target.value)}>
+                  <select
+                    {...fieldHelpAttr(helpOn, 'Primeiro caso da comparação. Os indicadores ao lado usam o cenário salvo nesse caso. Não altera a simulação aberta.')}
+                    value={left?.id ?? ''}
+                    onChange={(event) => setLeftId(event.target.value)}
+                  >
                     {simulations.map((simulation) => (
                       <option key={simulation.id} value={simulation.id}>
                         {simulation.name}
@@ -123,9 +142,16 @@ export function LibraryPanel({
                 </span>
               </label>
               <label className="field">
-                <span>Simulação B</span>
+                <FieldLabel
+                  label="Simulação B"
+                  help={helpOn ? 'Segundo caso da comparação. Os indicadores ao lado usam o cenário salvo nesse caso. Não altera a simulação aberta.' : undefined}
+                />
                 <span className="control">
-                  <select value={right?.id ?? ''} onChange={(event) => setRightId(event.target.value)}>
+                  <select
+                    {...fieldHelpAttr(helpOn, 'Segundo caso da comparação. Os indicadores ao lado usam o cenário salvo nesse caso. Não altera a simulação aberta.')}
+                    value={right?.id ?? ''}
+                    onChange={(event) => setRightId(event.target.value)}
+                  >
                     {simulations.map((simulation) => (
                       <option key={simulation.id} value={simulation.id}>
                         {simulation.name}
@@ -173,9 +199,16 @@ export function LibraryPanel({
               <div>
                 {renamingId === simulation.id ? (
                   <label className="field">
-                    <span>Novo nome</span>
+                    <FieldLabel
+                      label="Novo nome"
+                      help={helpOn ? 'Novo nome desta simulação salva. Só identifica o caso neste navegador e não entra no cálculo.' : undefined}
+                    />
                     <span className="control">
-                      <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} />
+                      <input
+                        {...fieldHelpAttr(helpOn, 'Novo nome desta simulação salva. Só identifica o caso neste navegador e não entra no cálculo.')}
+                        value={renameValue}
+                        onChange={(event) => setRenameValue(event.target.value)}
+                      />
                     </span>
                   </label>
                 ) : (

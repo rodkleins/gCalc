@@ -1,4 +1,4 @@
-import { BenefitCard, Callout, ModuleImpact, NumberField, SelectField, StageNote } from './Fields';
+import { BenefitCard, Callout, CheckField, ModuleImpact, NumberField, SelectField, StageNote } from './Fields';
 import type { Inputs, ModelResult, SpaceMode } from '../model/types';
 
 export function LogisticsForm({
@@ -37,6 +37,7 @@ export function LogisticsForm({
         <NumberField
           fieldId="logistics.boxes.cyclesAvoidedPerMonth"
           label="Ciclos evitados por mês"
+          help="Quantidade de ciclos de caixa que o robô deixa de gerar por mês. O benefício mensal é este número vezes o custo por ciclo, se o processo estiver validado."
           value={logistics.boxes.cyclesAvoidedPerMonth}
           onChange={(cyclesAvoidedPerMonth) =>
             setLogistics({ ...logistics, boxes: { ...logistics.boxes, cyclesAvoidedPerMonth } })
@@ -46,18 +47,18 @@ export function LogisticsForm({
           label="Custo por ciclo"
           value={logistics.boxes.costPerCycle}
           suffix="R$"
+          help="Custo de um ciclo de caixa, em R$. Multiplica os ciclos evitados e entra como benefício mensal quando o processo está validado."
           onChange={(costPerCycle) => setLogistics({ ...logistics, boxes: { ...logistics.boxes, costPerCycle } })}
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={logistics.boxes.processValidated}
-            onChange={(event) =>
-              setLogistics({ ...logistics, boxes: { ...logistics.boxes, processValidated: event.target.checked } })
-            }
-          />
-          <span>O processo logístico foi validado: o robô realmente elimina estes ciclos</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={logistics.boxes.processValidated}
+          onChange={(processValidated) =>
+            setLogistics({ ...logistics, boxes: { ...logistics.boxes, processValidated } })
+          }
+          label="O processo logístico foi validado: o robô realmente elimina estes ciclos"
+          help="Sem esta marca, os ciclos evitados ficam fora do fluxo. Ligado, ciclos vezes custo por ciclo entram como benefício mensal."
+        />
       </BenefitCard>
 
       <BenefitCard
@@ -78,16 +79,13 @@ export function LogisticsForm({
             setLogistics({ ...logistics, shelving: { ...logistics.shelving, avoidedAcquisition } })
           }
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={logistics.shelving.stillRequired}
-            onChange={(event) =>
-              setLogistics({ ...logistics, shelving: { ...logistics.shelving, stillRequired: event.target.checked } })
-            }
-          />
-          <span>Estas prateleiras ainda são necessárias e não podem ser evitadas nem revendidas</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={logistics.shelving.stillRequired}
+          onChange={(stillRequired) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, stillRequired } })}
+          label="Estas prateleiras ainda são necessárias e não podem ser evitadas nem revendidas"
+          help="Ligado, a aquisição evitada e a revenda desta prateleira ficam fora do caixa. O robô não abate um móvel que a loja continua precisando."
+        />
         <NumberField
           fieldId="logistics.shelving.resaleValue"
           label="Revenda ou reaproveitamento"
@@ -120,10 +118,12 @@ export function LogisticsForm({
           label="m² liberados"
           value={logistics.space.m2Freed}
           suffix="m²"
+          help="Área que o robô libera, em metros quadrados. O benefício mensal é esta área vezes o custo de ocupação ou a margem por m², conforme a valorização escolhida. Os dois não entram juntos."
           onChange={(m2Freed) => setLogistics({ ...logistics, space: { ...logistics.space, m2Freed } })}
         />
         <SelectField
           label="Como valorizar a área"
+          help="Escolhe a unidade do m² liberado. Ocupação usa R$ por m² de aluguel evitado. Margem usa R$ por m² de venda. Só um dos dois entra no benefício mensal."
           value={logistics.space.mode}
           onChange={(mode) => setLogistics({ ...logistics, space: { ...logistics.space, mode: mode as SpaceMode } })}
           options={[
@@ -136,6 +136,7 @@ export function LogisticsForm({
           label="Custo de ocupação"
           value={logistics.space.occupancyCostPerM2}
           suffix="R$/m²"
+          help="Aluguel ou ocupação por metro quadrado, em R$/m² ao mês. Multiplica os m² liberados quando a valorização é ocupação e o contrato muda. Também atualiza a referência do perfil."
           onChange={(occupancyCostPerM2) =>
             onChange({
               ...inputs,
@@ -149,23 +150,20 @@ export function LogisticsForm({
           label="Margem por m²"
           value={logistics.space.contributionPerM2Month}
           suffix="R$/m²"
+          help="Margem comercial por metro quadrado, em R$/m² ao mês. Multiplica os m² liberados quando a valorização é margem. Não entra junto com o custo de ocupação."
           onChange={(contributionPerM2Month) =>
             setLogistics({ ...logistics, space: { ...logistics.space, contributionPerM2Month } })
           }
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={logistics.space.contractUnchanged}
-            onChange={(event) =>
-              setLogistics({
-                ...logistics,
-                space: { ...logistics.space, contractUnchanged: event.target.checked },
-              })
-            }
-          />
-          <span>O contrato de aluguel não muda. Nesse caso o custo de ocupação não entra no caixa.</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={logistics.space.contractUnchanged}
+          onChange={(contractUnchanged) =>
+            setLogistics({ ...logistics, space: { ...logistics.space, contractUnchanged } })
+          }
+          label="O contrato de aluguel não muda. Nesse caso o custo de ocupação não entra no caixa."
+          help="Ligado, o aluguel do m² liberado fica fora do fluxo, porque o contrato não diminui. A margem da área, se for o modo escolhido, continua podendo entrar."
+        />
       </BenefitCard>
 
       <BenefitCard
@@ -181,6 +179,7 @@ export function LogisticsForm({
           label="Horas por mês"
           value={logistics.movement.hoursSavedPerMonth}
           suffix="h"
+          help="Horas de movimentação que o robô evita por mês. O benefício é horas vezes o custo da hora, se estas horas ainda não estiverem na redução de folha."
           onChange={(hoursSavedPerMonth) =>
             setLogistics({ ...logistics, movement: { ...logistics.movement, hoursSavedPerMonth } })
           }
@@ -189,21 +188,18 @@ export function LogisticsForm({
           label="Custo da hora"
           value={logistics.movement.costPerHour}
           suffix="R$"
+          help="Custo de uma hora de movimentação, em R$. Multiplica as horas evitadas e entra como benefício mensal, salvo se a hora já foi contada na folha."
           onChange={(costPerHour) => setLogistics({ ...logistics, movement: { ...logistics.movement, costPerHour } })}
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={logistics.movement.alreadyCountedInPayroll}
-            onChange={(event) =>
-              setLogistics({
-                ...logistics,
-                movement: { ...logistics.movement, alreadyCountedInPayroll: event.target.checked },
-              })
-            }
-          />
-          <span>Estas horas já foram retiradas na redução de folha</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={logistics.movement.alreadyCountedInPayroll}
+          onChange={(alreadyCountedInPayroll) =>
+            setLogistics({ ...logistics, movement: { ...logistics.movement, alreadyCountedInPayroll } })
+          }
+          label="Estas horas já foram retiradas na redução de folha"
+          help="Ligado, a movimentação fica fora do fluxo para não pagar a mesma hora duas vezes. Na versão de RH o quadro já trava esta conta."
+        />
       </BenefitCard>
 
       <BenefitCard
@@ -221,6 +217,7 @@ export function LogisticsForm({
           label="Horas por mês"
           value={logistics.inventoryCount.hoursSavedPerMonth}
           suffix="h"
+          help="Horas de inventário evitadas por mês. O benefício mensal é horas vezes o custo da hora. Na versão de RH esta linha fica desligada, porque a hora já está no quadro."
           onChange={(hoursSavedPerMonth) =>
             setLogistics({ ...logistics, inventoryCount: { ...logistics.inventoryCount, hoursSavedPerMonth } })
           }
@@ -229,6 +226,7 @@ export function LogisticsForm({
           label="Custo da hora"
           value={logistics.inventoryCount.costPerHour}
           suffix="R$"
+          help="Custo de uma hora de inventário, em R$. Multiplica as horas evitadas e entra como benefício mensal quando o módulo está ligado."
           onChange={(costPerHour) =>
             setLogistics({ ...logistics, inventoryCount: { ...logistics.inventoryCount, costPerHour } })
           }

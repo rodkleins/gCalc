@@ -221,7 +221,7 @@ function PharmacyStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs:
   return (
     <div className="stack">
       <div className="form-grid">
-        <NumberField label="Faturamento mensal" suffix="R$" value={profile.monthlyRevenue} onChange={(monthlyRevenue) => patch({ monthlyRevenue })} />
+        <NumberField label="Faturamento mensal" suffix="R$" help="Venda da loja em R$ por mês. Situa o porte. A margem transforma venda adicional em resultado. O faturamento em si não é benefício." value={profile.monthlyRevenue} onChange={(monthlyRevenue) => patch({ monthlyRevenue })} />
         <PercentField
           label="Margem de contribuição"
           value={profile.contributionMarginPct}
@@ -238,16 +238,18 @@ function PharmacyStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs:
       <details className="advanced">
         <summary>Perguntas opcionais</summary>
         <div className="form-grid">
-          <NumberField label="Atendimentos por dia" value={profile.attendancesPerDay} onChange={(attendancesPerDay) => patch({ attendancesPerDay })} />
+          <NumberField label="Atendimentos por dia" help="Atendimentos por dia, em quantidade. Contexto da operação. Não cria benefício sozinho." value={profile.attendancesPerDay} onChange={(attendancesPerDay) => patch({ attendancesPerDay })} />
           <NumberField
             label="Dias de funcionamento no mês"
+            help="Dias em que a loja opera no mês. Converte o volume diário em volume mensal usado em perdas, caixas e movimentação."
             value={profile.operatingDaysPerMonth}
             onChange={(operatingDaysPerMonth) => patch({ operatingDaysPerMonth })}
           />
-          <NumberField label="Área total" suffix="m²" value={profile.totalAreaM2} onChange={(totalAreaM2) => patch({ totalAreaM2 })} />
-          <NumberField label="Retaguarda" suffix="m²" value={profile.backroomAreaM2} onChange={(backroomAreaM2) => patch({ backroomAreaM2 })} />
+          <NumberField label="Área total" suffix="m²" help="Área da loja, em m². Contexto. O benefício de espaço usa os m² liberados, não esta área inteira." value={profile.totalAreaM2} onChange={(totalAreaM2) => patch({ totalAreaM2 })} />
+          <NumberField label="Retaguarda" suffix="m²" help="Área de retaguarda, em m². Contexto da operação. Não entra direto no payback." value={profile.backroomAreaM2} onChange={(backroomAreaM2) => patch({ backroomAreaM2 })} />
           <PercentField
             label="Crescimento da demanda ao ano"
+            help="Percentual ao ano. Escala perdas, avarias, caixas, movimentação e vendas ao longo dos 60 meses. Não cria vaga sozinho."
             value={profile.demandGrowthPctPerYear}
             onChange={(demandGrowthPctPerYear) => patch({ demandGrowthPctPerYear })}
           />
@@ -273,10 +275,11 @@ function PeopleStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: I
       <Switch
         checked={payroll.enabled}
         label={payroll.enabled ? 'Economia de folha ligada' : 'Economia de folha desligada'}
+        help="Liga a folha evitada no fluxo. Desligado, vagas, rescisão e turnover desta etapa ficam fora do payback."
         onChange={(enabled) => patchPayroll({ enabled })}
       />
       <div className="form-grid">
-        <NumberField label="Vagas que o robô evita" value={payroll.positionsReduced} onChange={(positionsReduced) => patchPayroll({ positionsReduced })} />
+        <NumberField label="Vagas que o robô evita" help="Quantidade de vagas que deixam de existir. O benefício mensal é este número vezes o custo completo por pessoa. Na versão de RH o quadro por turno preenche este valor." value={payroll.positionsReduced} onChange={(positionsReduced) => patchPayroll({ positionsReduced })} />
         <NumberField
           label="Custo completo por pessoa (R$/mês)"
           suffix="R$/mês"
@@ -297,7 +300,7 @@ function PeopleStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: I
         <summary>Perguntas opcionais</summary>
         <div className="stack">
           <div className="form-grid">
-            <NumberField label="Mês em que a economia começa" value={payroll.startMonth} min={0} onChange={(startMonth) => patchPayroll({ startMonth })} />
+            <NumberField label="Mês em que a economia começa" help="Mês em que a folha evitada passa a entrar no caixa. Antes disso o benefício de gente fica zerado. O CAPEX continua na data zero." value={payroll.startMonth} min={0} onChange={(startMonth) => patchPayroll({ startMonth })} />
             {inputs.profile.storeType === 'existente' ? (
               <NumberField
                 label="Rescisão no desligamento"
@@ -316,15 +319,16 @@ function PeopleStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: I
           <Switch
             checked={inputs.people.futureHires.enabled}
             label={inputs.people.futureHires.enabled ? 'Contratação futura ligada' : 'Contratação futura desligada'}
+            help="Liga a contratação que a loja faria sem o robô. Entra no caixa a partir do mês informado, só em loja existente. Em loja nova fica zerada."
             onChange={(enabled) =>
               onInputs({ ...inputs, people: { ...inputs.people, futureHires: { ...inputs.people.futureHires, enabled } } })
             }
           />
           {inputs.people.futureHires.enabled ? (
             <div className="form-grid">
-              <NumberField label="Mês da contratação evitada" value={hire?.month ?? 13} min={1} onChange={(month) => patchHire({ month })} />
-              <NumberField label="Pessoas" value={hire?.headcount ?? 1} min={0} onChange={(headcount) => patchHire({ headcount })} />
-              <NumberField label="Custo mensal" suffix="R$" value={hire?.monthlyCost ?? 0} onChange={(monthlyCost) => patchHire({ monthlyCost })} />
+              <NumberField label="Mês da contratação evitada" help="Mês em que a contratação futura passaria a custar. O benefício mensal começa nesse mês e só em loja existente." value={hire?.month ?? 13} min={1} onChange={(month) => patchHire({ month })} />
+              <NumberField label="Pessoas" help="Quantidade de pessoas da contratação futura. O benefício é este número vezes o custo mensal, com o folguista quando o quadro de RH está ligado." value={hire?.headcount ?? 1} min={0} onChange={(headcount) => patchHire({ headcount })} />
+              <NumberField label="Custo mensal" suffix="R$" help="Custo completo de cada pessoa da contratação futura, em R$ por mês. Multiplica a quantidade e entra como benefício a partir do mês informado." value={hire?.monthlyCost ?? 0} onChange={(monthlyCost) => patchHire({ monthlyCost })} />
             </div>
           ) : null}
         </div>
@@ -344,8 +348,8 @@ function LogisticsStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs
   }
   return (
     <div className="stack">
-      <Switch checked={space.enabled} label={space.enabled ? 'Ganho de espaço ligado' : 'Ganho de espaço desligado'} onChange={(enabled) => patchSpace({ enabled })} />
-      <NumberField label="Área liberada" suffix="m²" value={space.m2Freed} onChange={(m2Freed) => patchSpace({ m2Freed })} />
+      <Switch checked={space.enabled} label={space.enabled ? 'Ganho de espaço ligado' : 'Ganho de espaço desligado'} help="Liga o benefício dos metros liberados. Desligado, a área não entra no payback." onChange={(enabled) => patchSpace({ enabled })} />
+      <NumberField label="Área liberada" suffix="m²" help="Metros quadrados que o robô libera. O benefício mensal é esta área vezes o aluguel ou a margem escolhida. Os dois não entram juntos." value={space.m2Freed} onChange={(m2Freed) => patchSpace({ m2Freed })} />
       <div>
         <p className="choice-label">Como essa área vale dinheiro?</p>
         <div className="choice-row pair" role="radiogroup" aria-label="Uso da área liberada">
@@ -367,6 +371,7 @@ function LogisticsStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs
         <NumberField
           label="Custo de ocupação"
           suffix="R$/m²"
+          help="Aluguel evitado por metro quadrado, em R$/m² ao mês. Multiplica a área liberada e entra no benefício mensal quando o contrato diminui."
           value={space.occupancyCostPerM2}
           onChange={(occupancyCostPerM2) => patchSpace({ occupancyCostPerM2 })}
         />
@@ -374,6 +379,7 @@ function LogisticsStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs
         <NumberField
           label="Margem da área"
           suffix="R$/m² por mês"
+          help="Margem da área que passa a vender, em R$ por m² ao mês. Multiplica a área liberada. Não entra junto com o aluguel."
           value={space.contributionPerM2Month}
           onChange={(contributionPerM2Month) => patchSpace({ contributionPerM2Month })}
         />
@@ -385,6 +391,7 @@ function LogisticsStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs
           <Switch
             checked={shelving.enabled}
             label={shelving.enabled ? 'Prateleiras ligadas' : 'Prateleiras desligadas'}
+            help="Liga o efeito das prateleiras. Em loja nova reduz o investimento. Em loja existente pode entrar como revenda e manutenção evitada."
             onChange={(enabled) => patchShelving({ enabled })}
           />
           <div className="form-grid">
@@ -392,15 +399,17 @@ function LogisticsStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs
               <NumberField
                 label="Prateleira que deixa de ser comprada"
                 suffix="R$"
+                help="Valor da prateleira que a loja nova deixa de comprar, em R$. Reduz o investimento líquido uma vez. Não entra como benefício mensal."
                 value={shelving.avoidedAcquisition}
                 onChange={(avoidedAcquisition) => patchShelving({ avoidedAcquisition })}
               />
             ) : (
               <>
-                <NumberField label="Revenda das prateleiras" suffix="R$" value={shelving.resaleValue} onChange={(resaleValue) => patchShelving({ resaleValue })} />
+                <NumberField label="Revenda das prateleiras" suffix="R$" help="Caixa único da revenda, em R$, só em loja existente. Entra uma vez e não se repete no benefício mensal." value={shelving.resaleValue} onChange={(resaleValue) => patchShelving({ resaleValue })} />
                 <NumberField
                   label="Manutenção mensal evitada"
                   suffix="R$"
+                  help="Manutenção de prateleira que deixa de existir, em R$ por mês. Entra no benefício recorrente só em loja existente."
                   value={shelving.avoidedMaintenanceMonthly}
                   onChange={(avoidedMaintenanceMonthly) => patchShelving({ avoidedMaintenanceMonthly })}
                 />
@@ -421,12 +430,14 @@ function StockStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: In
       <Switch
         checked={losses.enabled}
         label={losses.enabled ? 'Perdas evitadas ligadas' : 'Perdas evitadas desligadas'}
+        help="Liga a perda que deixa de acontecer. O benefício mensal é perdas atuais menos perdas com o robô."
         onChange={(enabled) => onInputs({ ...inputs, stock: { ...inputs.stock, losses: { ...losses, enabled } } })}
       />
       <div className="form-grid">
         <NumberField
           label="Perdas atuais"
           suffix="R$/mês"
+          help="Perdas históricas da loja, em R$ por mês. O benefício é este valor menos as perdas que ainda acontecem com o robô."
           value={inputs.profile.historicalLossesMonthly}
           onChange={(historicalLossesMonthly) =>
             onInputs({ ...inputs, profile: { ...inputs.profile, historicalLossesMonthly } })
@@ -452,12 +463,14 @@ function StockStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: In
             <NumberField
               label="Estoque médio atual"
               suffix="R$"
+              help="Estoque médio de hoje, em R$. A liberação de caixa é este valor menos o estoque depois do robô, e só entra se a queda estiver comprovada."
               value={inputs.profile.averageInventory}
               onChange={(averageInventory) => onInputs({ ...inputs, profile: { ...inputs.profile, averageInventory } })}
             />
             <NumberField
               label="Estoque depois do robô"
               suffix="R$"
+              help="Estoque médio com o robô, em R$. Sem comprovação de queda, a diferença não entra no caixa. O robô pode até aumentar o estoque."
               value={capital.inventoryAfter}
               onChange={(inventoryAfter) =>
                 onInputs({ ...inputs, stock: { ...inputs.stock, workingCapital: { ...capital, inventoryAfter } } })
@@ -467,6 +480,7 @@ function StockStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: In
           <Switch
             checked={capital.enabled}
             label={capital.enabled ? 'Capital de giro ligado' : 'Capital de giro desligado'}
+            help="Liga a leitura de capital de giro. Sem queda comprovada, o caixa continua zerado mesmo com o interruptor ligado."
             onChange={(enabled) =>
               onInputs({ ...inputs, stock: { ...inputs.stock, workingCapital: { ...capital, enabled } } })
             }
@@ -496,6 +510,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           label="Equipamento"
           suffix="R$"
           min={0}
+          help="Preço do robô, em R$, pago uma vez. Entra no CAPEX e no investimento líquido. Não se repete no custo mensal."
           value={robot.capex.equipment}
           onChange={(equipment) => onInputs({ ...inputs, robot: { ...robot, capex: { ...robot.capex, equipment } } })}
         />
@@ -537,6 +552,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
             {robot.includeTax ? (
               <PercentField
                 label="Alíquota sobre o benefício"
+                help="Percentual do benefício que vira imposto no caixa. Não é uma recomendação de regime. Prejuízo não gera crédito sozinho."
                 value={robot.taxRate}
                 onChange={(taxRate) => onInputs({ ...inputs, robot: { ...robot, taxRate } })}
               />
@@ -545,11 +561,13 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           <Switch
             checked={robot.includeTax}
             label={robot.includeTax ? 'Imposto ligado' : 'Imposto desligado'}
+            help="Ligado, a alíquota reduz o benefício no caixa. Prejuízo fiscal não vira crédito sozinho. Desligado, o imposto fica fora do fluxo."
             onChange={(includeTax) => onInputs({ ...inputs, robot: { ...robot, includeTax } })}
           />
           <Switch
             checked={robot.financing.enabled}
             label={robot.financing.enabled ? 'Financiamento ligado' : 'Financiamento desligado'}
+            help="Liga a parcela estimada. A dívida não altera VPL, TIR, ROI nem payback econômico do projeto."
             onChange={(enabled) =>
               onInputs({ ...inputs, robot: { ...robot, financing: { ...robot.financing, enabled } } })
             }
@@ -559,6 +577,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
               <p className="hint-block span-2">A parcela aparece à parte. VPL, TIR, ROI e payback continuam sem a dívida.</p>
               <PercentField
                 label="Entrada"
+                help="Percentual do investimento pago à vista. O restante é financiado. Não entra no payback econômico."
                 value={robot.financing.downPaymentPct}
                 onChange={(downPaymentPct) =>
                   onInputs({ ...inputs, robot: { ...robot, financing: { ...robot.financing, downPaymentPct } } })
@@ -567,6 +586,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
               <NumberField
                 label="Prazo"
                 suffix="meses"
+                help="Prazo do financiamento, em meses. Define a duração da parcela estimada. Não muda o payback do projeto."
                 value={robot.financing.termMonths}
                 onChange={(termMonths) =>
                   onInputs({ ...inputs, robot: { ...robot, financing: { ...robot.financing, termMonths } } })
@@ -574,6 +594,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
               />
               <PercentField
                 label="Juros ao ano"
+                help="Juros efetivos ao ano do financiamento, em percentual. Entram na parcela estimada, fora do ROI operacional."
                 value={robot.financing.annualInterest}
                 onChange={(annualInterest) =>
                   onInputs({ ...inputs, robot: { ...robot, financing: { ...robot.financing, annualInterest } } })

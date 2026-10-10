@@ -14,7 +14,7 @@ import {
 } from '../model/premises';
 import type { Inputs, ScenarioId } from '../model/types';
 import { QUICK_ADJUST_OPEN_KEY, QUICK_DOCK_OPEN_KEY, readUiFlag, writeUiFlag } from '../model/uiChrome';
-import { NumberField, PercentField } from './Fields';
+import { FieldTip, NumberField, PercentField, useFieldHelpEnabled } from './Fields';
 
 export function QuickAdjust({
   inputs,
@@ -35,6 +35,7 @@ export function QuickAdjust({
   storageKeys?: { dock: string; adjust: string };
   hiddenLevers?: LeverId[];
 }) {
+  const helpOn = useFieldHelpEnabled();
   const dockKey = storageKeys?.dock ?? QUICK_DOCK_OPEN_KEY;
   const adjustKey = storageKeys?.adjust ?? QUICK_ADJUST_OPEN_KEY;
   const current = evaluate(inputs, { scenario });
@@ -170,20 +171,32 @@ export function QuickAdjust({
           const delta = leverDelta(inputs, anchor, lever.id);
           const origin = leverValue(anchor, lever.id);
           const slider = delta === null ? 0 : Math.round(Math.min(ADJUST_MAX, Math.max(ADJUST_MIN, delta)) * 100);
+          const help = `${lever.label}. ${lever.hint} O slider vai de -100% a +30% do valor original e o resultado recalcula na hora.`;
+          const labelButton = (
+            <button
+              type="button"
+              className="premise-link"
+              data-field={lever.fieldId}
+              onClick={() => onOpen(lever.fieldId)}
+            >
+              {lever.label}
+            </button>
+          );
           return (
             <div className="lever" key={lever.id}>
-              <button
-                type="button"
-                className="premise-link"
-                data-field={lever.fieldId}
-                onClick={() => onOpen(lever.fieldId)}
-              >
-                {lever.label}
-              </button>
+              {helpOn ? (
+                <span className="field-label">
+                  {labelButton}
+                  <FieldTip label={lever.label} text={help} />
+                </span>
+              ) : (
+                labelButton
+              )}
               {lever.kind === 'percent' ? (
                 <PercentField
                   label="Valor atual"
                   testId={`quick-${lever.id}-value`}
+                  help={help}
                   value={leverValue(inputs, lever.id)}
                   onChange={(value) => setAbsolute(lever.id, value)}
                 />
@@ -193,6 +206,7 @@ export function QuickAdjust({
                   testId={`quick-${lever.id}-value`}
                   suffix={lever.id === 'volume' ? '/dia' : 'R$'}
                   min={0}
+                  help={help}
                   value={leverValue(inputs, lever.id)}
                   onChange={(value) => setAbsolute(lever.id, value)}
                 />
@@ -217,6 +231,7 @@ export function QuickAdjust({
                   disabled={!(origin > 0)}
                   aria-label={`Variação de ${lever.label}`}
                   data-testid={`quick-${lever.id}-slider`}
+                  {...(helpOn ? { 'data-field-help': help } : {})}
                   onChange={(event) => {
                     if (document.activeElement !== event.currentTarget) return;
                     slide(lever.id, Number(event.currentTarget.value));

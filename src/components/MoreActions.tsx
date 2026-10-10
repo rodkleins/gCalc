@@ -148,6 +148,7 @@ export function MoreActions({
           accept="application/json"
           hidden
           data-testid="more-import-json"
+          data-field-help="Arquivo JSON de uma simulação ou da biblioteca. A importação acrescenta os casos nesta versão e não altera a calculadora da raiz."
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) onImportJson(file);

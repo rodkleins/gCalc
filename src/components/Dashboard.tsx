@@ -332,6 +332,7 @@ export function Dashboard({
         <div className="inline-controls">
           <PercentField
             label="Taxa de desconto"
+            help="Taxa efetiva ao ano, em percentual. Vira taxa mensal e desconta o caixa do VPL e do payback descontado. O ROI simples não usa esta taxa."
             value={inputs.robot.discountRateAnnual}
             onChange={(discountRateAnnual) =>
               onInputs({ ...inputs, robot: { ...inputs.robot, discountRateAnnual } })
@@ -341,6 +342,7 @@ export function Dashboard({
             checked={inputs.assumptions.includePotential}
             onChange={(includePotential) => onInputs({ ...inputs, assumptions: { ...inputs.assumptions, includePotential } })}
             label={inputs.assumptions.includePotential ? 'Potenciais no fluxo' : 'Só comprováveis'}
+            help="Ligado, benefícios marcados como potencial entram no fluxo. Desligado, só os comprováveis entram no payback, no ROI e no VPL."
           />
         </div>
       </section>

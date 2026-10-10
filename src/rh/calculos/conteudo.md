@@ -78,6 +78,6 @@ O exemplo e a loja de R$ 1 milhão têm 2 turnos e 1 balcão. O robô libera 1 a
 
 A de R$ 2 milhões tem 2 turnos e 2 balcões, com 1 auxiliar liberado por turno em cada balcão.
 
-A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1, e o gerente fica em 5x2. À noite, farmacêutico e auxiliar usam 12x36, com adicional de 10%. Estoquista e gerente da noite continuam em 6x1 e 5x2. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. O fator 2,2188 entra só nas cadeiras 12x36. Se a operação real não cobre a noite assim, sobrescreva o fator ou a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
+A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1, e o gerente fica em 5x2. À noite, farmacêutico e auxiliar usam 12x36, com adicional de 10%. Estoquista e gerente da noite continuam em 6x1 e 5x2. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. O fator 2,2188 entra só nas cadeiras 12x36. Se a operação real não cobre a noite assim, preencha o fator de cobertura manual ou mude a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
 
 A tabela no fim desta página sai dos mesmos modelos, nos cenários conservador, base e otimista.

@@ -1,4 +1,4 @@
-import { ModuleImpact, NumberField, PercentField, RemoveButton, RemoveField, SelectField, StageNote, TextField } from './Fields';
+import { CheckField, ModuleImpact, NumberField, PercentField, RemoveButton, RemoveField, SelectField, StageNote, TextField } from './Fields';
 import { SUGGESTED_PHARMACIST_MONTHLY_COST } from '../model/example';
 import type { Inputs, ModelResult } from '../model/types';
 import { formatBRL } from '../model/format';
@@ -29,20 +29,19 @@ export function ProfileForm({
       <section className="card">
         <h2>Identificação</h2>
         <div className="form-grid">
-          <TextField label="Cliente ou rede" value={inputs.meta.clientName} onChange={(clientName) => setMeta({ clientName })} />
-          <TextField label="Loja" value={inputs.meta.storeName} onChange={(storeName) => setMeta({ storeName })} />
-          <TextField label="Responsável" value={inputs.meta.owner} onChange={(owner) => setMeta({ owner })} />
-          <TextField label="Preparado por" value={inputs.meta.preparedBy} onChange={(preparedBy) => setMeta({ preparedBy })} />
-          <TextField label="Data da premissa" value={inputs.meta.premiseDate} onChange={(premiseDate) => setMeta({ premiseDate })} />
-          <TextField label="Fonte" value={inputs.meta.source} onChange={(source) => setMeta({ source })} />
-          <label className="field span-2 check">
-            <input
-              type="checkbox"
-              checked={inputs.fictional}
-              onChange={(event) => onChange({ ...inputs, fictional: event.target.checked })}
-            />
-            <span>Marcar esta simulação como dados fictícios</span>
-          </label>
+          <TextField label="Cliente ou rede" help="Nome do cliente ou da rede. Identifica a simulação e não entra no payback, no ROI nem no VPL." value={inputs.meta.clientName} onChange={(clientName) => setMeta({ clientName })} />
+          <TextField label="Loja" help="Nome da unidade. Identifica a simulação e não entra no cálculo financeiro." value={inputs.meta.storeName} onChange={(storeName) => setMeta({ storeName })} />
+          <TextField label="Responsável" help="Quem responde pela premissa na loja. Não entra no cálculo." value={inputs.meta.owner} onChange={(owner) => setMeta({ owner })} />
+          <TextField label="Preparado por" help="Quem montou esta simulação. Não entra no cálculo." value={inputs.meta.preparedBy} onChange={(preparedBy) => setMeta({ preparedBy })} />
+          <TextField label="Data da premissa" help="Data em que os números foram assumidos. Não entra no cálculo." value={inputs.meta.premiseDate} onChange={(premiseDate) => setMeta({ premiseDate })} />
+          <TextField label="Fonte" help="De onde vieram os números. Não entra no cálculo." value={inputs.meta.source} onChange={(source) => setMeta({ source })} />
+          <CheckField
+            className="field span-2 check"
+            checked={inputs.fictional}
+            onChange={(fictional) => onChange({ ...inputs, fictional })}
+            label="Marcar esta simulação como dados fictícios"
+            help="Ligado, a tela avisa que o caso não é parâmetro oficial nem resultado de loja real. Não muda payback, ROI nem VPL."
+          />
           <TextField
             label="Notas"
             value={inputs.meta.notes}
@@ -73,14 +72,14 @@ export function ProfileForm({
             onChange={(storeCount) => setProfile({ storeCount })}
             hint="O payback e o ROI não mudam. VPL e caixa da rede são a soma linear."
           />
-          <NumberField label="Faturamento mensal" value={profile.monthlyRevenue} suffix="R$" onChange={(monthlyRevenue) => setProfile({ monthlyRevenue })} />
+          <NumberField label="Faturamento mensal" value={profile.monthlyRevenue} suffix="R$" help="Venda da loja em R$ por mês. Situa o porte. A margem de contribuição transforma venda adicional em resultado. O faturamento em si não é benefício." onChange={(monthlyRevenue) => setProfile({ monthlyRevenue })} />
           <PercentField
             label="Margem de contribuição"
             value={profile.contributionMarginPct}
             onChange={(contributionMarginPct) => setProfile({ contributionMarginPct })}
             hint="Usada só para transformar venda adicional em margem."
           />
-          <NumberField label="Atendimentos por dia" value={profile.attendancesPerDay} onChange={(attendancesPerDay) => setProfile({ attendancesPerDay })} />
+          <NumberField label="Atendimentos por dia" value={profile.attendancesPerDay} help="Atendimentos por dia, em quantidade. Contexto da operação. Não cria benefício sozinho." onChange={(attendancesPerDay) => setProfile({ attendancesPerDay })} />
           <NumberField
             fieldId="profile.dispensationsPerDay"
             label="Dispensações por dia"
@@ -88,15 +87,15 @@ export function ProfileForm({
             onChange={(dispensationsPerDay) => setProfile({ dispensationsPerDay })}
             hint="Se passar da capacidade do robô, os benefícios são reduzidos."
           />
-          <NumberField label="Dias de operação no mês" value={profile.operatingDaysPerMonth} onChange={(operatingDaysPerMonth) => setProfile({ operatingDaysPerMonth })} />
+          <NumberField label="Dias de operação no mês" value={profile.operatingDaysPerMonth} help="Dias em que a loja opera no mês. Converte volume diário em volume mensal usado nas perdas, nas caixas e na movimentação." onChange={(operatingDaysPerMonth) => setProfile({ operatingDaysPerMonth })} />
           <PercentField
             label="Crescimento anual da demanda"
             value={profile.demandGrowthPctPerYear}
             onChange={(demandGrowthPctPerYear) => setProfile({ demandGrowthPctPerYear })}
             hint="Escala perdas, avarias, caixas, movimentação e vendas. Não cria vaga sozinho."
           />
-          <NumberField label="Área total" value={profile.totalAreaM2} suffix="m²" onChange={(totalAreaM2) => setProfile({ totalAreaM2 })} />
-          <NumberField label="Retaguarda" value={profile.backroomAreaM2} suffix="m²" onChange={(backroomAreaM2) => setProfile({ backroomAreaM2 })} />
+          <NumberField label="Área total" value={profile.totalAreaM2} suffix="m²" help="Área da loja, em m². Contexto. O benefício de espaço usa os m² liberados no módulo de logística, não esta área inteira." onChange={(totalAreaM2) => setProfile({ totalAreaM2 })} />
+          <NumberField label="Retaguarda" value={profile.backroomAreaM2} suffix="m²" help="Área de retaguarda, em m². Contexto da operação. Não entra direto no payback." onChange={(backroomAreaM2) => setProfile({ backroomAreaM2 })} />
           <NumberField
             label="Aluguel ou ocupação de referência"
             value={profile.occupancyCostPerM2}
@@ -104,9 +103,9 @@ export function ProfileForm({
             onChange={(occupancyCostPerM2) => setProfile({ occupancyCostPerM2 })}
             hint="Referência da loja. O m² liberado usa o valor do módulo de logística."
           />
-          <NumberField label="Estoque médio" value={profile.averageInventory} suffix="R$" onChange={(averageInventory) => setProfile({ averageInventory })} />
-          <NumberField label="Giro do estoque" value={profile.inventoryTurnsPerYear} suffix="x/ano" onChange={(inventoryTurnsPerYear) => setProfile({ inventoryTurnsPerYear })} />
-          <NumberField label="SKUs" value={profile.skuCount} onChange={(skuCount) => setProfile({ skuCount })} />
+          <NumberField label="Estoque médio" value={profile.averageInventory} suffix="R$" help="Estoque médio atual, em R$. É a base da liberação de capital de giro: estoque atual menos estoque com o robô." onChange={(averageInventory) => setProfile({ averageInventory })} />
+          <NumberField label="Giro do estoque" value={profile.inventoryTurnsPerYear} suffix="x/ano" help="Vezes que o estoque gira por ano. Leitura da operação. Não entra sozinho no fluxo de caixa." onChange={(inventoryTurnsPerYear) => setProfile({ inventoryTurnsPerYear })} />
+          <NumberField label="SKUs" value={profile.skuCount} help="Quantidade de SKUs. Contexto do sortimento. Não entra sozinho no payback." onChange={(skuCount) => setProfile({ skuCount })} />
           <NumberField
             fieldId="profile.historicalLossesMonthly"
             label="Perdas históricas"
@@ -147,6 +146,7 @@ export function ProfileForm({
             <div className="row-card" key={role.id}>
               <TextField
                 label="Cargo"
+                help="Nome do cargo no quadro de referência. Na versão de RH a folha que entra no caixa sai do quadro por turno, não desta lista."
                 value={role.role}
                 onChange={(name) => {
                   const roles = profile.roles.slice();
@@ -156,6 +156,7 @@ export function ProfileForm({
               />
               <NumberField
                 label="Pessoas"
+                help="Quantidade de pessoas neste cargo. Serve de contexto. A economia usa só as vagas evitadas, não esta lista inteira."
                 value={role.headcount}
                 min={0}
                 onChange={(headcountValue) => {
@@ -181,6 +182,7 @@ export function ProfileForm({
               />
               <TextField
                 label="Escala"
+                help="Escala informada neste quadro de referência, em texto. Na versão de RH o fator de cobertura é calculado no quadro por turno."
                 value={role.shift}
                 onChange={(shift) => {
                   const roles = profile.roles.slice();
@@ -205,21 +207,18 @@ export function ProfileForm({
           Desligada, a rede só replica a loja atual. Ligada, cada unidade tem data, investimento e volume próprios. O
           painel de resultados mostra o payback de cada uma.
         </p>
-        <label className="field check">
-          <input
-            type="checkbox"
-            checked={inputs.network.enabled}
-            onChange={(event) =>
-              onChange({ ...inputs, network: { ...inputs.network, enabled: event.target.checked } })
-            }
-          />
-          <span>Consolidar implantação escalonada</span>
-        </label>
+        <CheckField
+          checked={inputs.network.enabled}
+          onChange={(enabled) => onChange({ ...inputs, network: { ...inputs.network, enabled } })}
+          label="Consolidar implantação escalonada"
+          help="Ligado, cada unidade tem data, investimento e volume próprios e o painel mostra o payback de cada uma. Desligado, a rede só replica a loja atual."
+        />
         <div className="form-grid">
           <NumberField
             label="Custo compartilhado mensal"
             value={inputs.network.sharedMonthlyCost}
             suffix="R$"
+            help="Custo mensal compartilhado da rede, em R$. Entra no caixa consolidado quando a implantação escalonada está ligada. Não muda o payback de uma loja isolada."
             onChange={(sharedMonthlyCost) =>
               onChange({ ...inputs, network: { ...inputs.network, sharedMonthlyCost } })
             }
@@ -257,6 +256,7 @@ export function ProfileForm({
           <div className="row-card" key={store.id}>
             <TextField
               label="Nome"
+              help="Nome da unidade na rede. Identifica a loja no consolidado e não entra na fórmula do payback."
               value={store.name}
               onChange={(name) => {
                 const stores = inputs.network.stores.slice();
@@ -266,6 +266,7 @@ export function ProfileForm({
             />
             <NumberField
               label="Go-live"
+              help="Mês em que esta unidade começa a operar. Antes disso o benefício operacional dela fica zerado. O CAPEX sai na data de implantação."
               value={store.goLiveMonth}
               min={1}
               onChange={(goLiveMonth) => {
@@ -276,6 +277,7 @@ export function ProfileForm({
             />
             <NumberField
               label="Fator de investimento"
+              help="Multiplicador do investimento desta unidade. 1 repete o CAPEX da loja base. Entra no investimento líquido da unidade."
               value={store.investmentFactor}
               onChange={(investmentFactor) => {
                 const stores = inputs.network.stores.slice();
@@ -285,6 +287,7 @@ export function ProfileForm({
             />
             <NumberField
               label="Fator de volume"
+              help="Multiplicador do volume desta unidade. 1 repete a loja base. Escala os benefícios que dependem de movimento."
               value={store.volumeFactor}
               onChange={(volumeFactor) => {
                 const stores = inputs.network.stores.slice();

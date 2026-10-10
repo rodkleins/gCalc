@@ -1,6 +1,6 @@
 import { createId } from '../model/storage';
 import { formatBRL, formatNumber, parseLocaleNumber } from '../model/format';
-import { Callout, NumberField, PercentField, RemoveButton, StageNote, TextField } from '../components/Fields';
+import { Callout, FieldLabel, NumberField, PercentField, RemoveButton, StageNote, TextField, fieldHelpAttr, useFieldHelpEnabled } from '../components/Fields';
 import {
   coverageMemory,
   postCoverage,
@@ -101,20 +101,33 @@ export function RosterSummary({ roster, storeType }: { roster: Roster; storeType
   );
 }
 
+const SLOT_HELP = {
+  onDuty:
+    'Pessoas presentes neste turno, em quantidade. A folha multiplica este número pelo fator de cobertura e pelo custo mensal do cargo.',
+  freed:
+    'Posições deste turno que o robô libera, em quantidade, no máximo as pessoas no posto. A vaga evitada é este número vezes o fator de cobertura.',
+  future:
+    'Contratações que a loja faria neste turno a partir do mês 13, em quantidade. Entram no caixa só em loja existente, já com o fator de cobertura.',
+} as const;
+
 function CountCell({
   value,
   testId,
   onChange,
+  help,
 }: {
   value: number;
   testId: string;
   onChange: (value: number) => void;
+  help: string;
 }) {
+  const helpOn = useFieldHelpEnabled();
   return (
     <input
       className="roster-count"
       data-testid={testId}
       inputMode="decimal"
+      {...fieldHelpAttr(helpOn, help)}
       value={Number.isInteger(value) ? String(value) : String(value).replace('.', ',')}
       onChange={(event) => {
         const parsed = parseLocaleNumber(event.target.value);
@@ -206,7 +219,7 @@ export function RosterForm({
           o turno: um turno de 8 horas não se converte em 12/8 nem em 12/48. 6x1 trabalha 6 e folga 1 (7/6 pessoas).
           5x2 trabalha 5 e folga 2 (7/5). 12x36 trabalha um dia e folga o outro, em turno de 12 horas (2 pessoas).
           Férias e faltas multiplicam esse número por dias do ano / (dias do ano − férias − faltas). O folguista é o
-          fator menos 1. Sobrescrever o fator troca a sugestão só naquele posto.
+          fator menos 1. O fator de cobertura manual, se preenchido, substitui a sugestão só naquele posto. Vazio usa o cálculo automático.
         </p>
       </section>
 
@@ -240,13 +253,32 @@ export function RosterForm({
               <RemoveButton confirm="Tirar este posto do quadro?" onRemove={() => onChange({ ...roster, posts: roster.posts.filter((post) => post.id !== item.id) })} />
             </header>
             <div className="form-grid">
-              <TextField label="Cargo" value={item.role} testId={`post-role-${item.id}`} onChange={(role) => updatePost(item.id, { role })} />
-              <TextField label="Balcão" value={item.counter} testId={`post-counter-${item.id}`} onChange={(counter) => updatePost(item.id, { counter })} />
+              <TextField
+                label="Cargo"
+                help="Nome do cargo neste posto. A folha usa o custo mensal desta linha, não um salário à parte."
+                value={item.role}
+                testId={`post-role-${item.id}`}
+                onChange={(role) => updatePost(item.id, { role })}
+              />
+              <TextField
+                label="Balcão"
+                help="Balcão ou setor do posto. Organiza o quadro e não entra como número no payback."
+                value={item.counter}
+                testId={`post-counter-${item.id}`}
+                onChange={(counter) => updatePost(item.id, { counter })}
+              />
               <label className="field">
-                <span>Escala</span>
+                <FieldLabel
+                  label="Escala"
+                  help="Escala do posto. 6x1 pede 7/6 pessoas por cadeira, 5x2 pede 7/5 e 12x36 pede 2. Férias e faltas multiplicam esse número. O posto já é a cadeira do turno."
+                />
                 <span className="control">
                   <select
                     data-testid={`post-scale-${item.id}`}
+                    {...fieldHelpAttr(
+                      true,
+                      'Escala do posto. 6x1 pede 7/6 pessoas por cadeira, 5x2 pede 7/5 e 12x36 pede 2. Férias e faltas multiplicam esse número. O posto já é a cadeira do turno.',
+                    )}
                     value={item.scale}
                     onChange={(event) => updatePost(item.id, { scale: event.target.value as ScaleId })}
                   >
@@ -268,10 +300,17 @@ export function RosterForm({
                 onChange={(monthlyCost) => updatePost(item.id, { monthlyCost })}
               />
               <label className="field">
-                <span>Sobrescrever fator</span>
+                <FieldLabel
+                  label="Fator de cobertura manual"
+                  help="Vazio usa o cálculo automático da escala. Preenchido substitui o fator só neste posto. A unidade é pessoas contratadas por pessoa no turno. A folha multiplica as pessoas do turno por este fator e pelo custo mensal."
+                />
                 <span className="control">
                   <input
                     data-testid={`post-override-${item.id}`}
+                    {...fieldHelpAttr(
+                      true,
+                      'Vazio usa o cálculo automático da escala. Preenchido substitui o fator só neste posto. A unidade é pessoas contratadas por pessoa no turno. A folha multiplica as pessoas do turno por este fator e pelo custo mensal.',
+                    )}
                     inputMode="decimal"
                     placeholder={formatNumber(coverage.suggested, 4)}
                     value={item.coverageOverride === null ? '' : String(item.coverageOverride).replace('.', ',')}
@@ -287,7 +326,7 @@ export function RosterForm({
                     }}
                   />
                 </span>
-                <small>Vazio usa o sugerido ({formatNumber(coverage.suggested, 4)}).</small>
+                <small>Vazio usa o cálculo automático ({formatNumber(coverage.suggested, 4)}). Preenchido substitui.</small>
               </label>
             </div>
             <div className="table-wrap short">
@@ -311,12 +350,15 @@ export function RosterForm({
                     ] as const
                   ).map(([key, label]) => (
                     <tr key={key}>
-                      <td>{label}</td>
+                      <td>
+                        <FieldLabel label={label} help={SLOT_HELP[key]} />
+                      </td>
                       {Array.from({ length: roster.shiftCount }, (_, index) => (
                         <td key={index} className="num">
                           <CountCell
                             value={item[key][index]}
                             testId={`${key}-${item.id}-${index}`}
+                            help={SLOT_HELP[key]}
                             onChange={(value) => setSlot(item.id, key, index, value)}
                           />
                         </td>

@@ -1,26 +1,26 @@
-import { Callout, ModuleImpact, NumberField, PercentField, SelectField, StageNote, Switch } from './Fields';
+import { Callout, CheckField, ModuleImpact, NumberField, PercentField, SelectField, StageNote, Switch } from './Fields';
 import { opexLooksLikeEquipmentPrice } from '../model/calculate';
 import { equipmentFloorWarning, monthlyRobotCostWarning } from '../model/example';
 import { sum } from '../model/round';
 import { formatBRL, formatIrr, formatPercent } from '../model/format';
 import type { Inputs, ModelResult } from '../model/types';
 
-const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string }> = [
-  { key: 'equipment', label: 'Equipamento (só no CAPEX)' },
-  { key: 'freightImportTaxes', label: 'Frete, importação e tributos' },
-  { key: 'installationTraining', label: 'Instalação, comissionamento e treinamento' },
-  { key: 'civilElectrical', label: 'Obras, elétrica e rede' },
-  { key: 'integration', label: 'Integração PDV, ERP e logística' },
-  { key: 'implementationContingency', label: 'Implantação e contingência' },
+const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string; help: string }> = [
+  { key: 'equipment', label: 'Equipamento (só no CAPEX)', help: 'Preço do robô, em R$, pago uma vez. Soma o CAPEX bruto e o investimento líquido. Não entra no custo mensal.' },
+  { key: 'freightImportTaxes', label: 'Frete, importação e tributos', help: 'Frete, importação e tributos de entrada, em R$, pagos uma vez. Somam o CAPEX bruto.' },
+  { key: 'installationTraining', label: 'Instalação, comissionamento e treinamento', help: 'Instalação, comissionamento e treinamento inicial, em R$, pagos uma vez. Somam o CAPEX bruto.' },
+  { key: 'civilElectrical', label: 'Obras, elétrica e rede', help: 'Obra civil, elétrica e rede, em R$, pagas uma vez. Somam o CAPEX bruto.' },
+  { key: 'integration', label: 'Integração PDV, ERP e logística', help: 'Integração com PDV, ERP e logística, em R$, paga uma vez. Soma o CAPEX bruto.' },
+  { key: 'implementationContingency', label: 'Implantação e contingência', help: 'Implantação e contingência, em R$, pagas uma vez. Somam o CAPEX bruto.' },
 ];
 
-const OPEX_FIELDS: Array<{ key: keyof Inputs['robot']['opexMonthly']; label: string }> = [
-  { key: 'maintenance', label: 'Manutenção e suporte' },
-  { key: 'software', label: 'Software, conectividade e monitoramento' },
-  { key: 'energy', label: 'Energia e consumíveis' },
-  { key: 'downtime', label: 'Indisponibilidade e contingência' },
-  { key: 'insurance', label: 'Seguros' },
-  { key: 'other', label: 'Outros custos' },
+const OPEX_FIELDS: Array<{ key: keyof Inputs['robot']['opexMonthly']; label: string; help: string }> = [
+  { key: 'maintenance', label: 'Manutenção e suporte', help: 'Manutenção e suporte, em R$ por mês. Entra no OPEX a partir do go-live e reduz a sobra mensal. Não é o preço do equipamento.' },
+  { key: 'software', label: 'Software, conectividade e monitoramento', help: 'Software, conectividade e monitoramento, em R$ por mês. Entram no OPEX recorrente.' },
+  { key: 'energy', label: 'Energia e consumíveis', help: 'Energia e consumíveis, em R$ por mês. Entram no OPEX recorrente.' },
+  { key: 'downtime', label: 'Indisponibilidade e contingência', help: 'Custo de indisponibilidade e contingência, em R$ por mês. Entra no OPEX recorrente.' },
+  { key: 'insurance', label: 'Seguros', help: 'Seguro do robô, em R$ por mês. Entra no OPEX recorrente.' },
+  { key: 'other', label: 'Outros custos', help: 'Outros custos recorrentes do robô, em R$ por mês. Entram no OPEX.' },
 ];
 
 export function InvestmentForm({
@@ -60,6 +60,7 @@ export function InvestmentForm({
               key={field.key}
               fieldId={`robot.capex.${field.key}`}
               label={field.label}
+              help={field.help}
               value={robot.capex[field.key]}
               suffix="R$"
               min={0}
@@ -92,6 +93,7 @@ export function InvestmentForm({
               key={field.key}
               fieldId={`robot.opexMonthly.${field.key}`}
               label={field.label}
+              help={field.help}
               value={robot.opexMonthly[field.key]}
               suffix="R$"
               min={0}
@@ -114,6 +116,7 @@ export function InvestmentForm({
             label="Capacidade de dispensação"
             value={robot.capacityDispensationsPerDay}
             suffix="/dia"
+            help="Dispensações por dia que o robô comporta. Se a loja passa disso, os benefícios operacionais são reduzidos na mesma proporção. O OPEX não muda."
             onChange={(capacityDispensationsPerDay) => setRobot({ ...robot, capacityDispensationsPerDay })}
           />
           <NumberField
@@ -127,12 +130,14 @@ export function InvestmentForm({
             label="Valor residual no mês 60"
             value={robot.residualValue}
             suffix="R$"
+            help="Valor de revenda ou uso restante no fim do horizonte, em R$. Entra como caixa no mês 60 e reduz o investimento que o VPL ainda carrega."
             onChange={(residualValue) => setRobot({ ...robot, residualValue })}
           />
           <NumberField
             label="Vida para depreciação"
             value={robot.depreciationYears}
             suffix="anos"
+            help="Vida útil em anos, usada só na leitura de depreciação. Não muda o payback, o ROI nem o VPL do caixa."
             onChange={(depreciationYears) => setRobot({ ...robot, depreciationYears })}
           />
           <PercentField
@@ -143,6 +148,7 @@ export function InvestmentForm({
           />
           <SelectField
             label="Política tributária"
+            help="Define como o imposto incide sobre o benefício. Sem impostos, a alíquota fica fora do caixa. As outras políticas trazem o imposto para o fluxo quando a opção de caixa está ligada."
             value={robot.taxPolicy}
             onChange={(taxPolicy) =>
               setRobot({
@@ -165,14 +171,12 @@ export function InvestmentForm({
             hint="Vira taxa mensal equivalente: (1 + i) elevado a 1/12, menos 1."
             onChange={(discountRateAnnual) => setRobot({ ...robot, discountRateAnnual })}
           />
-          <label className="field check">
-            <input
-              type="checkbox"
-              checked={robot.includeTax}
-              onChange={(event) => setRobot({ ...robot, includeTax: event.target.checked })}
-            />
-            <span>Trazer imposto para o caixa. Prejuízo não vira crédito sozinho.</span>
-          </label>
+          <CheckField
+            checked={robot.includeTax}
+            onChange={(includeTax) => setRobot({ ...robot, includeTax })}
+            label="Trazer imposto para o caixa. Prejuízo não vira crédito sozinho."
+            help="Ligado, a alíquota reduz o benefício no fluxo de caixa. Prejuízo fiscal não gera crédito automático. Desligado, o imposto fica só na leitura."
+          />
         </div>
       </section>
 
@@ -186,12 +190,14 @@ export function InvestmentForm({
             checked={robot.financing.enabled}
             onChange={(enabled) => setRobot({ ...robot, financing: { ...robot.financing, enabled } })}
             label={robot.financing.enabled ? 'Ativo' : 'Inativo'}
+            help="Liga a parcela estimada do financiamento. A tabela Price não altera VPL, TIR, ROI nem payback econômico do projeto."
           />
         </header>
         <div className="form-grid">
           <PercentField
             label="Entrada"
             value={robot.financing.downPaymentPct}
+            help="Percentual do investimento pago à vista. O restante é o valor financiado. Não entra no payback econômico."
             onChange={(downPaymentPct) => setRobot({ ...robot, financing: { ...robot.financing, downPaymentPct } })}
           />
           <NumberField
@@ -199,17 +205,20 @@ export function InvestmentForm({
             value={robot.financing.termMonths}
             suffix="meses"
             min={1}
+            help="Prazo do financiamento, em meses. Define por quanto tempo a parcela Price é estimada. Não muda o payback do projeto."
             onChange={(termMonths) => setRobot({ ...robot, financing: { ...robot.financing, termMonths } })}
           />
           <PercentField
             label="Juros anuais efetivos"
             value={robot.financing.annualInterest}
+            help="Juros efetivos ao ano do financiamento, em percentual. Entram na parcela estimada e no custo financeiro da dívida, fora do ROI operacional."
             onChange={(annualInterest) => setRobot({ ...robot, financing: { ...robot.financing, annualInterest } })}
           />
           <NumberField
             label="Balão no fim do prazo"
             value={robot.financing.balloon}
             suffix="R$"
+            help="Parcela extra no fim do prazo, em R$. Soma o serviço da dívida. Não entra no benefício operacional nem no payback."
             onChange={(balloon) => setRobot({ ...robot, financing: { ...robot.financing, balloon } })}
           />
         </div>

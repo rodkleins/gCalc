@@ -1,10 +1,82 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import type { Confidence } from '../model/types';
 import { formatNumber, parseLocaleNumber } from '../model/format';
 import type { ModelResult } from '../model/types';
 import { formatBRL } from '../model/format';
 
 const PremiseFocusContext = createContext<string | null>(null);
+const FieldHelpContext = createContext(false);
+
+/** Liga a ajuda no rótulo. A calculadora da raiz não usa este provedor. */
+export function FieldHelpProvider({ children }: { children: React.ReactNode }) {
+  return <FieldHelpContext.Provider value={true}>{children}</FieldHelpContext.Provider>;
+}
+
+export function useFieldHelpEnabled(): boolean {
+  return useContext(FieldHelpContext);
+}
+
+function helpText(help?: string, hint?: string): string | undefined {
+  const text = (help ?? hint)?.trim();
+  return text ? text : undefined;
+}
+
+export function fieldHelpAttr(enabled: boolean, text: string | undefined): { 'data-field-help'?: string } {
+  return enabled && text ? { 'data-field-help': text } : {};
+}
+
+export function FieldTip({ label, text }: { label: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const button = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: PointerEvent) {
+      const host = button.current?.parentElement;
+      if (!host?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        className="field-help"
+        aria-label={`Ajuda: ${label}`}
+        aria-expanded={open}
+        aria-describedby={id}
+        data-field-help={text}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
+      >
+        ?
+      </button>
+      <span role="tooltip" id={id} className="field-tooltip">
+        {text}
+      </span>
+    </>
+  );
+}
+
+export function FieldLabel({ label, help }: { label: string; help?: string }) {
+  const enabled = useFieldHelpEnabled();
+  const text = help?.trim();
+  if (!enabled || !text) return <span>{label}</span>;
+  return (
+    <span className="field-label">
+      <span>{label}</span>
+      <FieldTip label={label} text={text} />
+    </span>
+  );
+}
 
 export function PremiseFocus({ field, children }: { field: string | null; children: React.ReactNode }) {
   return <PremiseFocusContext.Provider value={field}>{children}</PremiseFocusContext.Provider>;
@@ -16,6 +88,7 @@ export function NumberField({
   onChange,
   suffix,
   hint,
+  help,
   min,
   fieldId,
   testId,
@@ -25,12 +98,16 @@ export function NumberField({
   onChange: (value: number) => void;
   suffix?: string;
   hint?: string;
+  /** Texto do tooltip. Só aparece na versão que liga FieldHelpProvider. */
+  help?: string;
   min?: number;
   fieldId?: string;
   testId?: string;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const focused = useContext(PremiseFocusContext);
+  const helpOn = useFieldHelpEnabled();
+  const description = helpText(help, hint);
   const active = fieldId !== undefined && focused === fieldId;
   const root = useRef<HTMLLabelElement>(null);
   const shown = draft ?? (Number.isInteger(value) ? formatNumber(value) : formatNumber(value, 2));
@@ -41,10 +118,11 @@ export function NumberField({
   }, [active]);
   return (
     <label className={`field${active ? ' is-target' : ''}`} ref={root} data-field={fieldId}>
-      <span>{label}</span>
+      <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
         <input
           data-testid={testId}
+          {...fieldHelpAttr(helpOn, description)}
           inputMode="decimal"
           value={shown}
           onFocus={(event) => {
@@ -75,6 +153,7 @@ export function PercentField({
   value,
   onChange,
   hint,
+  help,
   fieldId,
   testId,
 }: {
@@ -82,6 +161,7 @@ export function PercentField({
   value: number;
   onChange: (value: number) => void;
   hint?: string;
+  help?: string;
   fieldId?: string;
   testId?: string;
 }) {
@@ -91,6 +171,7 @@ export function PercentField({
       value={Math.round(value * 10000) / 100}
       suffix="%"
       hint={hint}
+      help={help}
       fieldId={fieldId}
       testId={testId}
       onChange={(next) => onChange(next / 100)}
@@ -103,19 +184,28 @@ export function TextField({
   value,
   onChange,
   hint,
+  help,
   testId,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   hint?: string;
+  help?: string;
   testId?: string;
 }) {
+  const helpOn = useFieldHelpEnabled();
+  const description = helpText(help, hint);
   return (
     <label className="field">
-      <span>{label}</span>
+      <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
-        <input data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)} />
+        <input
+          data-testid={testId}
+          {...fieldHelpAttr(helpOn, description)}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
       </span>
       {hint ? <small>{hint}</small> : null}
     </label>
@@ -128,18 +218,22 @@ export function SelectField({
   onChange,
   options,
   hint,
+  help,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
   hint?: string;
+  help?: string;
 }) {
+  const helpOn = useFieldHelpEnabled();
+  const description = helpText(help, hint);
   return (
     <label className="field">
-      <span>{label}</span>
+      <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
-        <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <select {...fieldHelpAttr(helpOn, description)} value={value} onChange={(event) => onChange(event.target.value)}>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -156,22 +250,62 @@ export function Switch({
   checked,
   onChange,
   label,
+  help,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
+  help?: string;
 }) {
-  return (
+  const helpOn = useFieldHelpEnabled();
+  const description = help?.trim();
+  const button = (
     <button
       type="button"
       className={`switch ${checked ? 'is-on' : ''}`}
       role="switch"
       aria-checked={checked}
+      {...fieldHelpAttr(helpOn, description)}
       onClick={() => onChange(!checked)}
     >
       <i />
       {label}
     </button>
+  );
+  if (!helpOn || !description) return button;
+  return (
+    <span className="field-label">
+      {button}
+      <FieldTip label={label} text={description} />
+    </span>
+  );
+}
+
+export function CheckField({
+  checked,
+  onChange,
+  label,
+  help,
+  className = 'field check',
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  help: string;
+  className?: string;
+}) {
+  const helpOn = useFieldHelpEnabled();
+  const description = help.trim();
+  return (
+    <label className={className}>
+      <input
+        type="checkbox"
+        checked={checked}
+        {...fieldHelpAttr(helpOn, description)}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <FieldLabel label={label} help={helpOn ? description : undefined} />
+    </label>
   );
 }
 
@@ -199,7 +333,12 @@ export function BenefitCard({
           <h3>{title}</h3>
           <p>{description}</p>
         </div>
-        <Switch checked={enabled} onChange={onEnabled} label={enabled ? 'Ativo' : 'Inativo'} />
+        <Switch
+          checked={enabled}
+          onChange={onEnabled}
+          label={enabled ? 'Ativo' : 'Inativo'}
+          help="Liga ou desliga este benefício. Desligado, os valores deste cartão ficam fora do fluxo de caixa, do payback e do VPL."
+        />
       </header>
       <SelectField
         label="Confiança"

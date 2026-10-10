@@ -251,6 +251,8 @@ describe('aplicação', () => {
     });
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
     expect(host.querySelector('[data-testid="quick-salarios-slider"]')).not.toBeNull();
+    expect(host.querySelector('[data-field-help]')).toBeNull();
+    expect(host.querySelector('.field-help')).toBeNull();
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });

@@ -1,4 +1,4 @@
-import { BenefitCard, Callout, ModuleImpact, NumberField, PercentField, SelectField, StageNote } from './Fields';
+import { BenefitCard, Callout, CheckField, ModuleImpact, NumberField, PercentField, SelectField, StageNote } from './Fields';
 import { formatBRL } from '../model/format';
 import type { Inputs, ModelResult, WorkingCapitalTreatment } from '../model/types';
 
@@ -51,6 +51,7 @@ export function StockForm({
           label="Perdas projetadas com o robô"
           value={stock.losses.projectedLossesMonthly}
           suffix="R$/mês"
+          help="Perdas que ainda acontecem com o robô, em R$ por mês. O benefício é perdas históricas menos este valor. Tem de ser menor ou igual às perdas atuais."
           onChange={(projectedLossesMonthly) =>
             setStock({ ...stock, losses: { ...stock.losses, projectedLossesMonthly } })
           }
@@ -70,6 +71,7 @@ export function StockForm({
           label="Valor evitado"
           value={stock.shrinkage.avoidedMonthly}
           suffix="R$/mês"
+          help="Avarias, extravios e erros que deixam de acontecer, em R$ por mês. Entra direto como benefício mensal quando o cartão está ligado."
           onChange={(avoidedMonthly) => setStock({ ...stock, shrinkage: { ...stock.shrinkage, avoidedMonthly } })}
         />
       </BenefitCard>
@@ -92,16 +94,13 @@ export function StockForm({
             setStock({ ...stock, ruptures: { ...stock.ruptures, additionalMonthlySales } })
           }
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={stock.ruptures.independentEvidence}
-            onChange={(event) =>
-              setStock({ ...stock, ruptures: { ...stock.ruptures, independentEvidence: event.target.checked } })
-            }
-          />
-          <span>A redução de ruptura tem evidência independente de venda</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={stock.ruptures.independentEvidence}
+          onChange={(independentEvidence) => setStock({ ...stock, ruptures: { ...stock.ruptures, independentEvidence } })}
+          label="A redução de ruptura tem evidência independente de venda"
+          help="Sem evidência, a venda recuperada de ruptura fica fora do fluxo. Ligado, o valor vira margem pela margem de contribuição e pode entrar no benefício mensal."
+        />
       </BenefitCard>
 
       <BenefitCard
@@ -117,36 +116,29 @@ export function StockForm({
           label="Vendas adicionais"
           value={stock.serviceSpeed.additionalMonthlySales}
           suffix="R$/mês"
+          help="Venda extra por atendimento mais rápido, em R$ por mês. Vira margem pela margem de contribuição. Só entra no fluxo com evidência própria e sem repetir outra alavanca de venda."
           onChange={(additionalMonthlySales) =>
             setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, additionalMonthlySales } })
           }
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={stock.serviceSpeed.independentEvidence}
-            onChange={(event) =>
-              setStock({
-                ...stock,
-                serviceSpeed: { ...stock.serviceSpeed, independentEvidence: event.target.checked },
-              })
-            }
-          />
-          <span>A velocidade de atendimento tem evidência independente de venda</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={stock.serviceSpeed.independentEvidence}
+          onChange={(independentEvidence) =>
+            setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, independentEvidence } })
+          }
+          label="A velocidade de atendimento tem evidência independente de venda"
+          help="Sem evidência, esta venda extra fica fora do fluxo. Ligado, o valor pode entrar como margem mensal, se não repetir outra alavanca de venda."
+        />
       </BenefitCard>
 
       <section className="card">
-        <label className="field check">
-          <input
-            type="checkbox"
-            checked={stock.salesIndependenceConfirmed}
-            onChange={(event) => setStock({ ...stock, salesIndependenceConfirmed: event.target.checked })}
-          />
-          <span>
-            As alavancas de venda (consultiva, ruptura e atendimento) são efeitos diferentes e podem ser somadas
-          </span>
-        </label>
+        <CheckField
+          checked={stock.salesIndependenceConfirmed}
+          onChange={(salesIndependenceConfirmed) => setStock({ ...stock, salesIndependenceConfirmed })}
+          label="As alavancas de venda (consultiva, ruptura e atendimento) são efeitos diferentes e podem ser somadas"
+          help="Ligado, as vendas extras ativas somam no benefício. Desligado, o fluxo fica só com a maior alavanca de venda. As outras aparecem na auditoria."
+        />
         <p className="hint-block">
           Sem esta confirmação, o fluxo fica só com a maior alavanca de venda ativa. As outras aparecem na auditoria.
         </p>
@@ -165,28 +157,21 @@ export function StockForm({
           label="Estoque médio com o robô"
           value={stock.workingCapital.inventoryAfter}
           suffix="R$"
+          help="Estoque médio depois do robô, em R$. A liberação de caixa é o estoque atual menos este valor. Sem comprovação, o caixa não muda."
           onChange={(inventoryAfter) =>
             setStock({ ...stock, workingCapital: { ...stock.workingCapital, inventoryAfter } })
           }
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={stock.workingCapital.reductionProven}
-            onChange={(event) =>
-              setStock({
-                ...stock,
-                workingCapital: { ...stock.workingCapital, reductionProven: event.target.checked },
-              })
-            }
-          />
-          <span>
-            A redução de estoque está comprovada. Sem esta marca o caixa não muda, mesmo que o estoque “depois” seja
-            menor. O robô pode aumentar o estoque.
-          </span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={stock.workingCapital.reductionProven}
+          onChange={(reductionProven) => setStock({ ...stock, workingCapital: { ...stock.workingCapital, reductionProven } })}
+          label="A redução de estoque está comprovada. Sem esta marca o caixa não muda, mesmo que o estoque “depois” seja menor. O robô pode aumentar o estoque."
+          help="Ligado, a diferença de estoque pode entrar no caixa uma vez, no mês da liberação. Desligado, o capital de giro fica zerado mesmo se o estoque depois for menor."
+        />
         <NumberField
           label="Mês da liberação"
+          help="Mês em que o dinheiro do estoque menor volta ao caixa, contado a partir do início. É caixa uma vez, não benefício todo mês."
           value={stock.workingCapital.releaseMonth}
           min={1}
           onChange={(releaseMonth) =>
@@ -195,6 +180,7 @@ export function StockForm({
         />
         <SelectField
           label="O que entra no fluxo"
+          help="Liberação de caixa entra o principal uma vez. Custo financeiro mensal usa a taxa de capital sobre o estoque liberado e não substitui a taxa de desconto do VPL."
           value={stock.workingCapital.treatment}
           onChange={(treatment) =>
             setStock({
@@ -216,19 +202,15 @@ export function StockForm({
             setStock({ ...stock, workingCapital: { ...stock.workingCapital, costOfCapitalAnnual } })
           }
         />
-        <label className="field check span-2">
-          <input
-            type="checkbox"
-            checked={stock.workingCapital.reverseAtHorizon}
-            onChange={(event) =>
-              setStock({
-                ...stock,
-                workingCapital: { ...stock.workingCapital, reverseAtHorizon: event.target.checked },
-              })
-            }
-          />
-          <span>Devolver o capital no mês 60 (projetos com fim definido). Desligado trata a loja como contínua.</span>
-        </label>
+        <CheckField
+          className="field check span-2"
+          checked={stock.workingCapital.reverseAtHorizon}
+          onChange={(reverseAtHorizon) =>
+            setStock({ ...stock, workingCapital: { ...stock.workingCapital, reverseAtHorizon } })
+          }
+          label="Devolver o capital no mês 60 (projetos com fim definido). Desligado trata a loja como contínua."
+          help="Ligado, o caixa liberado do estoque volta a sair no mês 60. Desligado, a loja segue e esse principal não é devolvido no horizonte."
+        />
         <p className="hint-block span-2">
           Custo financeiro anual de leitura: {formatBRL(release * stock.workingCapital.costOfCapitalAnnual)}. Este número{' '}
           {result.informational.financialCostIncluded ? 'está' : 'não está'} no VPL.

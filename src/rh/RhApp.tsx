@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuditPanel } from '../components/AuditPanel';
 import { CashflowTable } from '../components/CashflowTable';
 import { Dashboard } from '../components/Dashboard';
-import { PremiseFocus } from '../components/Fields';
+import { FieldHelpProvider, PremiseFocus } from '../components/Fields';
 import { MoreActions } from '../components/MoreActions';
 import { InvestmentForm } from '../components/InvestmentForm';
 import { LibraryPanel, downloadJson } from '../components/LibraryPanel';
@@ -378,6 +378,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
   }
 
   return (
+    <FieldHelpProvider>
     <div className={railCollapsed ? 'app is-rail-collapsed' : 'app'}>
       <aside className={railCollapsed ? 'rail is-collapsed' : 'rail'} data-testid="rail">
         <div className="rail-top">
@@ -651,5 +652,6 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
         </div>
       ) : null}
     </div>
+    </FieldHelpProvider>
   );
 }
