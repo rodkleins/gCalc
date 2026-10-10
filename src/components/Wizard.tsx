@@ -263,7 +263,7 @@ function PeopleStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs: I
     onInputs({ ...inputs, people: { ...inputs.people, payroll: { ...payroll, ...next } } });
   }
   function patchHire(next: Partial<PlannedHire>) {
-    const current = hire ?? { id: 'hire-13', role: 'Auxiliar de farmácia', month: 13, headcount: 1, monthlyCost: 9_200 };
+    const current = hire ?? { id: 'hire-13', role: 'Auxiliar de farmácia', month: 13, headcount: 1, monthlyCost: 4_200 };
     const hires = [{ ...current, ...next }, ...inputs.people.futureHires.hires.slice(1)];
     onInputs({ ...inputs, people: { ...inputs.people, futureHires: { ...inputs.people.futureHires, hires } } });
   }

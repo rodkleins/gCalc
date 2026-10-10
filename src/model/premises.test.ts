@@ -40,7 +40,7 @@ describe('premissas e ajuste rápido', () => {
     expect(leverDelta(raised, anchor, 'investimento')).toBeCloseTo(0.3, 6);
 
     const opex = withLeverValue(anchor, anchor, 'opex', leverValue(anchor, 'opex') * 1.1);
-    expect(leverValue(opex, 'opex')).toBeCloseTo(15_000 * 1.1, 2);
+    expect(leverValue(opex, 'opex')).toBeCloseTo(3_300 * 1.1, 2);
     expect(opex.robot.opexMonthly.software).toBeCloseTo(anchor.robot.opexMonthly.software * 1.1, 2);
   });
 
@@ -51,13 +51,13 @@ describe('premissas e ajuste rápido', () => {
     expect(salaries.people.payroll.positionsReduced).toBe(anchor.people.payroll.positionsReduced);
 
     const turnover = withLeverValue(anchor, anchor, 'turnover', anchor.people.turnover.annualRate * 0.7);
-    expect(turnover.people.turnover.annualRate).toBeCloseTo(0.14, 6);
+    expect(turnover.people.turnover.annualRate).toBeCloseTo(0.21, 6);
     expect(turnover.people.turnover.costPerReplacement).toBe(anchor.people.turnover.costPerReplacement);
 
-    const volume = withLeverValue(anchor, anchor, 'volume', 990);
-    expect(volume.profile.dispensationsPerDay).toBe(990);
-    expect(volume.profile.historicalLossesMonthly).toBeCloseTo(18_000 * 1.1, 2);
-    expect(volume.stock.losses.projectedLossesMonthly).toBeCloseTo(8_000 * 1.1, 2);
+    const volume = withLeverValue(anchor, anchor, 'volume', anchor.profile.dispensationsPerDay * 1.1);
+    expect(volume.profile.dispensationsPerDay).toBeCloseTo(anchor.profile.dispensationsPerDay * 1.1, 2);
+    expect(volume.profile.historicalLossesMonthly).toBeCloseTo(anchor.profile.historicalLossesMonthly * 1.1, 2);
+    expect(volume.stock.losses.projectedLossesMonthly).toBeCloseTo(anchor.stock.losses.projectedLossesMonthly * 1.1, 2);
     expect(volume.logistics.boxes.cyclesAvoidedPerMonth).toBeCloseTo(anchor.logistics.boxes.cyclesAvoidedPerMonth * 1.1, 2);
 
     const salesBase = leverValue(anchor, 'vendas');
@@ -85,7 +85,7 @@ describe('premissas e ajuste rápido', () => {
     expect(filled.robot.capex.freightImportTaxes).toBe(0);
 
     const current = nudgeLever(exampleInputs(), exampleInputs(), 'investimento', 1);
-    expect(leverValue(current, 'investimento')).toBeCloseTo(2_160_000 * 1.05, 0);
+    expect(leverValue(current, 'investimento')).toBeCloseTo(640_000 * 1.05, 0);
 
     const zeroed = withLeverValue(exampleInputs(), exampleInputs(), 'investimento', 0);
     expect(leverValue(zeroed, 'investimento')).toBe(0);
@@ -95,18 +95,18 @@ describe('premissas e ajuste rápido', () => {
     let stepped = exampleInputs();
     const fresh = exampleInputs();
     for (let step = 0; step < 7; step += 1) stepped = nudgeLever(stepped, fresh, 'investimento', -1);
-    expect(leverValue(stepped, 'investimento')).toBeLessThan(2_160_000 * 0.7);
+    expect(leverValue(stepped, 'investimento')).toBeLessThan(640_000 * 0.7);
     for (let step = 0; step < 13; step += 1) stepped = nudgeLever(stepped, fresh, 'investimento', -1);
     expect(leverValue(stepped, 'investimento')).toBe(0);
     expect(leverValue(nudgeLever(stepped, fresh, 'investimento', -1), 'investimento')).toBe(0);
 
-    const typed = withLeverValue(fresh, fresh, 'investimento', 2_160_000 * 1.8);
+    const typed = withLeverValue(fresh, fresh, 'investimento', 640_000 * 1.8);
     const eased = nudgeLever(typed, fresh, 'investimento', -1);
-    expect(leverValue(eased, 'investimento')).toBeCloseTo(2_160_000 * 1.75, 0);
+    expect(leverValue(eased, 'investimento')).toBeCloseTo(640_000 * 1.75, 0);
     const undone = exampleInputs();
     expect(leversDiffer(current, undone)).toBe(true);
-    expect(evaluate(undone).netInvestment).toBe(1_980_000);
-    expect(evaluate(undone).steadyNet).toBe(65_000);
+    expect(evaluate(undone).netInvestment).toBe(600_000);
+    expect(evaluate(undone).steadyNet).toBe(22_200);
   });
 
   it('grava edição direta no âncora e preserva o ajuste das outras alavancas', () => {

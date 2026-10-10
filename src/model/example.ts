@@ -7,8 +7,9 @@ export const SUGGESTED_TRAINING_PER_HIRE = 6_000;
 
 /**
  * Exemplo ilustrativo fictício do escopo.
- * Investimento líquido R$ 1.980.000, benefício líquido R$ 65.000/mês,
- * payback interpolado de 30,5 meses e ROI anual simples de 39,4%.
+ * Investimento líquido R$ 600.000, benefício líquido R$ 22.200/mês,
+ * payback interpolado de 27,0 meses e ROI anual simples de 44,4%.
+ * Avarias ficam fora do caixa: as perdas entram uma vez só.
  */
 const EXAMPLE: Inputs = {
   fictional: true,
@@ -20,7 +21,7 @@ const EXAMPLE: Inputs = {
     source: 'Hipóteses do escopo funcional, não são dados de uma loja real',
     owner: 'Time comercial (exemplo)',
     notes:
-      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja.',
+      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo.',
   },
   assumptions: {
     includePotential: false,
@@ -30,22 +31,22 @@ const EXAMPLE: Inputs = {
     storeType: 'nova',
     monthlyRevenue: 850_000,
     contributionMarginPct: 0.32,
-    attendancesPerDay: 420,
-    dispensationsPerDay: 900,
+    attendancesPerDay: 320,
+    dispensationsPerDay: 720,
     operatingDaysPerMonth: 26,
     roles: [
-      { id: 'farmaceutico', role: 'Farmacêutico', headcount: 3, monthlyCost: SUGGESTED_PHARMACIST_MONTHLY_COST, shift: '6x1' },
-      { id: 'auxiliar', role: 'Auxiliar de farmácia', headcount: 10, monthlyCost: 9_200, shift: '6x1' },
-      { id: 'estoquista', role: 'Estoquista', headcount: 2, monthlyCost: 6_800, shift: 'Comercial' },
-      { id: 'gerente', role: 'Gerente de loja', headcount: 1, monthlyCost: 16_000, shift: 'Comercial' },
+      { id: 'farmaceutico', role: 'Farmacêutico', headcount: 2, monthlyCost: SUGGESTED_PHARMACIST_MONTHLY_COST, shift: '6x1, 1 balcão' },
+      { id: 'auxiliar', role: 'Auxiliar de farmácia', headcount: 8, monthlyCost: 4_200, shift: '6x1, 2 turnos' },
+      { id: 'estoquista', role: 'Estoquista', headcount: 1, monthlyCost: 3_400, shift: 'Comercial' },
+      { id: 'gerente', role: 'Gerente de loja', headcount: 1, monthlyCost: 9_500, shift: 'Comercial' },
     ],
-    totalAreaM2: 280,
-    backroomAreaM2: 70,
+    totalAreaM2: 200,
+    backroomAreaM2: 40,
     occupancyCostPerM2: 120,
     averageInventory: 480_000,
     inventoryTurnsPerYear: 8,
     skuCount: 6_500,
-    historicalLossesMonthly: 18_000,
+    historicalLossesMonthly: 12_000,
     demandGrowthPctPerYear: 0,
     wageGrowthPctPerYear: 0,
     opexInflationPctPerYear: 0,
@@ -57,13 +58,13 @@ const EXAMPLE: Inputs = {
     payroll: {
       enabled: true,
       confidence: 'comprovavel',
-      positionsReduced: 6,
-      monthlyCostPerPosition: 9_200,
+      positionsReduced: 3,
+      monthlyCostPerPosition: 4_200,
       chargesPct: 0,
       benefitsPerPosition: 0,
       costConfirmedFullyLoaded: true,
       startMonth: 1,
-      severanceCost: 18_000,
+      severanceCost: 12_600,
     },
     journeyHoursPerMonth: 176,
     reallocatedHours: {
@@ -84,7 +85,7 @@ const EXAMPLE: Inputs = {
           role: 'Auxiliar de farmácia',
           month: 13,
           headcount: 1,
-          monthlyCost: 9_200,
+          monthlyCost: 4_200,
         },
       ],
     },
@@ -103,8 +104,8 @@ const EXAMPLE: Inputs = {
     turnover: {
       enabled: true,
       confidence: 'comprovavel',
-      annualRate: 0.2,
-      costPerReplacement: 12_000,
+      annualRate: 0.3,
+      costPerReplacement: 8_000,
       costMode: 'consolidado',
       components: {
         recruitment: 0,
@@ -118,8 +119,8 @@ const EXAMPLE: Inputs = {
       enabled: true,
       confidence: 'comprovavel',
       alreadyCountedInPayroll: false,
-      hoursSavedPerMonth: 40,
-      costPerHour: 50,
+      hoursSavedPerMonth: 20,
+      costPerHour: 45,
     },
     consultativeSales: {
       enabled: true,
@@ -152,16 +153,16 @@ const EXAMPLE: Inputs = {
     shelving: {
       enabled: true,
       confidence: 'comprovavel',
-      avoidedAcquisition: 180_000,
-      resaleValue: 25_000,
-      avoidedMaintenanceMonthly: 1_500,
+      avoidedAcquisition: 40_000,
+      resaleValue: 8_000,
+      avoidedMaintenanceMonthly: 400,
       stillRequired: false,
       removalCost: 0,
     },
     space: {
       enabled: true,
       confidence: 'comprovavel',
-      m2Freed: 20,
+      m2Freed: 16,
       mode: 'ocupacao',
       treatment: 'ocupacao_evitavel',
       contractUnchanged: false,
@@ -174,14 +175,14 @@ const EXAMPLE: Inputs = {
       enabled: true,
       confidence: 'comprovavel',
       alreadyCountedInPayroll: false,
-      hoursSavedPerMonth: 32,
-      costPerHour: 50,
+      hoursSavedPerMonth: 20,
+      costPerHour: 40,
     },
     inventoryCount: {
       enabled: true,
       confidence: 'comprovavel',
-      hoursSavedPerMonth: 20,
-      costPerHour: 50,
+      hoursSavedPerMonth: 10,
+      costPerHour: 40,
     },
   },
   stock: {
@@ -189,7 +190,7 @@ const EXAMPLE: Inputs = {
     losses: {
       enabled: true,
       confidence: 'comprovavel',
-      projectedLossesMonthly: 8_000,
+      projectedLossesMonthly: 5_000,
       useDetailed: false,
       expiryMonthly: 0,
       damageMonthly: 0,
@@ -197,9 +198,9 @@ const EXAMPLE: Inputs = {
       errorsMonthly: 0,
     },
     shrinkage: {
-      enabled: true,
+      enabled: false,
       confidence: 'comprovavel',
-      avoidedMonthly: 5_000,
+      avoidedMonthly: 0,
     },
     ruptures: {
       enabled: false,
@@ -237,23 +238,23 @@ const EXAMPLE: Inputs = {
   },
   robot: {
     capex: {
-      equipment: 1_750_000,
-      freightImportTaxes: 140_000,
-      installationTraining: 90_000,
+      equipment: 480_000,
+      freightImportTaxes: 35_000,
+      installationTraining: 30_000,
       civilElectrical: 50_000,
-      integration: 50_000,
-      implementationContingency: 80_000,
+      integration: 20_000,
+      implementationContingency: 25_000,
     },
     opexMonthly: {
-      maintenance: 8_000,
-      software: 3_200,
-      energy: 1_500,
-      downtime: 700,
-      insurance: 1_100,
-      other: 500,
+      maintenance: 1_800,
+      software: 700,
+      energy: 300,
+      downtime: 150,
+      insurance: 250,
+      other: 100,
     },
     availabilityPct: 1,
-    capacityDispensationsPerDay: 1_500,
+    capacityDispensationsPerDay: 1_200,
     reorganizationEffectiveness: 1,
     automatedStockShare: 1,
     serviceLevel: 1,
@@ -387,11 +388,11 @@ export function matchesIllustrativeExample(result: ModelResult): boolean {
     result.scenario === 'base' &&
     result.storeType === 'nova' &&
     result.storeCount === 1 &&
-    Math.abs(result.netInvestment - 1_980_000) < 1 &&
-    Math.abs(result.steadyNet - 65_000) < 1 &&
+    Math.abs(result.netInvestment - 600_000) < 1 &&
+    Math.abs(result.steadyNet - 22_200) < 1 &&
     result.payback !== null &&
-    Math.abs(result.payback - 1_980_000 / 65_000) < 0.05 &&
+    Math.abs(result.payback - 600_000 / 22_200) < 0.05 &&
     result.roi !== null &&
-    Math.abs(result.roi - 780_000 / 1_980_000) < 0.000_001
+    Math.abs(result.roi - 266_400 / 600_000) < 0.000_001
   );
 }

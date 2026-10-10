@@ -1,6 +1,6 @@
 # Auditoria do motor financeiro
 
-Base comparada: commit `c1bfa48` (auditoria original) e o estado publicado anterior a este branch (`577800a`, que conserva o mesmo motor do exemplo). Naquela auditoria o exemplo fictício ficou em investimento líquido R$ 2.000.000, benefício líquido R$ 65.000/mês, payback 30,8 meses e retorno anual simples estabilizado de 39%. O padrão atual de obras, elétrica e rede é R$ 50.000, então o exemplo passa a investimento líquido R$ 1.980.000, o mesmo benefício de R$ 65.000/mês, payback 30,5 meses e retorno de 39,4%.
+Base comparada: commit `c1bfa48` (auditoria original) e o estado publicado anterior a este branch (`577800a`, que conserva o mesmo motor do exemplo). Naquela auditoria o exemplo fictício ficou em investimento líquido R$ 2.000.000, benefício líquido R$ 65.000/mês, payback 30,8 meses e retorno anual simples estabilizado de 39%. O passo seguinte fixou obras, elétrica e rede em R$ 50.000 e levou o líquido a R$ 1.980.000, o payback a 30,5 meses e o retorno a 39,4%, com o mesmo benefício de R$ 65.000/mês. A calibração posterior dos padrões, descrita no fim deste arquivo, mudou equipamento, manutenção e premissas operacionais. O motor não mudou.
 
 ## Plano técnico
 
@@ -36,7 +36,7 @@ O motor continua em `evaluate` (`src/model/calculate.ts`), com a aritmética de 
 
 | Tema | Antes | Depois |
 | --- | --- | --- |
-| Exemplo base | 2.000.000 / 65.000 / 30,8 meses / 39% | Igual na auditoria. Depois, obras/elétrica/rede em R$ 50.000 levaram o líquido a 1.980.000, o payback a 30,5 meses e o retorno a 39,4% |
+| Exemplo base | 2.000.000 / 65.000 / 30,8 meses / 39% | Igual na auditoria. Depois, obras/elétrica/rede em R$ 50.000 levaram o líquido a 1.980.000, o payback a 30,5 meses e o retorno a 39,4%. A calibração dos padrões, no fim deste arquivo, é um passo seguinte |
 | Folha com disponibilidade 80% | Caía 20% junto com a dispensação | Permanece, se a reorganização está efetiva. Zera só com disponibilidade 0 |
 | Imposto negativo | Crédito integral automático | Não. Só com política e capacidade explícitas |
 | ROI na tela | "ROI anual simples" | "Retorno anual simples estabilizado", mais o ROI acumulado |
@@ -73,7 +73,7 @@ Não muda o exemplo fictício. Muda um caso real salvo se:
 
 - Não é um modelo fiscal por regime (Lucro Real, Presumido ou Simples). A política é incremental e precisa de validação.
 - A TIR continua uma raiz numérica. Com mais de uma troca de sinal ela é sinalizada, não enumerada.
-- O exemplo fictício ainda soma perdas históricas e avarias, com aviso de possível sobreposição, para manter o benefício de R$ 65.000. O detalhamento é o caminho sem dupla contagem.
+- O exemplo fictício não soma mais perdas históricas e avarias. A avaria fica desligada. O detalhamento continua sendo o caminho se alguém religar as duas linhas.
 - A rede escalonada reutiliza a premissa da loja modelo e aplica fatores. Não é um orçamento loja a loja completo.
 - Head-to-head continua com a DRE própria e só reaproveita VPL, TIR, payback e ROI.
 
@@ -86,7 +86,11 @@ Depois da publicação, a conversa com o Fabio ajustou a leitura, sem mudar naqu
 - Rescisão e contratação futura só entram em loja existente. A tela mostra o motivo quando o benefício fica zerado.
 - Capital de giro não presume queda. Simulação antiga sem o campo fica com redução não comprovada.
 - Três modelos fictícios (R$ 1, 2 e 4 milhões/mês) aparecem lado a lado. O seletor fica no topo da calculadora o tempo todo e pede confirmação, com opção de salvar o rascunho, antes de substituir.
-- O padrão de obras, elétrica e rede passou a R$ 50.000 no exemplo e nos três portes. O benefício de R$ 65.000 permanece. O investimento líquido do exemplo foi a R$ 1.980.000, o payback a 30,5 meses e o retorno estabilizado a 39,4%.
+- O padrão de obras, elétrica e rede passou a R$ 50.000 no exemplo e nos três portes. Naquele momento o benefício de R$ 65.000 permaneceu e o investimento líquido do exemplo foi a R$ 1.980.000.
+
+## Calibração dos padrões
+
+Os padrões do exemplo e das três lojas-modelo foram recalibrados sem alterar o motor. Continuam fictícios e a validar. O equipamento e a manutenção mensal caíram. As perdas do exemplo entram uma vez só. O turnover sugerido do exemplo passou a 30% ao ano, com custo de substituição de R$ 8.000, alinhado às lojas-modelo. O auxiliar do exemplo passou de R$ 9.200 para R$ 4.200 por pessoa/mês. Nas lojas, o quadro e a folha crescem com balcões e turnos; a de R$ 4 milhões tem turno da noite com adicional. Obras, elétrica e rede permanecem R$ 50.000. Vendas potenciais, ruptura e queda de estoque continuam fora do caixa. No cenário base, exemplo e as três lojas abrem com ROI positivo e payback de até 30 meses (27,0 / 26,3 / 21,3 / 14,2). O conservador do exemplo em loja nova e o das três lojas existentes ficam abaixo de 40 meses, com VPL positivo no base.
 
 ## Como executar
 

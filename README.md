@@ -10,15 +10,17 @@ No cenário **base**, loja **nova**, com as premissas ilustrativas carregadas ao
 
 | Indicador | Valor |
 | --- | --- |
-| Investimento líquido | R$ 1.980.000 |
-| Benefício líquido | R$ 65.000 por mês |
-| Benefício anual | R$ 780.000 |
-| Payback simples | 30,5 meses |
-| ROI anual simples | 39,4% |
+| Investimento líquido | R$ 600.000 |
+| Benefício líquido | R$ 22.200 por mês |
+| Benefício anual | R$ 266.400 |
+| Payback simples | 27,0 meses |
+| ROI anual simples | 44,4% |
 
-O payback de 30,5 meses é a interpolação: `1.980.000 / 65.000`. O caixa acumulado fica positivo no mês 31. O ROI é `780.000 / 1.980.000` e não é a TIR.
+O payback de 27,0 meses é a interpolação: `600.000 / 22.200`. O caixa acumulado fica positivo no mês 28. O ROI é `266.400 / 600.000` e não é a TIR.
 
-O investimento bruto do exemplo é R$ 2.160.000, com R$ 50.000 de obras, elétrica e rede. Em loja nova, R$ 180.000 de prateleiras evitadas reduzem o CAPEX ao líquido de R$ 1.980.000. O benefício bruto de R$ 80.000 menos o OPEX de R$ 15.000 produz os R$ 65.000.
+O investimento bruto do exemplo é R$ 640.000, com R$ 50.000 de obras, elétrica e rede e R$ 480.000 de equipamento. Em loja nova, R$ 40.000 de prateleiras evitadas reduzem o CAPEX ao líquido de R$ 600.000. O benefício bruto de R$ 25.500 menos o OPEX de R$ 3.300 produz os R$ 22.200. Avarias não entram: a perda é uma linha só. Tudo continua fictício, a validar.
+
+As três lojas-modelo (R$ 1, 2 e 4 milhões/mês) também abrem no cenário base com ROI positivo e payback de até 30 meses: 26,3, 21,3 e 14,2 meses. O quadro e a folha crescem com o porte. O conservador dessas lojas fica abaixo de 40 meses. Os valores são sugestão, não parâmetro de loja.
 
 ## Como rodar
 
@@ -87,7 +89,7 @@ O imposto, quando ligado, aplica a alíquota sobre o resultado operacional menos
 npm test
 ```
 
-A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 1.980.000 / R$ 65.000 / 30,5 meses / 39,4%, as regras de dupla contagem e a presença desses números na tela.
+A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 600.000 / R$ 22.200 / 27,0 meses / 44,4%, as regras de dupla contagem e a presença desses números na tela.
 
 ## Publicar no GitHub Pages
 

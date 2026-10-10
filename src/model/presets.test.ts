@@ -37,17 +37,17 @@ describe('modelos de loja', () => {
     const payroll = 2 * 4_200;
     const future = 1 * 4_200;
     const turnover = ((2 + 1) * 0.3 * 8_000) / 12;
-    const supervision = 16 * 45;
-    const movement = 20 * 40;
-    const count = 8 * 40;
-    const losses = 12_000 - 6_000;
-    const maintenance = 800;
+    const supervision = 24 * 45;
+    const movement = 28 * 40;
+    const count = 12 * 40;
+    const losses = 14_000 - 6_000;
+    const maintenance = 600;
     const benefit = payroll + future + turnover + supervision + movement + count + losses + maintenance;
-    const opex = 4_500 + 1_800 + 900 + 400 + 600 + 300;
-    expect(benefit).toBe(21_840);
+    const opex = 1_800 + 800 + 350 + 150 + 300 + 100;
+    expect(benefit).toBe(24_480);
     expect(result.steadyBenefit).toBe(benefit);
     expect(result.steadyNet).toBe(benefit - opex);
-    expect(result.netInvestment).toBe(1_610_000);
+    expect(result.netInvestment).toBe(490_000);
     expect(result.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
 
     const asNew = evaluate(preset.inputs, { storeTypeOverride: 'nova' });
@@ -61,6 +61,50 @@ describe('modelos de loja', () => {
     const turnoverNew = (2 * 0.3 * 8_000) / 12;
     const benefitNew = payrollOnly + turnoverNew + supervision + movement + count + losses;
     expect(asNew.steadyBenefit).toBe(benefitNew);
+  });
+
+  it('aumenta equipe e folha com o porte e abre com payback de até 30 meses', () => {
+    const presets = storePresets();
+    const headcount = presets.map((preset) =>
+      preset.inputs.profile.roles.reduce((total, role) => total + role.headcount, 0),
+    );
+    const payroll = presets.map((preset) =>
+      preset.inputs.profile.roles.reduce((total, role) => total + role.headcount * role.monthlyCost, 0),
+    );
+    expect(headcount).toEqual([12, 24, 47]);
+    expect(payroll).toEqual([63_500, 127_000, 249_500]);
+    expect(payroll[0]).toBeLessThan(payroll[1]);
+    expect(payroll[1]).toBeLessThan(payroll[2]);
+    const family = (name: string) =>
+      presets.map((preset) =>
+        preset.inputs.profile.roles
+          .filter((role) => role.role === name)
+          .reduce((total, role) => total + role.headcount, 0),
+      );
+    for (const counts of [family('Farmacêutico'), family('Auxiliar de farmácia'), family('Estoquista'), family('Gerente de loja')]) {
+      expect(counts[0]).toBeLessThan(counts[1]);
+      expect(counts[1]).toBeLessThan(counts[2]);
+    }
+    expect(presets[2].inputs.profile.roles.some((role) => role.shift.includes('noite'))).toBe(true);
+    expect(presets[0].inputs.robot.capex.civilElectrical).toBe(50_000);
+    expect(presets[1].inputs.robot.capex.civilElectrical).toBe(50_000);
+    expect(presets[2].inputs.robot.capex.civilElectrical).toBe(50_000);
+
+    const base = presets.map((preset) => evaluate(preset.inputs));
+    const conservative = presets.map((preset) => evaluate(preset.inputs, { scenario: 'conservador' }));
+    for (const result of base) {
+      expect(result.payback).not.toBeNull();
+      expect(result.payback as number).toBeLessThanOrEqual(30);
+      expect(result.roi).toBeGreaterThan(0);
+      expect(result.npv).toBeGreaterThan(0);
+      expect(result.audit.find((line) => line.id === 'shrinkage')?.includedInCashFlow).toBe(false);
+    }
+    for (const result of conservative) {
+      expect(result.payback).not.toBeNull();
+      expect(result.payback as number).toBeLessThan(40);
+    }
+    expect(base[1].payback as number).toBeLessThan(base[0].payback as number);
+    expect(base[2].payback as number).toBeLessThan(base[1].payback as number);
   });
 });
 

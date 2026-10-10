@@ -30,10 +30,10 @@ describe('aplicação', () => {
       root.render(<App initialInputs={exampleInputs()} />);
     });
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
-    expect(text('[data-testid="kpi-payback"]')).toContain('30,5');
-    expect(text('[data-testid="kpi-roi"]')).toBe('39,4%');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 600.000');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 22.200');
+    expect(text('[data-testid="kpi-payback"]')).toContain('27,0');
+    expect(text('[data-testid="kpi-roi"]')).toBe('44,4%');
     const charts = host.querySelector('.chart-grid');
     const summary = host.querySelector('[data-testid="executive-summary"]');
     const comparison = host.querySelector('table');
@@ -180,10 +180,10 @@ describe('aplicação', () => {
     });
     expect(host.querySelector('[data-testid="wizard"]')).toBeNull();
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
-    expect(text('[data-testid="kpi-payback"]')).toContain('30,5');
-    expect(text('[data-testid="kpi-roi"]')).toBe('39,4%');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 600.000');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 22.200');
+    expect(text('[data-testid="kpi-payback"]')).toContain('27,0');
+    expect(text('[data-testid="kpi-roi"]')).toBe('44,4%');
     act(() => root.unmount());
   });
 
@@ -250,7 +250,7 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.079.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 630.000');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
@@ -259,8 +259,8 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 65.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 600.000');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 22.200');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('igual ao original');
     act(() => root.unmount());
   });
@@ -277,8 +277,8 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    expect(saved.draft.adjustAnchor.robot.capex.equipment).toBe(1_750_000);
-    expect(saved.draft.inputs.robot.capex.equipment).toBe(1_837_500);
+    expect(saved.draft.adjustAnchor.robot.capex.equipment).toBe(480_000);
+    expect(saved.draft.inputs.robot.capex.equipment).toBe(504_000);
     act(() => root.unmount());
 
     const next = document.createElement('div');
@@ -288,11 +288,11 @@ describe('aplicação', () => {
       restored.render(<App />);
     });
     const text = (selector: string) => next.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 2.079.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 630.000');
     await act(async () => {
       next.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 1.980.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 600.000');
     act(() => restored.unmount());
   });
 
@@ -461,9 +461,9 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(true);
     expect(host.querySelector('[data-testid="quick-dock-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('Payback');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('30,5');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('27,0');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('ROI');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('39,4%');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('44,4%');
 
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-dock-toggle"]')?.click();

@@ -53,16 +53,16 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 | storeType | Tipo de loja | nova/existente | nova | Sim |
 | monthlyRevenue | Faturamento mensal | R$ | 850.000 | Só em aviso |
 | contributionMarginPct | Margem de contribuição | % | 32% | Sim (vendas) |
-| attendancesPerDay | Atendimentos por dia | nº | 420 | Não |
-| dispensationsPerDay | Dispensações por dia | nº/dia | 900 | Sim (cobertura) |
+| attendancesPerDay | Atendimentos por dia | nº | 320 | Não |
+| dispensationsPerDay | Dispensações por dia | nº/dia | 720 | Sim (cobertura) |
 | operatingDaysPerMonth | Dias de operação no mês | dias | 26 | Não |
-| roles | Cargos (cargo, pessoas, custo completo R$/pessoa/mês, escala) | lista | 4 cargos, 16 pessoas; farmacêutico R$ 8.500 (sugestão fictícia, a validar) | Sim (teto de vagas e orçamento de horas) |
-| totalAreaM2 / backroomAreaM2 | Área total / Retaguarda | m² | 280 / 70 | Não |
+| roles | Cargos (cargo, pessoas, custo completo R$/pessoa/mês, escala) | lista | 4 cargos, 12 pessoas; farmacêutico R$ 8.500 e auxiliar R$ 4.200 (sugestões fictícias, a validar); 1 balcão e 2 turnos | Sim (teto de vagas e orçamento de horas) |
+| totalAreaM2 / backroomAreaM2 | Área total / Retaguarda | m² | 200 / 40 | Não |
 | occupancyCostPerM2 | Aluguel ou ocupação de referência | R$/m² | 120 | Sim, só se o campo da logística for 0 |
 | averageInventory | Estoque médio | R$ | 480.000 | Sim (capital de giro) |
 | inventoryTurnsPerYear | Giro do estoque | x/ano | 8 | Não |
 | skuCount | SKUs | nº | 6.500 | Não |
-| historicalLossesMonthly | Perdas históricas | R$/mês | 18.000 | Sim |
+| historicalLossesMonthly | Perdas históricas | R$/mês | 12.000 | Sim |
 | demandGrowthPctPerYear | Crescimento anual da demanda | %/ano | 0% | Sim |
 | wageGrowthPctPerYear | Reajuste de salários | %/ano | 0% | Sim |
 | opexInflationPctPerYear | Inflação de OPEX | %/ano | 0% | Sim |
@@ -74,14 +74,14 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 
 | Bloco | Campos (código → rótulo) | Padrão do exemplo |
 |---|---|---|
-| payroll — Folha e encargos | positionsReduced → Vagas evitadas; monthlyCostPerPosition → Custo completo (R$/pessoa/mês, com encargos e benefícios); chargesPct → Encargos; benefitsPerPosition → Benefícios (R$); costConfirmedFullyLoaded; startMonth; severanceCost → Rescisão (R$, só loja existente) | ligado, comprovável; 6 vagas; R$ 9.200; encargos 0; benefícios 0; custo confirmado; mês 1; R$ 18.000 |
+| payroll — Folha e encargos | positionsReduced → Vagas evitadas; monthlyCostPerPosition → Custo completo (R$/pessoa/mês, com encargos e benefícios); chargesPct → Encargos; benefitsPerPosition → Benefícios (R$); costConfirmedFullyLoaded; startMonth; severanceCost → Rescisão (R$, só loja existente) | ligado, comprovável; 3 vagas (uma por turno e uma de pico); R$ 4.200; encargos 0; benefícios 0; custo confirmado; mês 1; R$ 12.600 |
 | journeyHoursPerMonth | Jornada mensal para o orçamento de horas | 176 h |
 | reallocatedHours — Horas realocadas | hoursPerMonth; monetization (nenhuma, reducao_custo, ganho_incremental); costReductionMonthly; incrementalMarginMonthly; evidence | desligado; monetização nenhuma |
-| futureHires — Contratações futuras | lista: role, month, headcount, monthlyCost. Só entra em loja existente | desligado; 1 auxiliar no mês 13, R$ 9.200 |
+| futureHires — Contratações futuras | lista: role, month, headcount, monthlyCost. Só entra em loja existente | desligado; 1 auxiliar no mês 13, R$ 4.200 |
 | recruitment — Recrutamento e seleção | costPerHire; includedInTurnoverCost | ligado, comprovável; R$ 3.500; incluso = sim |
 | training — Treinamento e integração | costPerPerson (sugestão fictícia R$ 6.000 por contratação, a validar); includedInReplacementCost | ligado, comprovável; R$ 6.000; incluso = sim |
-| turnover — Turnover evitado | annualRate; costMode (consolidado ou detalhado); costPerReplacement; components (recrutamento, treinamento do substituto, adaptação, desligamento, supervisão) | ligado, comprovável; 20% a.a.; consolidado; R$ 12.000; componentes 0 |
-| supervision — Supervisão | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 40 h; R$ 50; não |
+| turnover — Turnover evitado | annualRate; costMode (consolidado ou detalhado); costPerReplacement; components (recrutamento, treinamento do substituto, adaptação, desligamento, supervisão) | ligado, comprovável; 30% a.a.; consolidado; R$ 8.000; componentes 0 |
+| supervision — Supervisão | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 20 h; R$ 45; não |
 | consultativeSales — Venda consultiva | hoursFreedPerMonth; marginPerHour; independentEvidence | ligado, potencial; 20 h; R$ 80; sem evidência |
 
 ### 2.3 Logística / infraestrutura (logistics)
@@ -89,18 +89,18 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 | Bloco | Campos | Padrão do exemplo |
 |---|---|---|
 | boxes — Caixas retornáveis | cyclesAvoidedPerMonth; costPerCycle; processValidated; useDetailed e componentes (ciclos, transporte reverso, higienização, manuseio, perdas/reposição, espaço), cada um com valor e interruptor | ligado, potencial; 400 ciclos; R$ 8; processo não validado; detalhe desligado |
-| shelving — Prateleiras | avoidedAcquisition; resaleValue; avoidedMaintenanceMonthly; stillRequired; removalCost | ligado, comprovável; R$ 180.000; R$ 25.000; R$ 1.500; ainda necessárias = não; remoção R$ 0 |
-| space — Espaço | m2Freed; mode (ocupacao ou margem); treatment (ocupacao_evitavel, expansao_comercial, sem_monetizacao, investimento_imobiliario); contractUnchanged; occupancyCostPerM2; contributionPerM2Month; avoidedRealEstate; commercialEvidence | ligado, comprovável; 20 m²; ocupação; ocupação evitável; contrato muda; R$ 200; R$ 150; imobiliário 0; sem evidência comercial |
-| movement — Movimentação | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 32 h; R$ 50; não |
-| inventoryCount — Inventário | hoursSavedPerMonth; costPerHour | ligado, comprovável; 20 h; R$ 50 |
+| shelving — Prateleiras | avoidedAcquisition; resaleValue; avoidedMaintenanceMonthly; stillRequired; removalCost | ligado, comprovável; R$ 40.000; R$ 8.000; R$ 400; ainda necessárias = não; remoção R$ 0 |
+| space — Espaço | m2Freed; mode (ocupacao ou margem); treatment (ocupacao_evitavel, expansao_comercial, sem_monetizacao, investimento_imobiliario); contractUnchanged; occupancyCostPerM2; contributionPerM2Month; avoidedRealEstate; commercialEvidence | ligado, comprovável; 16 m²; ocupação; ocupação evitável; contrato muda; R$ 200; R$ 150; imobiliário 0; sem evidência comercial |
+| movement — Movimentação | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 20 h; R$ 40; não |
+| inventoryCount — Inventário | hoursSavedPerMonth; costPerHour | ligado, comprovável; 10 h; R$ 40 |
 
 ### 2.4 Estoque / perdas / vendas (stock)
 
 | Bloco | Campos | Padrão do exemplo |
 |---|---|---|
 | salesIndependenceConfirmed | confirma que as alavancas de venda não se sobrepõem | falso |
-| losses — Perdas | projectedLossesMonthly; useDetailed; expiryMonthly, damageMonthly, missingMonthly, errorsMonthly | ligado, comprovável; R$ 8.000; detalhe desligado |
-| shrinkage — Avarias, extravios e erros | avoidedMonthly | ligado, comprovável; R$ 5.000 |
+| losses — Perdas | projectedLossesMonthly; useDetailed; expiryMonthly, damageMonthly, missingMonthly, errorsMonthly | ligado, comprovável; R$ 5.000; detalhe desligado |
+| shrinkage — Avarias, extravios e erros | avoidedMonthly | desligado; R$ 0. Não soma com as perdas históricas |
 | ruptures — Rupturas | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 20.000 |
 | serviceSpeed — Atendimento | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 10.000 |
 | abandonment — Abandono | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 0 |
@@ -110,9 +110,9 @@ Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `as
 
 | Grupo | Campos | Padrão do exemplo |
 |---|---|---|
-| capex | equipment 1.750.000; freightImportTaxes 140.000; installationTraining 90.000; civilElectrical 50.000; integration 50.000; implementationContingency 80.000 | Bruto R$ 2.160.000 |
-| opexMonthly | manutenção, suporte e demais gastos recorrentes: maintenance 8.000; software 3.200; energy 1.500; downtime 700; insurance 1.100; other 500. Não inclui o preço do equipamento | R$ 15.000/mês |
-| Operação | availabilityPct; capacityDispensationsPerDay; reorganizationEffectiveness; automatedStockShare; serviceLevel; conversionFactor; goLiveMonth | 100%; 1.500/dia; reorganização 100%; estoque automatizado 100%; atendimento 100%; conversão 100%; mês 1 |
+| capex | equipment 480.000; freightImportTaxes 35.000; installationTraining 30.000; civilElectrical 50.000; integration 20.000; implementationContingency 25.000 | Bruto R$ 640.000 |
+| opexMonthly | manutenção, suporte e demais gastos recorrentes: maintenance 1.800; software 700; energy 300; downtime 150; insurance 250; other 100. Não inclui o preço do equipamento | R$ 3.300/mês |
+| Operação | availabilityPct; capacityDispensationsPerDay; reorganizationEffectiveness; automatedStockShare; serviceLevel; conversionFactor; goLiveMonth | 100%; 1.200/dia; reorganização 100%; estoque automatizado 100%; atendimento 100%; conversão 100%; mês 1 |
 | Curvas | ramp.people, ramp.logistics, ramp.stock, ramp.sales | [1] em cada família (100% no go-live) |
 | Cronograma | capexSchedule: month e share | mês 0, parcela 1 |
 | Fim de horizonte | residualValue; depreciationYears | R$ 0; 10 anos |
@@ -502,69 +502,86 @@ Cenário base, loja nova. Payback simples. Conferido com `sensitivity(exampleInp
 
 | Driver | −30% | −15% | 0 | +15% | +30% |
 |---|---|---|---|---|---|
-| Investimento | 21,3 m | 25,9 m | 30,5 m | 35,0 m | 39,6 m |
-| OPEX | 28,5 m | 29,4 m | 30,5 m | 31,6 m | 32,7 m |
-| Mão de obra | 42,4 m | 35,5 m | 30,5 m | 26,7 m | 23,8 m |
-| Turnover | 30,6 m | 30,5 m | 30,5 m | 30,4 m | 30,3 m |
-| Volume | 33,0 m | 31,7 m | 30,5 m | 29,3 m | 28,3 m |
-| Vendas | 30,5 m | 30,5 m | 30,5 m | 30,5 m | 30,5 m |
-| Desconto | 30,5 m | 30,5 m | 30,5 m | 30,5 m | 30,5 m |
-| Disponibilidade | 30,7 m | 30,6 m | 30,5 m | 30,5 m | 30,5 m |
-| Cobertura do estoque | 32,9 m | 31,6 m | 30,5 m | 30,5 m | 30,5 m |
+| Investimento | 18,9 m | 23,0 m | 27,0 m | 31,1 m | 35,1 m |
+| OPEX | 25,9 m | 26,4 m | 27,0 m | 27,6 m | 28,3 m |
+| Mão de obra | 34,1 m | 30,1 m | 27,0 m | 24,5 m | 22,4 m |
+| Turnover | 27,2 m | 27,1 m | 27,0 m | 26,9 m | 26,8 m |
+| Volume | 30,2 m | 28,5 m | 27,0 m | 25,7 m | 24,4 m |
+| Vendas | 27,0 m | 27,0 m | 27,0 m | 27,0 m | 27,0 m |
+| Desconto | 27,0 m | 27,0 m | 27,0 m | 27,0 m | 27,0 m |
+| Disponibilidade | 27,3 m | 27,2 m | 27,0 m | 27,0 m | 27,0 m |
+| Cobertura do estoque | 30,0 m | 28,4 m | 27,0 m | 27,0 m | 27,0 m |
 
-Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move VPL e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então +15% e +30% batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas, avarias e inventário.
+Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move VPL e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então +15% e +30% batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas e inventário. Avarias estão desligadas no exemplo, então não entram nessa curva.
 
 ## 10. Exemplo numérico ilustrativo
 
-Fonte: `src/model/example.ts` e `calculate.test.ts`. Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto, rede desligada, capturas em 1, encargos e benefícios zero. O benefício líquido continua R$ 65.000. O padrão de obras, elétrica e rede é R$ 50.000, então o investimento líquido é R$ 1.980.000.
+Fonte: `src/model/example.ts` e `calculate.test.ts`. Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto, rede desligada, capturas em 1, encargos e benefícios zero. O benefício líquido é R$ 22.200. O padrão de obras, elétrica e rede continua R$ 50.000. O equipamento e a manutenção mensal foram reduzidos, e as avarias saíram do caixa para não contar perda duas vezes. O investimento líquido é R$ 600.000.
 
-Quadro de 16 pessoas, 6 vagas evitadas, jornada 176 h. Horas reivindicadas no exemplo somam 112, abaixo das 1.760 h de quem permanece, então `hourScale = 1`.
+Quadro de 12 pessoas, 3 vagas evitadas, jornada 176 h. Horas reivindicadas no exemplo somam 70 (supervisão 20, movimentação 20, inventário 10 e venda consultiva 20, esta última fora do caixa), abaixo das 1.584 h de quem permanece, então `hourScale = 1`.
 
 | Benefício (mês 1 a 60) | Fórmula | R$/mês |
 |---|---|---|
-| Folha e encargos | 6 × 9.200 | 55.200 |
-| Turnover | 6 × 20% × 12.000 / 12 | 1.200 |
-| Supervisão | 40 h × 50 | 2.000 |
-| Espaço (ocupação) | 20 m² × 200 | 4.000 |
-| Movimentação | 32 h × 50 | 1.600 |
-| Inventário | 20 h × 50 | 1.000 |
-| Perdas evitadas | 18.000 − 8.000 | 10.000 |
-| Avarias | 5.000 | 5.000 |
-| Benefício bruto | soma | 80.000 |
-| OPEX do robô | 8.000 + 3.200 + 1.500 + 700 + 1.100 + 500 | −15.000 |
-| Benefício líquido | 80.000 − 15.000 | 65.000 |
+| Folha e encargos | 3 × 4.200 | 12.600 |
+| Turnover | 3 × 30% × 8.000 / 12 | 600 |
+| Supervisão | 20 h × 45 | 900 |
+| Espaço (ocupação) | 16 m² × 200 | 3.200 |
+| Movimentação | 20 h × 40 | 800 |
+| Inventário | 10 h × 40 | 400 |
+| Perdas evitadas | 12.000 − 5.000 | 7.000 |
+| Benefício bruto | soma | 25.500 |
+| OPEX do robô | 1.800 + 700 + 300 + 150 + 250 + 100 | −3.300 |
+| Benefício líquido | 25.500 − 3.300 | 22.200 |
 
 | Indicador | Cálculo | Resultado |
 |---|---|---|
-| CAPEX bruto | soma dos 6 itens | R$ 2.160.000 |
-| CAPEX evitado (prateleiras, loja nova) | 180.000 | R$ 180.000 |
-| Investimento líquido | 2.160.000 − 180.000 | R$ 1.980.000 |
-| Benefício operacional anual | 80.000 × 12 | R$ 960.000 |
-| Economia acumulada em 60 meses | 80.000 × 60 | R$ 4.800.000 |
-| Operacional líquido anual (mês 60 × 12) | 65.000 × 12 | R$ 780.000 |
-| Retorno anual simples estabilizado | 780.000 / 1.980.000 | 39,4% |
-| ROI acumulado em 60 meses | (65.000 × 60) / 1.980.000 | 197% |
-| Caixa acumulado | −1.980.000 + 65.000 × 60 | R$ 1.920.000 |
-| Payback simples | 1.980.000 / 65.000 | 30,5 meses (acumulado positivo no mês 31) |
-| Payback descontado (12% a.a.) | interpolação dos fluxos descontados | 36,1 meses (positivo no mês 37) |
-| VPL (12% a.a.) | Σ fluxos descontados | R$ 983.206,66 |
-| Caixa descontado acumulado | mesma soma, neste exemplo plano | R$ 983.206,66 |
-| TIR | mensal ≈ 2,56% | anual 35,5% |
+| CAPEX bruto | soma dos 6 itens | R$ 640.000 |
+| CAPEX evitado (prateleiras, loja nova) | 40.000 | R$ 40.000 |
+| Investimento líquido | 640.000 − 40.000 | R$ 600.000 |
+| Benefício operacional anual | 25.500 × 12 | R$ 306.000 |
+| Economia acumulada em 60 meses | 25.500 × 60 | R$ 1.530.000 |
+| Operacional líquido anual (mês 60 × 12) | 22.200 × 12 | R$ 266.400 |
+| Retorno anual simples estabilizado | 266.400 / 600.000 | 44,4% |
+| ROI acumulado em 60 meses | (22.200 × 60) / 600.000 | 222% |
+| Caixa acumulado | −600.000 + 22.200 × 60 | R$ 732.000 |
+| Payback simples | 600.000 / 22.200 | 27,0 meses (acumulado positivo no mês 28) |
+| Payback descontado (12% a.a.) | interpolação dos fluxos descontados | 31,4 meses (positivo no mês 32) |
+| VPL (12% a.a.) | Σ fluxos descontados | R$ 412.049,04 |
+| Caixa descontado acumulado | mesma soma, neste exemplo plano | R$ 412.049,04 |
+| TIR | mensal 3,1% | anual 44,4% |
 
-O retorno de 39,4% é o run-rate estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 197% porque sessenta meses de R$ 65.000 cobrem o investimento 1,97 vez. Nenhum dos dois é a TIR.
+O retorno de 44,4% é o run-rate estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 222% porque sessenta meses de R$ 22.200 cobrem o investimento 2,22 vezes. Nenhum dos dois é a TIR. A TIR anual arredonda para o mesmo 44,4%; a taxa mensal de 3,1% mostra que o cálculo é outro.
 
-Fora do fluxo no exemplo (aparecem na auditoria): venda consultiva (R$ 1.600/mês potencial), rupturas (R$ 6.400/mês = 20.000 × 32%) e atendimento (R$ 3.200/mês), caixas, recrutamento, treinamento, capital de giro e horas realocadas.
+Fora do fluxo no exemplo (aparecem na auditoria): venda consultiva (R$ 1.600/mês potencial), rupturas (R$ 6.400/mês = 20.000 × 32%) e atendimento (R$ 3.200/mês), caixas, recrutamento, treinamento, capital de giro, horas realocadas e avarias.
 
 | Cenário / loja | Inv. líquido | Líquido/mês | Payback | Retorno estabilizado | VPL | TIR a.a. |
 |---|---|---|---|---|---|---|
-| Conservador / nova | 2.138.400 | 46.750 | 45,7 m | 26,2% | −7.171 | 11,8% |
-| Base / nova | 1.980.000 | 65.000 | 30,5 m | 39,4% | 983.207 | 35,5% |
-| Otimista / nova | 1.920.600 | 75.800 | 25,3 m | 47,4% | 1.534.955 | 49,8% |
-| Conservador / existente | 2.332.800 | 47.950 | 48,5 m | 24,7% | −139.931 | 9,1% |
-| Base / existente | 2.160.000 | 66.500 | 32,4 m | 36,9% | 878.523 | 31,4% |
-| Otimista / existente | 2.095.200 | 77.480 | 27,0 m | 44,4% | 1.443.877 | 44,7% |
+| Conservador / nova | 648.000 | 16.605 | 39,0 m | 30,8% | 108.985 | 20,1% |
+| Base / nova | 600.000 | 22.200 | 27,0 m | 44,4% | 412.049 | 44,4% |
+| Otimista / nova | 582.000 | 25.524 | 22,8 m | 52,6% | 581.583 | 59,3% |
+| Conservador / existente | 691.200 | 16.925 | 41,1 m | 29,4% | 75.817 | 17,2% |
+| Base / existente | 640.000 | 22.600 | 28,5 m | 42,4% | 385.727 | 40,3% |
+| Otimista / existente | 620.800 | 25.972 | 24,1 m | 50,2% | 558.649 | 54,3% |
 
-Na loja existente base: sem CAPEX evitado (investimento R$ 2.160.000), manutenção de prateleiras +R$ 1.500/mês (líquido R$ 66.500) e, no mês 1, revenda de R$ 25.000 menos rescisão de R$ 18.000 (+R$ 7.000 pontual).
+Na loja existente base: sem CAPEX evitado (investimento R$ 640.000), manutenção de prateleiras +R$ 400/mês (líquido R$ 22.600) e, no mês 1, revenda de R$ 8.000 menos rescisão de R$ 12.600 (−R$ 4.600 pontual).
+
+### 10.1 Lojas-modelo de R$ 1, 2 e 4 milhões
+
+Fonte: `src/model/presets.ts`. Loja existente, dados fictícios a validar com o Fabio. Obras, elétrica e rede permanecem R$ 50.000. O quadro, a folha, as dispensações, as vagas evitadas e as perdas crescem com o porte. A ocupação da área liberada não entra no caixa. Perdas entram uma vez; avarias ficam desligadas. Contratações futuras começam no mês 13, então o payback simples não é o investimento dividido pelo líquido do mês 60.
+
+| Modelo | Cenário | Inv. líquido | Custo mensal | Líquido/mês | Payback | ROI acumulado | VPL |
+|---|---|---|---|---|---|---|---|
+| R$ 1 milhão | Conservador | 529.200 | 4.025 | 15.559 | 37,3 m | 168,4% | 132.033 |
+| R$ 1 milhão | Base | 490.000 | 3.500 | 20.980 | 26,3 m | 246,1% | 408.428 |
+| R$ 1 milhão | Otimista | 475.300 | 3.220 | 24.198 | 22,4 m | 293% | 563.850 |
+| R$ 2 milhões | Conservador | 864.000 | 5.290 | 33.046 | 29,2 m | 219,7% | 546.360 |
+| R$ 2 milhões | Base | 800.000 | 4.600 | 43.320 | 21,3 m | 311,7% | 1.058.856 |
+| R$ 2 milhões | Otimista | 776.000 | 4.232 | 49.438 | 18,4 m | 367% | 1.349.856 |
+| R$ 4 milhões | Conservador | 1.155.600 | 6.958 | 69.139 | 19,1 m | 348% | 1.839.589 |
+| R$ 4 milhões | Base | 1.070.000 | 6.050 | 89.070 | 14,2 m | 484,7% | 2.804.012 |
+| R$ 4 milhões | Otimista | 1.037.900 | 5.566 | 100.968 | 12,4 m | 566,6% | 3.360.648 |
+
+No base, o payback cai com o porte: 26,3 meses, 21,3 meses e 14,2 meses. O retorno estabilizado é positivo nos três. A folha completa sugerida, que não entra inteira no caixa, é R$ 63.500, R$ 127.000 e R$ 249.500 por mês (12, 24 e 47 pessoas).
 
 ## 11. Limitações e pontos de atenção
 

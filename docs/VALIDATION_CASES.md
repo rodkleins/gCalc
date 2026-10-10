@@ -1,6 +1,6 @@
 # Casos de validação
 
-Os valores abaixo foram fechados fora do exemplo de R$ 65.000. A implementação está em `src/model/reference.test.ts`. Rode `npm test`.
+Os valores abaixo foram fechados fora do exemplo de R$ 22.200. A implementação está em `src/model/reference.test.ts`. Rode `npm test`.
 
 | Caso | Entrada essencial | Resultado esperado |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Os valores abaixo foram fechados fora do exemplo de R$ 65.000. A implementação
 | Go-live no mês 4 | folha de R$ 1.000 | Meses 1–3 zerados |
 | Rampa 50% depois 100% | folha de R$ 1.000 | Mês 1 R$ 500, mês 2 R$ 1.000 |
 | Capital de giro | estoque 10.000 para 4.000, reversão no mês 60, CAPEX R$ 1.000 | +R$ 6.000 no mês 2, −R$ 6.000 no mês 60, TIR ambígua, custo financeiro fora |
-| Loja de R$ 1 milhão (modelo fictício, existente) | folha 2 × 4.200, futura 1 × 4.200, turnover 30% × 8.000 / 12 sobre 3 vagas, supervisão 16 × 45, movimento 20 × 40, inventário 8 × 40, perdas 6.000, manutenção 800, OPEX 8.500, CAPEX 1.610.000 | Benefício R$ 21.840, líquido R$ 13.340. Em loja nova a futura sai e o turnover fica em 2 vagas |
+| Loja de R$ 1 milhão (modelo fictício, existente) | folha 2 × 4.200, futura 1 × 4.200, turnover 30% × 8.000 / 12 sobre 3 vagas, supervisão 24 × 45, movimento 28 × 40, inventário 12 × 40, perdas 8.000, manutenção 600, OPEX 3.500, CAPEX 490.000 | Benefício R$ 24.480, líquido R$ 20.980. Em loja nova a futura e a manutenção saem e o turnover fica em 2 vagas |
 | Prejuízo fiscal | OPEX R$ 10.000, limite de aproveitamento 0, alíquota 34% | Imposto de caixa R$ 0, líquido −R$ 10.000 |
 | Loja nova × existente | CAPEX 10.000, prateleira 1.000, revenda 400, rescisão 250, folha 100 | Nova: investimento 9.000. Existente: 10.000 e caixa do mês 1 = 250 |
 | Financiamento | 12.000, entrada 25%, 12 meses | VPL do projeto igual com juros 0 ou 12%. Sem juros a parcela é R$ 750 e a entrada é R$ 3.000 |
@@ -29,4 +29,4 @@ Os valores abaixo foram fechados fora do exemplo de R$ 65.000. A implementação
 | Inflação de 12% | folha 1.000 e OPEX 100 | Mês 1 líquido R$ 900; mês 13 ≈ R$ 1.008 |
 | Rede | uma loja com CAPEX 12.000 e outra com o dobro, benefício 1.000 | Paybacks de 12 e 24 meses |
 
-O exemplo ilustrativo da calculadora não é um desses casos. Ele reproduz R$ 1.980.000, R$ 65.000, 30,5 meses e 39,4% — obras, elétrica e rede em R$ 50.000 — e deve ser apresentado como dado fictício.
+O exemplo ilustrativo da calculadora não é um desses casos. Ele reproduz R$ 600.000, R$ 22.200, 27,0 meses e 44,4% — obras, elétrica e rede em R$ 50.000, equipamento em R$ 480.000 — e deve ser apresentado como dado fictício.
