@@ -101,9 +101,12 @@ describe('versão em validação', () => {
     const dayFactor = host.querySelector('[data-testid="post-factor-aux-1"]');
     expect(nightFactor?.tagName).toBe('OUTPUT');
     expect(nightFactor?.textContent).toBe('2,2188');
-    expect(nightFactor?.closest('.control')?.textContent).toContain('calculado');
     expect(dayFactor?.tagName).toBe('OUTPUT');
     expect(dayFactor?.textContent).toBe('1,2943');
+    expect(host.querySelector('[data-testid="freed-aux-noite-1-2"]')).toHaveProperty('value', '1');
+    expect(host.querySelector('[data-testid="roster-role-totals"]')?.textContent).toContain('Auxiliar noturno');
+    expect(host.querySelector('[data-testid="roster-advanced"]')?.tagName).toBe('DETAILS');
+    expect(host.querySelector('[data-testid="roster-advanced"]')?.hasAttribute('open')).toBe(false);
     const advanced = host.querySelector('[data-testid="post-override-advanced-aux-noite-1"]');
     expect(advanced?.tagName).toBe('DETAILS');
     expect(advanced?.hasAttribute('open')).toBe(false);
@@ -276,7 +279,7 @@ describe('página de cálculos desta versão', () => {
       formatPayback(rhScorecard()[3].cells[1].payback),
     );
     expect(host.querySelector('[data-testid="score-loja-1m-base"]')?.textContent?.replace(/\u00a0/g, ' ')).toContain(
-      'R$ 1.235.000',
+      'R$ 1.245.000',
     );
   });
 });

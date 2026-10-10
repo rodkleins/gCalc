@@ -36,7 +36,9 @@ O adicional noturno sugerido é 10% e só vale no terceiro turno.
 
 ## O que cada modelo assume
 
-Tudo é fictício, a validar. Equipamento de R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000. Custo mensal informado de R$ 5.000, R$ 5.500 e R$ 6.000. O cenário otimista ainda multiplica esse custo por 0,92, então o número exibido pode ficar abaixo de R$ 5.000. O aviso da tela olha o valor digitado.
+Tudo é fictício, a validar. Equipamento de R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000, sem fator escondido: 1,05 não multiplica o preço digitado. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. Obras, elétrica e rede continuam R$ 50.000. Custo mensal informado de R$ 5.000, R$ 5.500 e R$ 6.000. O cenário otimista ainda multiplica o CAPEX por 0,97 e o custo mensal por 0,92. O aviso da tela olha o valor digitado. O ajuste rápido de investimento, se o usuário mexer no slider, escala todas as linhas de CAPEX de uma vez; isso não está embutido no modelo.
+
+O custo de cada linha do quadro já inclui encargos e benefícios, no mesmo critério para todos os cargos. Não há um fator 1,3333 aplicado só a alguns. O adicional noturno no JSON é fração: 0,10 significa 10%. A faixa aceita é de 0% a 50%.
 
 O robô libera 1 auxiliar por turno em cada balcão. Farmacêutico, estoquista e gerente continuam no quadro e não entram como vaga evitada.
 
@@ -46,7 +48,7 @@ O robô libera 1 auxiliar por turno em cada balcão. Farmacêutico, estoquista e
 | Loja de R$ 2 milhões | 2, 2 balcões | 8 + 8 | R$ 62.904 em cada turno; no mês, R$ 125.809 |
 | Loja de R$ 4 milhões | 3 (24h), 3 balcões | 11 + 11 + 10 | R$ 84.778 + R$ 84.778 + R$ 124.070; no mês, R$ 293.627 |
 
-A noite da loja de R$ 4 milhões usa 12x36 no farmacêutico e no auxiliar (duas pessoas presentes por balcão, em três balcões) e mantém estoquista em 6x1 e gerente em 5x2. O fator 2,2188, com adicional de 10%, leva a folha da noite a R$ 124.070. Os turnos do dia, com 11 pessoas, ficam em R$ 84.778 cada. A noite fica acima do dia porque a escala pede cerca de 2,2 pessoas por cadeira e o adicional é 10%. A folha evitada do modelo é R$ 63.370. Se a operação real não cobre a noite assim, mude a escala, as férias, as faltas ou a quantidade. A substituição do fator fica recolhida no posto. O payback abaixo é o resultado dessa premissa, sem ajuste para caber em 30 meses.
+A noite da loja de R$ 4 milhões usa 12x36 no farmacêutico noturno e no auxiliar noturno (duas pessoas presentes por balcão, em três balcões) e mantém estoquista em 6x1 e gerente em 5x2. O nome da função separa o custo da noite do custo do dia. O fator 2,2188, com adicional de 10%, leva a folha da noite a R$ 124.070. Os turnos do dia, com 11 pessoas, ficam em R$ 84.778 cada. A noite fica acima do dia porque a escala pede cerca de 2,2 pessoas por cadeira e o adicional é 10%. A folha evitada do modelo é R$ 63.370. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. A tela é uma tabela só: cargo, balcão, escala e custo na mesma linha, pessoas por turno, folguista somente leitura e as colunas do que o robô evita. Férias, faltas, adicional e a substituição do fator ficam recolhidos. O payback abaixo é o resultado dessa premissa, sem ajuste para caber em 30 meses.
 
 A loja de R$ 1 milhão tem, além das duas posições liberadas, 1 auxiliar futuro no turno 1. A de R$ 2 milhões tem 1 futuro em cada balcão. A de R$ 4 milhões tem futuro nos dois primeiros balcões, de dia. O exemplo é loja nova: a rescisão e o futuro não entram no caixa.
 
@@ -56,17 +58,17 @@ Custo mensal da tabela é o OPEX do robô já com o fator do cenário. ROI acumu
 
 | Modelo | Cenário | Investimento líquido | Custo mensal | Benefício líquido | Payback | ROI acumulado | VPL |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Exemplo fictício (nova) | Conservador | R$ 1.290.600 | R$ 5.750 | R$ 11.522 | Não recupera em 60 meses | 53,6% | -R$ 765.335 |
-| Exemplo fictício (nova) | Base | R$ 1.195.000 | R$ 5.000 | R$ 16.590 | Não recupera em 60 meses | 83,3% | -R$ 438.695 |
-| Exemplo fictício (nova) | Otimista | R$ 1.159.150 | R$ 4.600 | R$ 19.581 | 59,2 meses | 101,4% | -R$ 266.501 |
-| Loja de R$ 1 milhão | Conservador | R$ 1.333.800 | R$ 5.750 | R$ 14.798 | Não recupera em 60 meses | 62,5% | -R$ 721.402 |
-| Loja de R$ 1 milhão | Base | R$ 1.235.000 | R$ 5.000 | R$ 20.685 | Não recupera em 60 meses | 95% | -R$ 367.087 |
-| Loja de R$ 1 milhão | Otimista | R$ 1.197.950 | R$ 4.600 | R$ 24.167 | 53,2 meses | 114,7% | -R$ 179.008 |
-| Loja de R$ 2 milhões | Conservador | R$ 1.782.000 | R$ 6.325 | R$ 34.611 | 55,3 meses | 110,4% | -R$ 328.583 |
-| Loja de R$ 2 milhões | Base | R$ 1.650.000 | R$ 5.500 | R$ 45.670 | 39,6 meses | 157,8% | R$ 281.853 |
-| Loja de R$ 2 milhões | Otimista | R$ 1.600.500 | R$ 5.060 | R$ 52.251 | 34,0 meses | 186,3% | R$ 615.906 |
-| Loja de R$ 4 milhões | Conservador | R$ 2.413.800 | R$ 6.900 | R$ 82.256 | 31,4 meses | 199,9% | R$ 1.170.398 |
-| Loja de R$ 4 milhões | Base | R$ 2.235.000 | R$ 6.000 | R$ 105.445 | 23,1 meses | 277% | R$ 2.380.609 |
-| Loja de R$ 4 milhões | Otimista | R$ 2.167.950 | R$ 5.520 | R$ 119.298 | 20,0 meses | 323,1% | R$ 3.063.771 |
+| Exemplo fictício (nova) | Conservador | R$ 1.301.400 | R$ 5.750 | R$ 11.522 | Não recupera em 60 meses | 53,1% | -R$ 776.135 |
+| Exemplo fictício (nova) | Base | R$ 1.205.000 | R$ 5.000 | R$ 16.590 | Não recupera em 60 meses | 82,6% | -R$ 448.695 |
+| Exemplo fictício (nova) | Otimista | R$ 1.168.850 | R$ 4.600 | R$ 19.581 | 59,7 meses | 100,5% | -R$ 276.201 |
+| Loja de R$ 1 milhão | Conservador | R$ 1.344.600 | R$ 5.750 | R$ 14.798 | Não recupera em 60 meses | 62% | -R$ 732.202 |
+| Loja de R$ 1 milhão | Base | R$ 1.245.000 | R$ 5.000 | R$ 20.685 | Não recupera em 60 meses | 94,2% | -R$ 377.087 |
+| Loja de R$ 1 milhão | Otimista | R$ 1.207.650 | R$ 4.600 | R$ 24.167 | 53,6 meses | 113,7% | -R$ 188.708 |
+| Loja de R$ 2 milhões | Conservador | R$ 1.776.600 | R$ 6.325 | R$ 34.611 | 55,1 meses | 110,7% | -R$ 323.183 |
+| Loja de R$ 2 milhões | Base | R$ 1.645.000 | R$ 5.500 | R$ 45.670 | 39,5 meses | 158,3% | R$ 286.853 |
+| Loja de R$ 2 milhões | Otimista | R$ 1.595.650 | R$ 5.060 | R$ 52.251 | 33,9 meses | 186,9% | R$ 620.756 |
+| Loja de R$ 4 milhões | Conservador | R$ 2.386.800 | R$ 6.900 | R$ 82.256 | 31,1 meses | 202,2% | R$ 1.197.398 |
+| Loja de R$ 4 milhões | Base | R$ 2.210.000 | R$ 6.000 | R$ 105.445 | 22,9 meses | 280,1% | R$ 2.405.609 |
+| Loja de R$ 4 milhões | Otimista | R$ 2.143.700 | R$ 5.520 | R$ 119.298 | 19,8 meses | 326,8% | R$ 3.088.021 |
 
-O exemplo e a loja de R$ 1 milhão não recuperam o investimento em 60 meses no cenário base. A de R$ 2 milhões fica em 39,6 meses. A de R$ 4 milhões fica em 23,1 meses no base e em 31,4 meses no conservador. Nenhuma dessas três foi puxada para 30 meses.
+O exemplo e a loja de R$ 1 milhão não recuperam o investimento em 60 meses no cenário base. A de R$ 2 milhões fica em 39,5 meses. A de R$ 4 milhões fica em 22,9 meses no base e em 31,1 meses no conservador. Nenhuma dessas três foi puxada para 30 meses. A importação avisa se o JSON vier com posto liberado zerado, adicional noturno fora de 0% a 50%, dois custos no mesmo cargo e balcão, ou perfil divergente do quadro.

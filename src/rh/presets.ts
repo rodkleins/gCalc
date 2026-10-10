@@ -103,7 +103,7 @@ function storeRoster(id: StorePreset['id']): Roster {
     post({ id: 'farm-1', role: 'Farmacêutico', counter: 'Balcão 1', scale: '6x1', monthlyCost: 8_500, onDuty: [1, 1, 0] }),
     post({ id: 'farm-2', role: 'Farmacêutico', counter: 'Balcão 2', scale: '6x1', monthlyCost: 8_500, onDuty: [1, 1, 0] }),
     post({ id: 'farm-3', role: 'Farmacêutico', counter: 'Balcão 3', scale: '6x1', monthlyCost: 8_500, onDuty: [1, 1, 0] }),
-    post({ id: 'farm-noite', role: 'Farmacêutico', counter: 'Noite', scale: '12x36', monthlyCost: 8_500, onDuty: [0, 0, 2] }),
+    post({ id: 'farm-noite', role: 'Farmacêutico noturno', counter: 'Noite', scale: '12x36', monthlyCost: 8_500, onDuty: [0, 0, 2] }),
     post({
       id: 'aux-1',
       role: 'Auxiliar de farmácia',
@@ -136,7 +136,7 @@ function storeRoster(id: StorePreset['id']): Roster {
     }),
     post({
       id: 'aux-noite-1',
-      role: 'Auxiliar de farmácia',
+      role: 'Auxiliar noturno',
       counter: 'Balcão 1',
       scale: '12x36',
       monthlyCost: 4_200,
@@ -145,7 +145,7 @@ function storeRoster(id: StorePreset['id']): Roster {
     }),
     post({
       id: 'aux-noite-2',
-      role: 'Auxiliar de farmácia',
+      role: 'Auxiliar noturno',
       counter: 'Balcão 2',
       scale: '12x36',
       monthlyCost: 4_200,
@@ -154,7 +154,7 @@ function storeRoster(id: StorePreset['id']): Roster {
     }),
     post({
       id: 'aux-noite-3',
-      role: 'Auxiliar de farmácia',
+      role: 'Auxiliar noturno',
       counter: 'Balcão 3',
       scale: '12x36',
       monthlyCost: 4_200,
@@ -168,6 +168,7 @@ function storeRoster(id: StorePreset['id']): Roster {
 
 function withNote(inputs: Inputs): Inputs {
   const next = structuredClone(inputs);
+  next.robot.capex.installationTraining = 50_000;
   next.fictional = true;
   next.meta.notes = `${next.meta.notes} ${RH_SENTENCE}`;
   next.meta.source = 'Quadro de RH em validação. Não é a calculadora publicada.';

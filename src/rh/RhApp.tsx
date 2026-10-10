@@ -128,6 +128,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
   const [status, setStatus] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [railCollapsed, setRailCollapsed] = useState(() => readUiFlag(localStorage, RH_UI_KEYS.railCollapsed) === true);
   const [pendingPreset, setPendingPreset] = useState<RhPreset | null>(null);
   const presets = useMemo(() => rhStorePresets(), []);
@@ -344,9 +345,11 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
     reader.onload = () => {
       const imported = importRhPayload(String(reader.result));
       if (!imported) {
+        setImportWarnings([]);
         setStatus('Não foi possível ler este JSON.');
         return;
       }
+      setImportWarnings(imported.warnings);
       if (imported.draft) {
         setRoster(imported.draft.roster);
         resetDraft(imported.draft.adjustAnchor);
@@ -372,7 +375,11 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           return [...current, ...appended];
         });
       }
-      setStatus('JSON importado nesta versão. A calculadora atual não foi alterada.');
+      setStatus(
+        imported.warnings.length > 0
+          ? 'JSON importado com alertas. A calculadora atual não foi alterada.'
+          : 'JSON importado nesta versão. A calculadora atual não foi alterada.',
+      );
     };
     reader.readAsText(file);
   }
@@ -530,6 +537,16 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           </div>
         </div>
         <RhStorePicker presets={presets} onLoad={setPendingPreset} />
+        {importWarnings.length > 0 ? (
+          <div className="callout warn" data-testid="rh-import-warnings">
+            <strong>O JSON importado tem inconsistências.</strong>
+            <ul>
+              {importWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="storage-note" data-testid="storage-note">
           Os dados desta versão ficam só neste navegador, separados da calculadora atual.
           {status ? ` ${status}` : ''}

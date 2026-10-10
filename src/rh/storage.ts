@@ -2,6 +2,7 @@ import { isInputs, isScenarioId, isSectionId, type KeyValueStore, type SectionId
 import { normalizeInputs } from '../model/normalize';
 import { normalizeWizardStep } from '../model/wizard';
 import type { Inputs, ScenarioId } from '../model/types';
+import { rhImportWarnings } from './importCheck';
 import {
   DEFAULT_ABSENCE_DAYS,
   DEFAULT_NIGHT_PREMIUM,
@@ -245,6 +246,7 @@ export function rootKeysUntouched(before: KeyValueStore, after: KeyValueStore): 
 export interface ImportedRh {
   draft: RhDraft | null;
   simulations: RhSimulation[];
+  warnings: string[];
 }
 
 export function importRhPayload(raw: unknown): ImportedRh | null {
@@ -258,7 +260,28 @@ export function importRhPayload(raw: unknown): ImportedRh | null {
   }
   if (!isRecord(value) && !isInputs(value)) return null;
   if (isRecord(value) && isFutureRh(value)) return null;
+  const warnings = isRecord(value) ? importWarnings(value) : [];
   const parsed = parseRhSession(JSON.stringify(value));
   if (!parsed.draft && parsed.simulations.length === 0) return null;
-  return { draft: parsed.draft, simulations: parsed.simulations };
+  return { draft: parsed.draft, simulations: parsed.simulations, warnings: [...new Set(warnings)] };
+}
+
+function importWarnings(value: Record<string, unknown>): string[] {
+  const messages: string[] = [];
+  const chunks: Array<{ inputs: unknown; roster: unknown }> = [];
+  if (isRecord(value.draft)) chunks.push({ inputs: value.draft.inputs, roster: value.draft.roster });
+  else if (isInputs(value.inputs) || isInputs(value)) chunks.push({ inputs: isInputs(value.inputs) ? value.inputs : value, roster: value.roster });
+  if (Array.isArray(value.simulations)) {
+    for (const simulation of value.simulations) {
+      if (isRecord(simulation)) chunks.push({ inputs: simulation.inputs, roster: simulation.roster });
+    }
+  }
+  for (const chunk of chunks) {
+    if (!isInputs(chunk.inputs)) continue;
+    const inputs = normalizeInputs(chunk.inputs);
+    const explicitRoster = normalizeRoster(chunk.roster);
+    const roster = explicitRoster ?? rosterFromLegacyInputs(inputs);
+    messages.push(...rhImportWarnings(inputs, roster, explicitRoster !== null));
+  }
+  return messages;
 }

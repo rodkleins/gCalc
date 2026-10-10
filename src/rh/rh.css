@@ -1,11 +1,46 @@
-.roster-count {
+.roster-count,
+.roster-text,
+.roster-sheet select {
   width: 5.5rem;
   max-width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  font: inherit;
   text-align: right;
 }
-.roster-table td { vertical-align: middle; }
+.roster-text { width: 9.5rem; text-align: left; }
+.roster-sheet select { width: 5.2rem; text-align: left; }
+.roster-sheet { max-height: none; }
+.roster-sheet table { table-layout: auto; min-width: 980px; }
+.roster-sheet th,
+.roster-sheet td { vertical-align: middle; }
+.roster-sheet .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: white;
+  min-width: 9.5rem;
+}
+.roster-sheet thead .sticky-col,
+.roster-sheet tfoot .sticky-col { z-index: 4; background: #f7f3ea; }
+.roster-sheet .is-freed { background: var(--gold-soft); }
+.roster-sheet tfoot td { font-weight: 650; }
+.roster-role-totals { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.roster-role-totals li {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: white;
+}
+.roster-memory {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .roster-form .seg { max-width: 100%; }
-@media (max-width: 700px) {
-  .table-wrap .roster-table { table-layout: auto; }
-  .roster-count { width: 4.5rem; min-height: 44px; }
+.roster-form .advanced { margin-top: 12px; }
+@media (max-width: 900px) {
+  .roster-count { width: 4.5rem; }
 }
