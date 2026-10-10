@@ -110,6 +110,19 @@ const SLOT_HELP = {
     'Contratações que a loja faria neste turno a partir do mês 13, em quantidade. Entram no caixa só em loja existente, já com o fator de cobertura.',
 } as const;
 
+const FACTOR_HELP =
+  'Fator calculado automaticamente pela escala, pelos dias de férias e pelas faltas. A unidade é pessoas contratadas por pessoa no turno. A folha multiplica as pessoas do turno por este fator e pelo custo mensal. Não se digita: mude a escala, as férias ou as faltas para recalcular.';
+
+const OVERRIDE_HELP =
+  'Substitui o fator calculado só neste posto. A unidade é pessoas contratadas por pessoa no turno. Preenchido, a folha usa este número no lugar da escala, das férias e das faltas. Vazio volta ao cálculo automático.';
+
+function coverageSentence(memory: ReturnType<typeof coverageMemory>, roster: Roster): string {
+  if (memory.availableDays <= 0) {
+    return `${memory.scaleMeaning} Férias e faltas cobrem o ano, então o fator calculado é 0.`;
+  }
+  return `${memory.scaleMeaning} Fator calculado = ${memory.peoplePerSeatLabel} × ${roster.yearDays} / (${roster.yearDays} − ${roster.vacationDays} − ${roster.absenceDays}) = ${formatNumber(memory.suggested, 4)}. Folguista de ${formatNumber(memory.folguista, 4)} por pessoa neste turno.`;
+}
+
 function CountCell({
   value,
   testId,
@@ -195,6 +208,7 @@ export function RosterForm({
             value={roster.nightPremiumPct}
             testId="night-premium"
             hint="Vale só no turno da noite, e só quando a loja tem 3 turnos. O padrão sugerido é 10%."
+            help="Percentual sobre o custo mensal do cargo. Multiplica só a folha do turno da noite, e só quando a loja tem 3 turnos. Com 2 turnos fica guardado e não entra na conta. O padrão é 10%."
             onChange={(nightPremiumPct) => onChange({ ...roster, nightPremiumPct })}
           />
           <NumberField
@@ -202,7 +216,8 @@ export function RosterForm({
             value={roster.vacationDays}
             min={0}
             testId="vacation-days"
-            hint="Entram no fator sugerido do folguista. O padrão é 30."
+            hint="Entram no fator calculado do folguista. O padrão é 30."
+            help="Dias de férias por pessoa no ano. Entram no denominador do fator: dias do ano − férias − faltas. O padrão é 30. Mudar este número recalcula o fator de cada posto."
             onChange={(vacationDays) => onChange({ ...roster, vacationDays })}
           />
           <NumberField
@@ -210,7 +225,8 @@ export function RosterForm({
             value={roster.absenceDays}
             min={0}
             testId="absence-days"
-            hint="Também entram no fator sugerido. O padrão é 6 dias."
+            hint="Também entram no fator calculado. O padrão é 6 dias."
+            help="Dias de falta previstos no ano, não um percentual. Entram no denominador do fator junto com as férias. O padrão é 6. Mudar este número recalcula o fator de cada posto."
             onChange={(absenceDays) => onChange({ ...roster, absenceDays })}
           />
         </div>
@@ -219,7 +235,8 @@ export function RosterForm({
           o turno: um turno de 8 horas não se converte em 12/8 nem em 12/48. 6x1 trabalha 6 e folga 1 (7/6 pessoas).
           5x2 trabalha 5 e folga 2 (7/5). 12x36 trabalha um dia e folga o outro, em turno de 12 horas (2 pessoas).
           Férias e faltas multiplicam esse número por dias do ano / (dias do ano − férias − faltas). O folguista é o
-          fator menos 1. O fator de cobertura manual, se preenchido, substitui a sugestão só naquele posto. Vazio usa o cálculo automático.
+          fator menos 1. O fator de cada posto é calculado e fica somente leitura. Dias de férias e faltas continuam
+          editáveis e recalculam esse fator.
         </p>
       </section>
 
@@ -239,15 +256,10 @@ export function RosterForm({
                   {item.role || 'Cargo'} · {item.counter || 'Balcão'}
                 </h3>
                 <p>
-                  Fator sugerido {formatNumber(coverage.suggested, 4)}
-                  {coverage.overridden ? ` · em uso ${formatNumber(coverage.applied, 4)}` : ' · em uso'}
+                  Fator calculado {formatNumber(memory.suggested, 4)}
                   {' · '}
-                  folguista de {formatNumber(Math.max(0, coverage.applied - 1), 4)} por pessoa no turno
-                </p>
-                <p className="lede" data-testid={`post-coverage-${item.id}`}>
-                  {memory.availableDays > 0
-                    ? `${memory.scaleMeaning} Fator sugerido = ${memory.peoplePerSeatLabel} × ${roster.yearDays} / (${roster.yearDays} − ${roster.vacationDays} − ${roster.absenceDays}) = ${formatNumber(memory.suggested, 4)}. Folguista de ${formatNumber(memory.folguista, 4)} por pessoa neste turno.`
-                    : `${memory.scaleMeaning} Férias e faltas cobrem o ano, então o fator sugerido é 0.`}
+                  folguista de {formatNumber(memory.folguista, 4)} por pessoa no turno
+                  {coverage.overridden ? ` · substituído por ${formatNumber(coverage.applied, 4)}` : ''}
                 </p>
               </div>
               <RemoveButton confirm="Tirar este posto do quadro?" onRemove={() => onChange({ ...roster, posts: roster.posts.filter((post) => post.id !== item.id) })} />
@@ -300,17 +312,38 @@ export function RosterForm({
                 onChange={(monthlyCost) => updatePost(item.id, { monthlyCost })}
               />
               <label className="field">
-                <FieldLabel
-                  label="Fator de cobertura manual"
-                  help="Vazio usa o cálculo automático da escala. Preenchido substitui o fator só neste posto. A unidade é pessoas contratadas por pessoa no turno. A folha multiplica as pessoas do turno por este fator e pelo custo mensal."
-                />
+                <FieldLabel label="Fator de cobertura" help={FACTOR_HELP} />
+                <span className="control is-calculated">
+                  <input
+                    readOnly
+                    tabIndex={0}
+                    data-testid={`post-factor-${item.id}`}
+                    aria-readonly="true"
+                    {...fieldHelpAttr(true, FACTOR_HELP)}
+                    value={formatNumber(memory.suggested, 4)}
+                  />
+                </span>
+                <small data-testid={`post-coverage-${item.id}`}>{coverageSentence(memory, roster)}</small>
+              </label>
+            </div>
+            {coverage.overridden ? (
+              <p className="lede" data-testid={`post-override-notice-${item.id}`}>
+                Um fator de {formatNumber(coverage.applied, 4)} está substituindo o cálculo ({formatNumber(coverage.suggested, 4)}) neste
+                posto. Abra “Substituir o fator calculado” para voltar à conta da escala.
+              </p>
+            ) : null}
+            <details className="advanced" data-testid={`post-override-advanced-${item.id}`}>
+              <summary>Substituir o fator calculado</summary>
+              <p className="lede">
+                Preencher este campo substitui o cálculo automático só neste posto. A folha deixa de usar a escala, as férias e as
+                faltas e passa a usar o número digitado. Vazio volta ao fator calculado.
+              </p>
+              <label className="field">
+                <FieldLabel label="Fator que substitui o cálculo" help={OVERRIDE_HELP} />
                 <span className="control">
                   <input
                     data-testid={`post-override-${item.id}`}
-                    {...fieldHelpAttr(
-                      true,
-                      'Vazio usa o cálculo automático da escala. Preenchido substitui o fator só neste posto. A unidade é pessoas contratadas por pessoa no turno. A folha multiplica as pessoas do turno por este fator e pelo custo mensal.',
-                    )}
+                    {...fieldHelpAttr(true, OVERRIDE_HELP)}
                     inputMode="decimal"
                     placeholder={formatNumber(coverage.suggested, 4)}
                     value={item.coverageOverride === null ? '' : String(item.coverageOverride).replace('.', ',')}
@@ -326,9 +359,9 @@ export function RosterForm({
                     }}
                   />
                 </span>
-                <small>Vazio usa o cálculo automático ({formatNumber(coverage.suggested, 4)}). Preenchido substitui.</small>
+                <small>Vazio usa o fator calculado ({formatNumber(coverage.suggested, 4)}). Preenchido substitui a conta.</small>
               </label>
-            </div>
+            </details>
             <div className="table-wrap short">
               <table className="roster-table">
                 <thead>

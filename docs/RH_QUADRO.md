@@ -10,7 +10,7 @@ A calculadora em `/gCalc/`, o rascunho `/gCalc/headtohead/` e a página `/gCalc/
 
 O posto já é uma cadeira daquele turno. A escala diz quantas pessoas contratadas mantêm uma pessoa presente cada vez que o turno acontece. Um turno de 8 horas e uma escala de 12 horas não se multiplicam: 12x36 não é 12/48 nem 12/8.
 
-Padrão visível: 365 dias, 30 de férias e 6 faltas. Cada posto tem o campo Fator de cobertura manual: vazio usa esta conta; preenchido substitui o fator só naquele posto. A memória aparece em cada posto.
+Padrão visível: 365 dias, 30 de férias e 6 faltas. Esses dias continuam editáveis e recalculam o fator. Cada posto mostra o fator calculado, somente leitura, e a memória da conta. A substituição manual fica recolhida em “Substituir o fator calculado”: preenchida, troca o fator só naquele posto.
 
 ```
 6x1 trabalha 6 e folga 1 → 7/6 pessoas por cadeira
@@ -46,7 +46,7 @@ O robô libera 1 auxiliar por turno em cada balcão. Farmacêutico, estoquista e
 | Loja de R$ 2 milhões | 2, 2 balcões | 8 + 8 | R$ 62.904 em cada turno; no mês, R$ 125.809 |
 | Loja de R$ 4 milhões | 3 (24h), 3 balcões | 11 + 11 + 10 | R$ 84.778 + R$ 84.778 + R$ 124.070; no mês, R$ 293.627 |
 
-A noite da loja de R$ 4 milhões usa 12x36 no farmacêutico e no auxiliar (duas pessoas presentes por balcão, em três balcões) e mantém estoquista em 6x1 e gerente em 5x2. O fator 2,2188, com adicional de 10%, leva a folha da noite a R$ 124.070. Os turnos do dia, com 11 pessoas, ficam em R$ 84.778 cada. A noite fica acima do dia porque a escala pede cerca de 2,2 pessoas por cadeira e o adicional é 10%. A folha evitada do modelo é R$ 63.370. Se a operação real não cobre a noite assim, o fator do posto pode ser sobrescrito. O payback abaixo é o resultado dessa premissa, sem ajuste para caber em 30 meses.
+A noite da loja de R$ 4 milhões usa 12x36 no farmacêutico e no auxiliar (duas pessoas presentes por balcão, em três balcões) e mantém estoquista em 6x1 e gerente em 5x2. O fator 2,2188, com adicional de 10%, leva a folha da noite a R$ 124.070. Os turnos do dia, com 11 pessoas, ficam em R$ 84.778 cada. A noite fica acima do dia porque a escala pede cerca de 2,2 pessoas por cadeira e o adicional é 10%. A folha evitada do modelo é R$ 63.370. Se a operação real não cobre a noite assim, mude a escala, as férias, as faltas ou a quantidade. A substituição do fator fica recolhida no posto. O payback abaixo é o resultado dessa premissa, sem ajuste para caber em 30 meses.
 
 A loja de R$ 1 milhão tem, além das duas posições liberadas, 1 auxiliar futuro no turno 1. A de R$ 2 milhões tem 1 futuro em cada balcão. A de R$ 4 milhões tem futuro nos dois primeiros balcões, de dia. O exemplo é loja nova: a rescisão e o futuro não entram no caixa.
 

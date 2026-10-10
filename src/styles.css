@@ -524,6 +524,10 @@ p { margin: 0; }
   outline: none;
   font-variant-numeric: tabular-nums;
 }
+.control.is-calculated { background: var(--paper); }
+.control input[readonly] { cursor: default; }
+.roster-form .advanced,
+.roster-form .card > .table-wrap { margin-top: 12px; }
 .control i { color: var(--muted); font-style: normal; font-size: 0.85rem; }
 .field small { color: var(--muted); }
 .field.check { flex-direction: row; align-items: flex-start; gap: 10px; min-height: 44px; }
