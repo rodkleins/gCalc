@@ -4,6 +4,7 @@ import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
 import { PremiseFocus } from './components/Fields';
 import { MoreActions } from './components/MoreActions';
+import { PrintReport } from './components/PrintReport';
 import { PageNav } from './components/PageNav';
 import { PreviewNotice } from './components/PreviewNotice';
 import { InvestmentForm } from './components/InvestmentForm';
@@ -515,6 +516,9 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         </p>
 
         <PremiseFocus field={focusField}>
+        {section === 'dashboard' || section === 'simulacoes' ? (
+          <PrintReport inputs={inputs} result={result} scenario={scenario} edition="raiz" />
+        ) : null}
         {section === 'wizard' ? (
           <Wizard
             inputs={inputs}

@@ -4,6 +4,7 @@ import { CashflowTable } from '../components/CashflowTable';
 import { Dashboard } from '../components/Dashboard';
 import { FieldHelpProvider, PremiseFocus } from '../components/Fields';
 import { MoreActions } from '../components/MoreActions';
+import { PrintReport } from '../components/PrintReport';
 import { InvestmentForm } from '../components/InvestmentForm';
 import { LibraryPanel, downloadJson } from '../components/LibraryPanel';
 import { LogisticsForm } from '../components/LogisticsForm';
@@ -22,6 +23,7 @@ import { wizardSeed } from '../model/wizard';
 import { RhPresetPanel, RhStorePicker } from './RhPresets';
 import { RhPageNav, RhValidationNotice } from './RhPageNav';
 import { RosterForm } from './RosterForm';
+import { RosterPrint } from './RosterPrint';
 import { exampleRoster, rhExample, rhStorePresets, type RhPreset } from './presets';
 import { applyRoster, type Roster } from './roster';
 import {
@@ -553,6 +555,15 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
         </p>
 
         <PremiseFocus field={focusField}>
+          {section === 'dashboard' || section === 'simulacoes' ? (
+            <PrintReport
+              inputs={inputs}
+              result={result}
+              scenario={scenario}
+              edition="rh"
+              completeExtra={<RosterPrint roster={roster} />}
+            />
+          ) : null}
           {section === 'wizard' ? (
             <Wizard
               inputs={inputs}
