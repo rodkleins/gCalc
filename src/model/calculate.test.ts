@@ -18,15 +18,17 @@ describe('exemplo ilustrativo do escopo', () => {
   const result = evaluate(cloneExample());
 
   it('fecha investimento, benefício, payback e ROI', () => {
-    expect(result.netInvestment).toBe(1_195_000);
+    expect(result.netInvestment).toBe(945_000);
     expect(result.grossCapex - result.avoidedCapex).toBe(1_195_000);
+    expect(result.recoverableTaxCredit).toBe(250_000);
+    expect(result.grossCapex - result.avoidedCapex - result.recoverableTaxCredit).toBe(945_000);
     expect(result.steadyBenefit).toBe(25_500);
     expect(result.monthlyOpex).toBe(5_000);
     expect(result.steadyNet).toBe(20_500);
     expect(result.annualSteadyNet).toBe(246_000);
-    expect(result.roi).toBeCloseTo(246_000 / 1_195_000, 10);
-    expect(result.payback).toBeCloseTo(1_195_000 / 20_500, 6);
-    expect(result.firstPositiveMonth).toBe(59);
+    expect(result.roi).toBeCloseTo(246_000 / 945_000, 10);
+    expect(result.payback).toBeCloseTo(945_000 / 20_500, 6);
+    expect(result.firstPositiveMonth).toBe(47);
     expect(result.payback as number).toBeGreaterThan(30);
     expect(result.roi).toBeGreaterThan(0);
     expect(result.npv).toBeLessThan(0);
@@ -42,7 +44,7 @@ describe('exemplo ilustrativo do escopo', () => {
 
   it('mantém o fluxo mensal constante por 60 meses', () => {
     expect(result.cashFlows).toHaveLength(61);
-    expect(result.cashFlows[0]).toBe(-1_195_000);
+    expect(result.cashFlows[0]).toBe(-945_000);
     expect(result.cashFlows.slice(1).every((value) => value === 20_500)).toBe(true);
     expect(simplePayback(result.cashFlows)).toBeCloseTo(result.payback as number, 8);
   });
@@ -71,6 +73,44 @@ describe('exemplo ilustrativo do escopo', () => {
       .filter((line) => line.includedInCashFlow && line.kind === 'recorrente')
       .reduce((sum, line) => sum + line.monthlyValue, 0);
     expect(total).toBe(result.steadyBenefit);
+  });
+});
+
+describe('crédito recuperável de impostos', () => {
+  it('abate 25% do equipamento no mês 0, nas duas lojas, e limita o percentual', () => {
+    const base = evaluate(cloneExample());
+    expect(base.recoverableTaxCredit).toBe(250_000);
+    expect(base.netInvestment).toBe(945_000);
+    expect(base.cashFlows[0]).toBe(-945_000);
+    const audit = base.audit.find((line) => line.id === 'taxCredit');
+    expect(audit?.oneTimeValue).toBe(250_000);
+    expect(audit?.includedInCashFlow).toBe(true);
+    expect(audit?.reason).toMatch(/Premissa a validar/);
+    expect(audit?.reason).toMatch(/fiscal/);
+
+    const existing = cloneExample();
+    existing.profile.storeType = 'existente';
+    expect(evaluate(existing).recoverableTaxCredit).toBe(250_000);
+    expect(evaluate(existing).netInvestment).toBe(985_000);
+
+    const conservative = evaluate(cloneExample(), { scenario: 'conservador' });
+    expect(conservative.recoverableTaxCredit).toBe(270_000);
+
+    const cleared = cloneExample();
+    cleared.robot.recoverableTaxCreditPct = 0;
+    expect(evaluate(cleared).recoverableTaxCredit).toBe(0);
+    expect(evaluate(cleared).netInvestment).toBe(1_195_000);
+
+    const high = cloneExample();
+    high.robot.recoverableTaxCreditPct = 1.5;
+    expect(evaluate(high).recoverableTaxCredit).toBe(1_000_000);
+    const low = cloneExample();
+    low.robot.recoverableTaxCreditPct = -0.2;
+    expect(evaluate(low).recoverableTaxCredit).toBe(0);
+
+    const legacy = cloneExample();
+    delete (legacy.robot as { recoverableTaxCreditPct?: number }).recoverableTaxCreditPct;
+    expect(evaluate(legacy).recoverableTaxCredit).toBe(250_000);
   });
 });
 
@@ -234,14 +274,14 @@ describe('regras anti-dupla-contagem', () => {
     inputs.people.payroll.severanceCost = 18_000;
     inputs.profile.storeType = 'existente';
     const existing = evaluate(inputs);
-    expect(existing.netInvestment).toBe(1_235_000);
+    expect(existing.netInvestment).toBe(985_000);
     expect(existing.months[0].incremental).toBe(20_500 - 18_000);
     expect(existing.months[1].incremental).toBe(20_500);
 
     inputs.profile.storeType = 'nova';
     const opened = evaluate(inputs);
     expect(opened.months[0].incremental).toBe(20_500);
-    expect(opened.netInvestment).toBe(1_235_000);
+    expect(opened.netInvestment).toBe(985_000);
   });
 
   it('em loja existente troca CAPEX evitado por revenda e manutenção', () => {
@@ -249,7 +289,8 @@ describe('regras anti-dupla-contagem', () => {
     inputs.profile.storeType = 'existente';
     inputs.people.payroll.severanceCost = 0;
     const result = evaluate(inputs);
-    expect(result.netInvestment).toBe(1_235_000);
+    expect(result.netInvestment).toBe(985_000);
+    expect(result.recoverableTaxCredit).toBe(250_000);
     expect(result.steadyNet).toBe(20_500 + 400);
     expect(result.months[0].resale).toBe(8_000);
     expect(result.months[0].incremental).toBe(20_500 + 400 + 8_000);
@@ -263,7 +304,7 @@ describe('imposto, financiamento e sensibilidade', () => {
     inputs.robot.taxRate = 0.34;
     inputs.robot.depreciationYears = 10;
     const result = evaluate(inputs);
-    const depreciation = 1_195_000 / 120;
+    const depreciation = 945_000 / 120;
     const tax = Math.round((20_500 - depreciation) * 0.34 * 100) / 100;
     expect(result.steadyNet).toBeCloseTo(20_500 - tax, 2);
     expect(result.months[0].opex).toBe(5_000);
@@ -276,13 +317,14 @@ describe('imposto, financiamento e sensibilidade', () => {
     const financed = evaluate(inputs);
     expect(financed.npv).toBe(baseline.npv);
     expect(financed.payback).toBe(baseline.payback);
-    expect(financed.financing?.financedAmount).toBe(836_500);
+    expect(financed.financing?.financedAmount).toBe(661_500);
     expect(financed.financing?.monthlyPayment).toBeGreaterThan(0);
   });
 
   it('alonga o payback quando o investimento sobe 30%', () => {
     const point = sensitivity(cloneExample(), 'base').investimento.find((item) => item.delta === 0.3);
-    expect(point?.payback).toBeNull();
+    expect(point?.payback).toBeCloseTo((945_000 * 1.3) / 20_500, 4);
+    expect(point?.payback).toBeGreaterThan(evaluate(cloneExample()).payback as number);
     expect(point?.steadyNet).toBe(20_500);
   });
 
@@ -291,7 +333,7 @@ describe('imposto, financiamento e sensibilidade', () => {
     for (const points of Object.values(table)) {
       const center = points.find((point) => point.delta === 0);
       expect(center?.steadyNet).toBe(20_500);
-      expect(center?.payback).toBeCloseTo(1_195_000 / 20_500, 6);
+      expect(center?.payback).toBeCloseTo(945_000 / 20_500, 6);
     }
   });
 

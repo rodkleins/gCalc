@@ -92,6 +92,10 @@ function parameterGroups(inputs: Inputs, scenario: ScenarioId): Array<{ title: s
       title: 'Investimento',
       rows: [
         ['Equipamento', money(capex.equipment)],
+        [
+          'Créditos recuperáveis (IBS/CBS ou ICMS)',
+          `${formatPercent(inputs.robot.recoverableTaxCreditPct)} · ${money(Math.max(0, capex.equipment) * inputs.robot.recoverableTaxCreditPct)} · premissa a validar`,
+        ],
         ['Frete e impostos', money(capex.freightImportTaxes)],
         ['Instalação e treinamento', money(capex.installationTraining)],
         ['Obras e elétrica', money(capex.civilElectrical)],
@@ -309,6 +313,11 @@ function BenefitCost({ result }: { result: ModelResult }) {
             <td>Resultado</td>
             <td className="num">{money(result.steadyNet)}</td>
           </tr>
+          <tr data-testid="print-tax-credit">
+            <td>Créditos recuperáveis de impostos (IBS/CBS ou ICMS)</td>
+            <td>Premissa a validar</td>
+            <td className="num">{money(result.recoverableTaxCredit)}</td>
+          </tr>
           <tr>
             <td>Investimento líquido</td>
             <td>Uma vez</td>
@@ -323,7 +332,7 @@ function BenefitCost({ result }: { result: ModelResult }) {
 function MainPremises({ inputs, scenario }: { inputs: Inputs; scenario: ScenarioId }) {
   const rows = parameterGroups(inputs, scenario).flatMap((group) =>
     group.rows.filter((row) =>
-      ['Tipo de loja', 'Faturamento mensal', 'Equipamento', 'Instalação e treinamento', 'Custo mensal informado', 'Taxa de desconto', 'Vagas evitadas'].includes(
+      ['Tipo de loja', 'Faturamento mensal', 'Equipamento', 'Créditos recuperáveis (IBS/CBS ou ICMS)', 'Instalação e treinamento', 'Custo mensal informado', 'Taxa de desconto', 'Vagas evitadas'].includes(
         row[0],
       ),
     ),

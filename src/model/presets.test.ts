@@ -53,7 +53,9 @@ describe('modelos de loja', () => {
     expect(benefit).toBe(28_880);
     expect(result.steadyBenefit).toBe(benefit);
     expect(result.steadyNet).toBe(benefit - opex);
-    expect(result.netInvestment).toBe(1_235_000);
+    expect(preset.inputs.robot.recoverableTaxCreditPct).toBe(0.25);
+    expect(result.recoverableTaxCredit).toBe(250_000);
+    expect(result.netInvestment).toBe(985_000);
     expect(result.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
 
     const asNew = evaluate(preset.inputs, { storeTypeOverride: 'nova' });
@@ -112,8 +114,11 @@ describe('modelos de loja', () => {
       expect(result.audit.find((line) => line.id === 'shrinkage')?.includedInCashFlow).toBe(false);
       expect(result.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
     }
+    expect(base[0].recoverableTaxCredit).toBe(250_000);
+    expect(base[1].recoverableTaxCredit).toBe(337_500);
+    expect(base[2].recoverableTaxCredit).toBe(462_500);
     expect(base[0].payback as number).toBeGreaterThan(30);
-    expect(base[1].payback as number).toBeGreaterThan(30);
+    expect(base[1].payback as number).toBeLessThanOrEqual(30);
     expect(base[2].payback as number).toBeLessThanOrEqual(30);
     expect(base[2].npv).toBeGreaterThan(0);
     expect(base[1].payback as number).toBeLessThan(base[0].payback as number);

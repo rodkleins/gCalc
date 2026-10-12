@@ -10,17 +10,17 @@ No cenário **base**, loja **nova**, com as premissas ilustrativas carregadas ao
 
 | Indicador | Valor |
 | --- | --- |
-| Investimento líquido | R$ 1.195.000 |
+| Investimento líquido | R$ 945.000 |
 | Benefício líquido | R$ 20.500 por mês |
 | Benefício anual | R$ 246.000 |
-| Payback simples | 58,3 meses |
-| ROI anual simples | 20,6% |
+| Payback simples | 46,1 meses |
+| ROI anual simples | 26% |
 
-O payback de 58,3 meses é a interpolação: `1.195.000 / 20.500`. O caixa acumulado fica positivo no mês 59. O ROI é `246.000 / 1.195.000` e não é a TIR.
+O payback de 46,1 meses é a interpolação: `945.000 / 20.500`. O caixa acumulado fica positivo no mês 47. O ROI é `246.000 / 945.000` e não é a TIR.
 
-O investimento bruto do exemplo é R$ 1.235.000, com R$ 50.000 de obras, elétrica e rede e R$ 1.000.000 de equipamento. Em loja nova, R$ 40.000 de prateleiras evitadas reduzem o CAPEX ao líquido de R$ 1.195.000. O benefício bruto de R$ 25.500 menos o OPEX de R$ 5.000 produz os R$ 20.500. Avarias ficam fora do caixa: a perda é uma linha só. Tudo continua fictício, a validar.
+O investimento bruto do exemplo é R$ 1.235.000, com R$ 50.000 de obras, elétrica e rede e R$ 1.000.000 de equipamento. Em loja nova, R$ 40.000 de prateleiras evitadas e R$ 250.000 de créditos recuperáveis de impostos (25% do equipamento, premissa a validar com o fiscal) reduzem o CAPEX ao líquido de R$ 945.000. O benefício bruto de R$ 25.500 menos o OPEX de R$ 5.000 produz os R$ 20.500. Avarias ficam fora do caixa: a perda é uma linha só. Tudo continua fictício, a validar.
 
-O equipamento dos padrões fica em R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000. O custo mensal informado fica em R$ 5.000, R$ 5.500 e R$ 6.000. No cenário base, o payback das lojas é 54,5, 34,8 e 27,3 meses. Só a de R$ 4 milhões fecha em até 30 meses. A tela avisa se o equipamento digitado ficar abaixo de R$ 1.000.000 ou se o custo mensal digitado ficar abaixo de R$ 5.000.
+O equipamento dos padrões fica em R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000. O custo mensal informado fica em R$ 5.000, R$ 5.500 e R$ 6.000. O crédito de impostos parte de 25% do equipamento nas três lojas. No cenário base, o payback das lojas é 44,0, 28,2 e 22,1 meses. A de R$ 1 milhão continua acima de 30 meses. A tela avisa se o equipamento digitado ficar abaixo de R$ 1.000.000 ou se o custo mensal digitado ficar abaixo de R$ 5.000.
 
 ## Como rodar
 
@@ -91,7 +91,7 @@ O imposto, quando ligado, aplica a alíquota sobre o resultado operacional menos
 npm test
 ```
 
-A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 1.195.000 / R$ 20.500 / 58,3 meses / 20,6%, as regras de dupla contagem e a presença desses números na tela.
+A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 / R$ 20.500 / 46,1 meses / 26%, as regras de dupla contagem e a presença desses números na tela.
 
 ## Publicar no GitHub Pages
 

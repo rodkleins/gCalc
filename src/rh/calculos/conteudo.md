@@ -74,7 +74,7 @@ Perdas, área, prateleiras e o custo do robô seguem as premissas do modelo. Nã
 
 ## 7. Pisos e modelos
 
-O equipamento dos padrões não fica abaixo de R$ 1.000.000 e não leva um fator escondido de 1,05. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. O custo mensal informado fica entre R$ 5.000 e R$ 6.000. Loja maior pode ter segundo braço, carregador automático e módulo refrigerado. Tudo é fictício, a validar.
+O equipamento dos padrões não fica abaixo de R$ 1.000.000 e não leva um fator escondido de 1,05. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. O custo mensal informado fica entre R$ 5.000 e R$ 6.000. O crédito recuperável de impostos (IBS/CBS ou ICMS) parte de 25% do preço do equipamento, é editável de 0% a 100% e abate o investimento líquido no mês 0. É premissa a validar com o fiscal. Um JSON antigo sem esse campo recebe os 25%. Loja maior pode ter segundo braço, carregador automático e módulo refrigerado. Tudo é fictício, a validar.
 
 O exemplo e a loja de R$ 1 milhão têm 2 turnos e 1 balcão. O robô libera 1 auxiliar em cada turno. A de R$ 1 milhão ainda tem 1 auxiliar futuro no turno 1.
 

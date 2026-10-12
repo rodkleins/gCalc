@@ -265,6 +265,11 @@ describe('ajuda dos campos', () => {
           addStore?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
       }
+      if (label === 'Investimento') {
+        const helps = [...host.querySelectorAll('[data-field-help]')].map((node) => node.getAttribute('data-field-help') ?? '');
+        expect(helps.some((text) => text.includes('regime tributário') && text.includes('fiscal'))).toBe(true);
+        expect(host.textContent).toContain('Premissa a validar');
+      }
       if (label === 'Simulações') {
         const save = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Salvar simulação');
         await act(async () => {
@@ -315,13 +320,13 @@ describe('página de cálculos desta versão', () => {
     expect(text).toContain('2,2188');
     expect(text).not.toContain('6,6063');
     expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
-    expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('Não recupera em 60 meses');
+    expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('57,6 meses');
     expect(formatPayback(rhScorecard()[3].cells[1].payback)).not.toBe('14,7 meses');
     expect(host.querySelector('[data-testid="score-loja-4m-base"]')?.textContent).toContain(
       formatPayback(rhScorecard()[3].cells[1].payback),
     );
     expect(host.querySelector('[data-testid="score-loja-1m-base"]')?.textContent?.replace(/\u00a0/g, ' ')).toContain(
-      'R$ 1.245.000',
+      'R$ 995.000',
     );
   });
 });

@@ -60,7 +60,10 @@ describe('relatório de impressão', () => {
     expect(sheet?.textContent).toContain('Farmácia Aurora — Unidade Centro');
     expect(sheet?.textContent).toContain('Base');
     expect(sheet?.textContent).toContain('Payback');
-    expect(sheet?.textContent).toContain('58,3 meses');
+    expect(sheet?.textContent).toContain('46,1 meses');
+    expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('Premissa a validar');
+    expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('250.000');
+    expect(host.querySelector('[data-testid="print-main-premises"]')?.textContent).toContain('Créditos recuperáveis');
     expect(host.querySelector('[data-testid="print-chart-cash"] svg')).not.toBeNull();
     expect(host.querySelector('[data-testid="print-chart-benefits"] svg')).not.toBeNull();
     expect(host.querySelector('[data-testid="print-benefit-cost"]')).not.toBeNull();

@@ -9,7 +9,7 @@ import {
   withTotalOpex,
   WIZARD_STEPS,
 } from '../model/wizard';
-import { equipmentFloorWarning, monthlyRobotCostWarning } from '../model/example';
+import { equipmentFloorWarning, monthlyRobotCostWarning, RECOVERABLE_TAX_CREDIT_HELP } from '../model/example';
 import { Callout, NumberField, PercentField, StageNote, Switch, TextField } from './Fields';
 
 export function Wizard({
@@ -513,6 +513,23 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           help="Preço do robô, em R$, pago uma vez. Entra no CAPEX e no investimento líquido. Não se repete no custo mensal."
           value={robot.capex.equipment}
           onChange={(equipment) => onInputs({ ...inputs, robot: { ...robot, capex: { ...robot.capex, equipment } } })}
+        />
+        <PercentField
+          fieldId="robot.recoverableTaxCreditPct"
+          testId="tax-credit-pct"
+          label="Créditos recuperáveis de impostos (IBS/CBS ou ICMS)"
+          help={RECOVERABLE_TAX_CREDIT_HELP}
+          hint={`${RECOVERABLE_TAX_CREDIT_HELP} ${formatBRL(robot.capex.equipment * robot.recoverableTaxCreditPct)} sobre o equipamento digitado. Premissa a validar.`}
+          value={robot.recoverableTaxCreditPct}
+          onChange={(recoverableTaxCreditPct) =>
+            onInputs({
+              ...inputs,
+              robot: {
+                ...robot,
+                recoverableTaxCreditPct: Math.min(1, Math.max(0, recoverableTaxCreditPct)),
+              },
+            })
+          }
         />
         <NumberField
           label="Demais custos para instalar"

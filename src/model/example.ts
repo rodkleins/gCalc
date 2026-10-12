@@ -8,6 +8,16 @@ export const SUGGESTED_TRAINING_PER_HIRE = 6_000;
 export const MINIMUM_EQUIPMENT_PRICE = 1_000_000;
 /** Manutenção, suporte e o restante do custo mensal partem deste piso. */
 export const MINIMUM_MONTHLY_ROBOT_COST = 5_000;
+/** Crédito de IBS/CBS ou ICMS sobre o preço do equipamento, até o fiscal confirmar. */
+export const DEFAULT_RECOVERABLE_TAX_CREDIT_PCT = 0.25;
+export const RECOVERABLE_TAX_CREDIT_HELP =
+  'O crédito depende do regime tributário da rede e deve ser validado com o fiscal.';
+
+/** Preenche simulações antigas com 25% e recusa percentual fora de 0 a 100%. */
+export function normalizeRecoverableTaxCreditPct(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_RECOVERABLE_TAX_CREDIT_PCT;
+  return Math.min(1, Math.max(0, value));
+}
 
 export function equipmentPriceBelowMinimum(equipment: number): boolean {
   return equipment > 0 && equipment < MINIMUM_EQUIPMENT_PRICE;
@@ -29,9 +39,8 @@ export function monthlyRobotCostWarning(monthlyCost: number): string | null {
 
 /**
  * Exemplo ilustrativo fictício do escopo.
- * Equipamento R$ 1.000.000, investimento líquido R$ 1.195.000,
- * benefício líquido R$ 20.500/mês. O payback passa de 30 meses:
- * o piso do robô não foi compensado com benefício novo.
+ * Equipamento R$ 1.000.000, com 25% de crédito recuperável de impostos
+ * sobre esse preço. O benefício líquido é R$ 20.500/mês.
  * Avarias ficam fora do caixa: as perdas entram uma vez só.
  */
 const EXAMPLE: Inputs = {
@@ -44,7 +53,7 @@ const EXAMPLE: Inputs = {
     source: 'Hipóteses do escopo funcional, não são dados de uma loja real',
     owner: 'Time comercial (exemplo)',
     notes:
-      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo. O equipamento da configuração base é R$ 1.000.000 e o custo mensal do robô é R$ 5.000.',
+      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo. O equipamento da configuração base é R$ 1.000.000 e o custo mensal do robô é R$ 5.000. O crédito de impostos parte de 25% do equipamento e precisa de validação fiscal.',
   },
   assumptions: {
     includePotential: false,
@@ -268,6 +277,7 @@ const EXAMPLE: Inputs = {
       integration: 25_000,
       implementationContingency: 60_000,
     },
+    recoverableTaxCreditPct: DEFAULT_RECOVERABLE_TAX_CREDIT_PCT,
     opexMonthly: {
       maintenance: 2_800,
       software: 900,
@@ -411,11 +421,11 @@ export function matchesIllustrativeExample(result: ModelResult): boolean {
     result.scenario === 'base' &&
     result.storeType === 'nova' &&
     result.storeCount === 1 &&
-    Math.abs(result.netInvestment - 1_195_000) < 1 &&
+    Math.abs(result.netInvestment - 945_000) < 1 &&
     Math.abs(result.steadyNet - 20_500) < 1 &&
     result.payback !== null &&
-    Math.abs(result.payback - 1_195_000 / 20_500) < 0.05 &&
+    Math.abs(result.payback - 945_000 / 20_500) < 0.05 &&
     result.roi !== null &&
-    Math.abs(result.roi - 246_000 / 1_195_000) < 0.000_001
+    Math.abs(result.roi - 246_000 / 945_000) < 0.000_001
   );
 }

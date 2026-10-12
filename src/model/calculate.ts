@@ -147,7 +147,8 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
       ? round2(inputs.logistics.space.avoidedRealEstate * capexMultiplier)
       : 0;
   const avoidedCapex = round2(avoidedShelving + avoidedRealEstate);
-  const netInvestment = round2(grossCapex - avoidedCapex);
+  const taxCredit = round2(Math.max(0, inputs.robot.capex.equipment) * inputs.robot.recoverableTaxCreditPct * capexMultiplier);
+  const netInvestment = round2(grossCapex - avoidedCapex - taxCredit);
   const openingShare = shareAt(0);
   const openingCash = netInvestment === 0 ? 0 : round2(-netInvestment * openingShare);
 
@@ -872,6 +873,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     releaseMonth,
     avoidedCapex,
     grossCapex,
+    taxCredit,
     monthlyOpex,
     recruitment,
     training,
@@ -894,7 +896,9 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     warnings.push('O benefício bruto supera o faturamento mensal informado. Vale revisar as premissas.');
   }
   if (netInvestment < 0) {
-    warnings.push('O CAPEX evitado supera o investimento bruto. O investimento líquido ficou negativo.');
+    warnings.push(
+      'Prateleiras, imóvel evitado ou créditos de impostos superam o investimento bruto. O investimento líquido ficou negativo.',
+    );
   }
   if (inputs.robot.financing.enabled) {
     warnings.push('O financiamento aparece à parte. VPL, TIR, ROI e payback usam o investimento total, sem a dívida.');
@@ -994,6 +998,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     netInvestment,
     grossCapex,
     avoidedCapex,
+    recoverableTaxCredit: taxCredit,
     monthlyOpex,
     steadyBenefit,
     steadySales: steady.salesMargin,
@@ -1285,6 +1290,7 @@ function buildAudit(ctx: {
   releaseMonth: number;
   avoidedCapex: number;
   grossCapex: number;
+  taxCredit: number;
   monthlyOpex: number;
   recruitment: Array<{ month: number; amount: number }>;
   training: Array<{ month: number; amount: number }>;
@@ -1577,6 +1583,23 @@ function buildAudit(ctx: {
       oneTimeValue: ctx.grossCapex,
       oneTimeMonth: 0,
       formula: 'Equipamento, frete e tributos, instalação, obras, integração, implantação e contingência.',
+    }),
+    line({
+      id: 'taxCredit',
+      module: 'Investimento',
+      label: 'Créditos recuperáveis de impostos (IBS/CBS ou ICMS)',
+      kind: 'pontual',
+      gate: {
+        included: ctx.taxCredit !== 0,
+        confidence: 'potencial',
+        reason:
+          'Premissa a validar. O crédito depende do regime tributário da rede e deve ser validado com o fiscal.',
+      },
+      monthlyValue: 0,
+      oneTimeValue: ctx.taxCredit,
+      oneTimeMonth: 0,
+      formula:
+        'Percentual sobre o valor de compra do equipamento, já com o fator de CAPEX do cenário. Abate o investimento líquido no mês 0 e não entra no benefício mensal.',
     }),
     line({
       id: 'opex',

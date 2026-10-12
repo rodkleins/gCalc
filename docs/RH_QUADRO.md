@@ -58,17 +58,17 @@ Custo mensal da tabela é o OPEX do robô já com o fator do cenário. ROI acumu
 
 | Modelo | Cenário | Investimento líquido | Custo mensal | Benefício líquido | Payback | ROI acumulado | VPL |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Exemplo fictício (nova) | Conservador | R$ 1.301.400 | R$ 5.750 | R$ 11.522 | Não recupera em 60 meses | 53,1% | -R$ 776.135 |
-| Exemplo fictício (nova) | Base | R$ 1.205.000 | R$ 5.000 | R$ 16.590 | Não recupera em 60 meses | 82,6% | -R$ 448.695 |
-| Exemplo fictício (nova) | Otimista | R$ 1.168.850 | R$ 4.600 | R$ 19.581 | 59,7 meses | 100,5% | -R$ 276.201 |
-| Loja de R$ 1 milhão | Conservador | R$ 1.344.600 | R$ 5.750 | R$ 14.798 | Não recupera em 60 meses | 62% | -R$ 732.202 |
-| Loja de R$ 1 milhão | Base | R$ 1.245.000 | R$ 5.000 | R$ 20.685 | Não recupera em 60 meses | 94,2% | -R$ 377.087 |
-| Loja de R$ 1 milhão | Otimista | R$ 1.207.650 | R$ 4.600 | R$ 24.167 | 53,6 meses | 113,7% | -R$ 188.708 |
-| Loja de R$ 2 milhões | Conservador | R$ 1.776.600 | R$ 6.325 | R$ 34.611 | 55,1 meses | 110,7% | -R$ 323.183 |
-| Loja de R$ 2 milhões | Base | R$ 1.645.000 | R$ 5.500 | R$ 45.670 | 39,5 meses | 158,3% | R$ 286.853 |
-| Loja de R$ 2 milhões | Otimista | R$ 1.595.650 | R$ 5.060 | R$ 52.251 | 33,9 meses | 186,9% | R$ 620.756 |
-| Loja de R$ 4 milhões | Conservador | R$ 2.386.800 | R$ 6.900 | R$ 102.385 | 25,2 meses | 252,8% | R$ 2.090.126 |
-| Loja de R$ 4 milhões | Base | R$ 2.210.000 | R$ 6.000 | R$ 130.606 | 18,6 meses | 348,4% | R$ 3.527.750 |
-| Loja de R$ 4 milhões | Otimista | R$ 2.143.700 | R$ 5.520 | R$ 147.479 | 16,2 meses | 405,6% | R$ 4.347.810 |
+| Exemplo fictício (nova) | Conservador | R$ 1.031.400 | R$ 5.750 | R$ 11.522 | Não recupera em 60 meses | 67% | -R$ 506.135 |
+| Exemplo fictício (nova) | Base | R$ 955.000 | R$ 5.000 | R$ 16.590 | 57,6 meses | 104,2% | -R$ 198.695 |
+| Exemplo fictício (nova) | Otimista | R$ 926.350 | R$ 4.600 | R$ 19.581 | 47,3 meses | 126,8% | -R$ 33.701 |
+| Loja de R$ 1 milhão | Conservador | R$ 1.074.600 | R$ 5.750 | R$ 14.798 | Não recupera em 60 meses | 77,5% | -R$ 462.202 |
+| Loja de R$ 1 milhão | Base | R$ 995.000 | R$ 5.000 | R$ 20.685 | 51,9 meses | 117,9% | -R$ 127.087 |
+| Loja de R$ 1 milhão | Otimista | R$ 965.150 | R$ 4.600 | R$ 24.167 | 43,6 meses | 142,3% | R$ 53.792 |
+| Loja de R$ 2 milhões | Conservador | R$ 1.412.100 | R$ 6.325 | R$ 34.611 | 44,6 meses | 139,3% | R$ 41.317 |
+| Loja de R$ 2 milhões | Base | R$ 1.307.500 | R$ 5.500 | R$ 45.670 | 32,1 meses | 199,1% | R$ 624.353 |
+| Loja de R$ 2 milhões | Otimista | R$ 1.268.275 | R$ 5.060 | R$ 52.251 | 27,6 meses | 235,1% | R$ 948.131 |
+| Loja de R$ 4 milhões | Conservador | R$ 1.887.300 | R$ 6.900 | R$ 102.385 | 20,4 meses | 319,7% | R$ 2.589.626 |
+| Loja de R$ 4 milhões | Base | R$ 1.747.500 | R$ 6.000 | R$ 130.606 | 15,1 meses | 440,6% | R$ 3.990.250 |
+| Loja de R$ 4 milhões | Otimista | R$ 1.695.075 | R$ 5.520 | R$ 147.479 | 13,1 meses | 513% | R$ 4.796.435 |
 
-O exemplo e a loja de R$ 1 milhão não recuperam o investimento em 60 meses no cenário base. A de R$ 2 milhões fica em 39,5 meses. A de R$ 4 milhões fica em 18,6 meses no base e em 25,2 meses no conservador. Nenhuma dessas três foi puxada para 30 meses. A importação avisa se o JSON vier com posto liberado zerado, adicional noturno abaixo de 100%, dois custos no mesmo cargo e balcão, equipamento abaixo de R$ 1.000.000 ou com cara de fator 1,05, instalação diferente de R$ 50.000, custo mensal fora de R$ 5.000 a R$ 6.000, ou perfil divergente do quadro.
+O investimento já desconta 25% do preço do equipamento como crédito recuperável de impostos (IBS/CBS ou ICMS). É premissa a validar com o fiscal. O exemplo no base recupera em 57,6 meses. A loja de R$ 1 milhão recupera em 51,9 meses no base e não recupera no conservador. A de R$ 2 milhões fica em 32,1 meses. A de R$ 4 milhões fica em 15,1 meses no base e em 20,4 meses no conservador. Nenhuma dessas três foi puxada para 30 meses com benefício inventado. A importação avisa se o JSON vier com posto liberado zerado, adicional noturno abaixo de 100%, dois custos no mesmo cargo e balcão, equipamento abaixo de R$ 1.000.000 ou com cara de fator 1,05, instalação diferente de R$ 50.000, custo mensal fora de R$ 5.000 a R$ 6.000, ou perfil divergente do quadro. Um arquivo antigo sem o percentual do crédito passa a usar 25%.

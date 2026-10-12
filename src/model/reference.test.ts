@@ -15,6 +15,7 @@ function bare(): Inputs {
   inputs.profile.dispensationsPerDay = 100;
   inputs.profile.contributionMarginPct = 0.5;
   inputs.profile.roles = [];
+  inputs.robot.recoverableTaxCreditPct = 0;
   return inputs;
 }
 

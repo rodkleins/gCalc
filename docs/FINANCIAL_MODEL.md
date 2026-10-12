@@ -8,9 +8,11 @@ Este é o fluxo de VPL, TIR, payback e retorno. Não contém dívida.
 
 ```text
 caixa(0) = -investimento líquido × parcela do cronograma na data zero
-investimento líquido = CAPEX bruto - CAPEX evitado
+investimento líquido = CAPEX bruto - CAPEX evitado - crédito recuperável de impostos
 CAPEX evitado = prateleiras de loja nova, se ainda não forem necessárias
               + investimento imobiliário evitado, se essa for a tese da área
+crédito       = preço do equipamento × percentual (padrão 25%, faixa 0% a 100%)
+                × fator de CAPEX. Premissa a validar com o fiscal. Abate o mês 0.
 
 operacional(m) = benefício(m) - OPEX(m) × índice de inflação
 imposto(m)     = política tributária sobre (operacional - depreciação)
@@ -72,7 +74,7 @@ Contratação futura e rescisão só entram em loja existente. Em loja nova a va
 | TIR anual efetiva | `(1 + TIR mensal) ^ 12 - 1`. Se há mais de uma troca de sinal, o resultado é ambíguo e o VPL manda |
 | Benefício operacional anual | benefício bruto do mês 60 × 12 |
 | Economia acumulada | soma do benefício bruto no horizonte |
-| Investimento líquido total | CAPEX bruto menos evitados |
+| Investimento líquido total | CAPEX bruto menos evitados menos crédito de impostos sobre o equipamento |
 
 Investimento zero: retorno nulo, payback imediato, TIR indefinida, VPL finito. Investimento negativo: retorno nulo. Sem recuperação em 60 meses: payback nulo.
 

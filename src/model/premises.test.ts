@@ -105,7 +105,7 @@ describe('premissas e ajuste rápido', () => {
     expect(leverValue(eased, 'investimento')).toBeCloseTo(1_235_000 * 1.75, 0);
     const undone = exampleInputs();
     expect(leversDiffer(current, undone)).toBe(true);
-    expect(evaluate(undone).netInvestment).toBe(1_195_000);
+    expect(evaluate(undone).netInvestment).toBe(945_000);
     expect(evaluate(undone).steadyNet).toBe(20_500);
   });
 

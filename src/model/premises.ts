@@ -98,6 +98,7 @@ const AUDIT_FIELDS: Record<string, string> = {
   workingCapital: 'stock.workingCapital.inventoryAfter',
   financialCost: 'stock.workingCapital.costOfCapitalAnnual',
   capex: 'robot.capex.equipment',
+  taxCredit: 'robot.recoverableTaxCreditPct',
   opex: 'robot.opexMonthly.maintenance',
 };
 

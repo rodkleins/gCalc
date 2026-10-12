@@ -22,10 +22,10 @@ describe('assistente', () => {
     expect(seed.fictional).toBe(true);
     expect(seed.people.payroll.positionsReduced).toBe(exampleInputs().people.payroll.positionsReduced);
     const result = evaluate(seed);
-    expect(result.netInvestment).toBe(1_195_000);
+    expect(result.netInvestment).toBe(945_000);
     expect(result.steadyNet).toBe(20_500);
-    expect(result.payback).toBeCloseTo(1_195_000 / 20_500, 6);
-    expect(result.roi).toBeCloseTo(246_000 / 1_195_000, 8);
+    expect(result.payback).toBeCloseTo(945_000 / 20_500, 6);
+    expect(result.roi).toBeCloseTo(246_000 / 945_000, 8);
   });
 
   it('pede o nome da loja e aceita o restante sugerido', () => {
@@ -71,7 +71,7 @@ describe('assistente', () => {
     expect(inputs.robot.opexMonthly.maintenance).toBe(5_000);
     expect(inputs.robot.opexMonthly.software).toBe(0);
     const result = evaluate(inputs);
-    expect(result.netInvestment).toBe(1_195_000);
+    expect(result.netInvestment).toBe(945_000);
     expect(result.monthlyOpex).toBe(5_000);
     expect(result.steadyNet).toBe(20_500);
   });

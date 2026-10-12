@@ -1,6 +1,6 @@
 import { Callout, CheckField, ModuleImpact, NumberField, PercentField, SelectField, StageNote, Switch } from './Fields';
 import { opexLooksLikeEquipmentPrice } from '../model/calculate';
-import { equipmentFloorWarning, monthlyRobotCostWarning } from '../model/example';
+import { equipmentFloorWarning, monthlyRobotCostWarning, RECOVERABLE_TAX_CREDIT_HELP } from '../model/example';
 import { sum } from '../model/round';
 import { formatBRL, formatIrr, formatPercent } from '../model/format';
 import type { Inputs, ModelResult } from '../model/types';
@@ -45,9 +45,9 @@ export function InvestmentForm({
       <ModuleImpact result={result} module="Investimento" />
       <section className="card">
         <h2>CAPEX</h2>
-        <p className="lede">
-          Bruto {formatBRL(result.grossCapex)} − prateleiras evitadas {formatBRL(result.avoidedCapex)} = investimento
-          líquido {formatBRL(result.netInvestment)}.
+        <p className="lede" data-testid="investment-summary">
+          Bruto {formatBRL(result.grossCapex)} − prateleiras evitadas {formatBRL(result.avoidedCapex)} − créditos
+          recuperáveis {formatBRL(result.recoverableTaxCredit)} = investimento líquido {formatBRL(result.netInvestment)}.
         </p>
         {equipmentFloorWarning(robot.capex.equipment) ? (
           <Callout tone="warn">
@@ -67,7 +67,24 @@ export function InvestmentForm({
               onChange={(value) => setRobot({ ...robot, capex: { ...robot.capex, [field.key]: value } })}
             />
           ))}
+          <PercentField
+            fieldId="robot.recoverableTaxCreditPct"
+            testId="tax-credit-pct"
+            label="Créditos recuperáveis de impostos (IBS/CBS ou ICMS)"
+            help={RECOVERABLE_TAX_CREDIT_HELP}
+            hint={RECOVERABLE_TAX_CREDIT_HELP}
+            value={robot.recoverableTaxCreditPct}
+            onChange={(recoverableTaxCreditPct) =>
+              setRobot({
+                ...robot,
+                recoverableTaxCreditPct: Math.min(1, Math.max(0, recoverableTaxCreditPct)),
+              })
+            }
+          />
         </div>
+        <p className="lede" data-testid="tax-credit-amount">
+          {formatBRL(result.recoverableTaxCredit)} sobre o equipamento neste cenário. Premissa a validar.
+        </p>
       </section>
 
       <section className="card">

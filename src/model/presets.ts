@@ -34,7 +34,7 @@ interface Shape {
 }
 
 const NOTE =
-  'Modelo fictício para a conversa com o Fabio (DPSP). Não é dado de loja. Troque pelos parâmetros reais. O custo do farmacêutico, o do auxiliar e o treinamento são sugestões a validar. O quadro e a folha crescem com o porte: mais pessoas por cargo, mais turnos e mais balcões. O equipamento parte de R$ 1.000.000. A loja de R$ 2 milhões soma um segundo braço. A de R$ 4 milhões soma segundo braço, carregador automático e módulo refrigerado. O custo mensal do robô fica entre R$ 5.000 e R$ 6.000. O estoque não cai por padrão: o robô pode até aumentá-lo.';
+  'Modelo fictício para a conversa com o Fabio (DPSP). Não é dado de loja. Troque pelos parâmetros reais. O custo do farmacêutico, o do auxiliar e o treinamento são sugestões a validar. O quadro e a folha crescem com o porte: mais pessoas por cargo, mais turnos e mais balcões. O equipamento parte de R$ 1.000.000. O crédito de impostos parte de 25% desse preço e precisa de validação fiscal. A loja de R$ 2 milhões soma um segundo braço. A de R$ 4 milhões soma segundo braço, carregador automático e módulo refrigerado. O custo mensal do robô fica entre R$ 5.000 e R$ 6.000. O estoque não cai por padrão: o robô pode até aumentá-lo.';
 
 const SHAPES: Shape[] = [
   {

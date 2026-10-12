@@ -242,6 +242,8 @@ export interface Inputs {
       integration: number;
       implementationContingency: number;
     };
+    /** Fração de 0 a 1 sobre o preço do equipamento. 0,25 = 25%. */
+    recoverableTaxCreditPct: number;
     opexMonthly: {
       maintenance: number;
       software: number;
@@ -356,6 +358,7 @@ export interface ModelResult {
   netInvestment: number;
   grossCapex: number;
   avoidedCapex: number;
+  recoverableTaxCredit: number;
   monthlyOpex: number;
   steadyBenefit: number;
   steadySales: number;

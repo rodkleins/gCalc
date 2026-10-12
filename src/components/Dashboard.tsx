@@ -78,12 +78,12 @@ export function Dashboard({
       ) : null}
       {illustrative ? (
         <div className="banner ok" data-testid="example-check">
-          Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 1.195.000, benefício líquido de R$
-          20.500 por mês, payback de 58,3 meses e ROI de 20,6%.
+          Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 945.000, benefício líquido de R$
+          20.500 por mês, payback de 46,1 meses e ROI de 26%.
         </div>
       ) : (
         <div className="banner">
-          Os números do documento (R$ 1.195.000, R$ 20.500 por mês, payback de 58,3 meses, ROI de 20,6%) aparecem no
+          Os números do documento (R$ 945.000, R$ 20.500 por mês, payback de 46,1 meses, ROI de 26%) aparecem no
           exemplo fictício, cenário base e loja nova.
         </div>
       )}
@@ -180,16 +180,21 @@ export function Dashboard({
           <PremiseValue fieldId="robot.capex.equipment" testId="open-premise-investment" onOpen={onOpenPremise}>
             <strong data-testid="kpi-investment">{formatBRL(result.netInvestment)}</strong>
           </PremiseValue>
-          <em>
+          <em data-testid="investment-bridge">
             Bruto{' '}
             <PremiseValue fieldId="robot.capex.equipment" onOpen={onOpenPremise}>
               {formatBRL(result.grossCapex)}
             </PremiseValue>{' '}
-            − evitado{' '}
+            − prateleiras{' '}
             <PremiseValue fieldId="logistics.shelving.avoidedAcquisition" onOpen={onOpenPremise}>
               {formatBRL(result.avoidedCapex)}
+            </PremiseValue>{' '}
+            − créditos de impostos{' '}
+            <PremiseValue fieldId="robot.recoverableTaxCreditPct" testId="open-premise-tax-credit" onOpen={onOpenPremise}>
+              {formatBRL(result.recoverableTaxCredit)}
             </PremiseValue>
           </em>
+          <em data-testid="tax-credit-premise">Premissa a validar com o fiscal.</em>
         </article>
         <article className="kpi">
           <span>Benefício líquido no mês 60</span>
@@ -277,7 +282,8 @@ export function Dashboard({
         <ol>
           <li>
             O investimento líquido é {formatBRL(result.netInvestment)}: o equipamento e a instalação, menos o que a loja
-            deixa de comprar em prateleira.
+            deixa de comprar em prateleira, menos {formatBRL(result.recoverableTaxCredit)} de créditos recuperáveis de
+            impostos (IBS/CBS ou ICMS). Essa linha de crédito é premissa a validar com o fiscal.
           </li>
           <li>
             No mês estável a operação deixa {formatBRL(result.steadyBenefit)} e gasta {formatBRL(result.monthlyOpex)} para
@@ -517,7 +523,7 @@ function BenefitClasses({ result }: { result: ModelResult }) {
     },
     {
       title: 'Investimentos pontuais',
-      lines: result.audit.filter((line) => line.id === 'capex' || line.id === 'shelvingCapex'),
+      lines: result.audit.filter((line) => line.id === 'capex' || line.id === 'shelvingCapex' || line.id === 'taxCredit'),
     },
     {
       title: 'Caixa não recorrente',
