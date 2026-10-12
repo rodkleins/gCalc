@@ -1,4 +1,5 @@
 import { normalizeRecoverableTaxCreditPct } from './example';
+import { normalizeRobotCost } from './robotCost';
 import type { Inputs, SpaceTreatment, TaxPolicy } from './types';
 
 /** Completa simulações antigas com premissas neutras, sem alterar números já gravados. */
@@ -105,6 +106,7 @@ export function normalizeInputs(inputs: Inputs): Inputs {
   robot.ramp.sales = robot.ramp.sales?.length ? robot.ramp.sales : [1];
   robot.capexSchedule = robot.capexSchedule?.length ? robot.capexSchedule : [{ month: 0, share: 1 }];
   robot.recoverableTaxCreditPct = normalizeRecoverableTaxCreditPct(robot.recoverableTaxCreditPct);
+  normalizeRobotCost(robot);
 
   return next;
 }

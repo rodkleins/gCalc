@@ -23,9 +23,9 @@ describe('assistente', () => {
     expect(seed.people.payroll.positionsReduced).toBe(exampleInputs().people.payroll.positionsReduced);
     const result = evaluate(seed);
     expect(result.netInvestment).toBe(945_000);
-    expect(result.steadyNet).toBe(20_500);
-    expect(result.payback).toBeCloseTo(945_000 / 20_500, 6);
-    expect(result.roi).toBeCloseTo(246_000 / 945_000, 8);
+    expect(result.steadyNet).toBe(18_396);
+    expect(result.payback).toBeCloseTo(945_000 / 18_396, 6);
+    expect(result.roi).toBeCloseTo(220_752 / 945_000, 8);
   });
 
   it('pede o nome da loja e aceita o restante sugerido', () => {
@@ -69,10 +69,11 @@ describe('assistente', () => {
     expect(inputs.robot.capex.implementationContingency).toBe(235_000);
     expect(inputs.robot.capex.freightImportTaxes).toBe(0);
     expect(inputs.robot.opexMonthly.maintenance).toBe(5_000);
-    expect(inputs.robot.opexMonthly.software).toBe(0);
+    expect(inputs.robot.opexMonthly.other).toBe(wizardSeed().robot.opexMonthly.other);
+    expect(inputs.robot.energy.powerKw).toBe(wizardSeed().robot.energy.powerKw);
     const result = evaluate(inputs);
     expect(result.netInvestment).toBe(945_000);
-    expect(result.monthlyOpex).toBe(5_000);
-    expect(result.steadyNet).toBe(20_500);
+    expect(result.monthlyOpex).toBe(6_604);
+    expect(result.steadyNet).toBe(18_896);
   });
 });

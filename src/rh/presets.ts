@@ -1,4 +1,5 @@
 import { evaluate } from '../model/calculate';
+import { informedMonthlyRobotCost } from '../model/robotCost';
 import { exampleInputs } from '../model/example';
 import { storePresets, type StorePreset } from '../model/presets';
 import type { Inputs, ScenarioId } from '../model/types';
@@ -243,7 +244,7 @@ export function rhScorecard(): RhScoreRow[] {
       avoidedHired: summary.avoidedHired,
       avoidedPayroll: summary.avoidedPayroll,
       equipment: model.inputs.robot.capex.equipment,
-      informedMonthlyCost: Object.values(model.inputs.robot.opexMonthly).reduce((total, value) => total + value, 0),
+      informedMonthlyCost: informedMonthlyRobotCost(model.inputs.robot),
       cells: scenarios.map((scenario) => {
         const result = evaluate(model.inputs, { scenario });
         return {

@@ -320,7 +320,7 @@ describe('página de cálculos desta versão', () => {
     expect(text).toContain('2,2188');
     expect(text).not.toContain('6,6063');
     expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
-    expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('57,6 meses');
+    expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('Não recupera em 60 meses');
     expect(formatPayback(rhScorecard()[3].cells[1].payback)).not.toBe('14,7 meses');
     expect(host.querySelector('[data-testid="score-loja-4m-base"]')?.textContent).toContain(
       formatPayback(rhScorecard()[3].cells[1].payback),

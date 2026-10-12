@@ -141,6 +141,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(() => defaultSimulationName(booted.inputs, booted.scenario));
   const [status, setStatus] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [railCollapsed, setRailCollapsed] = useState(() => initialRailCollapsed(localStorage));
   const [pendingPreset, setPendingPreset] = useState<StorePreset | null>(null);
   const result = useMemo(() => evaluate(inputs, { scenario }), [inputs, scenario]);
@@ -337,9 +338,11 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
     reader.onload = () => {
       const imported = importPayload(String(reader.result));
       if (!imported) {
+        setImportWarnings([]);
         setStatus('Não foi possível ler este JSON.');
         return;
       }
+      setImportWarnings(imported.warnings);
       if (imported.draft) {
         resetDraft(structuredClone(imported.draft.adjustAnchor ?? imported.draft.inputs));
         setInputs(structuredClone(imported.draft.inputs));
@@ -352,7 +355,9 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
       if (imported.simulations.length > 0) {
         setSimulations((current) => mergeSimulations(current, imported.simulations));
       }
-      setStatus('JSON importado para este navegador.');
+      setStatus(
+        imported.warnings.length > 0 ? 'JSON importado com alertas.' : 'JSON importado para este navegador.',
+      );
     };
     reader.readAsText(file);
   }
@@ -510,6 +515,16 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           </div>
         </div>
         <StoreSizePicker onLoad={askPreset} />
+        {importWarnings.length > 0 ? (
+          <div className="callout warn" data-testid="import-warnings">
+            <strong>O JSON importado tem alertas do custo mensal.</strong>
+            <ul>
+              {importWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="storage-note" data-testid="storage-note">
           Os dados ficam só neste navegador.
           {status ? ` ${status}` : ''}

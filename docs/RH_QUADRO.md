@@ -36,7 +36,7 @@ O adicional noturno padrão é 100%. No JSON a unidade é fração: 100% = 1,0. 
 
 ## O que cada modelo assume
 
-Tudo é fictício, a validar. Equipamento de R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000, sem fator escondido: 1,05 não multiplica o preço digitado. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. Obras, elétrica e rede continuam R$ 50.000. Custo mensal informado de R$ 5.000, R$ 5.500 e R$ 6.000. O cenário otimista ainda multiplica o CAPEX por 0,97 e o custo mensal por 0,92. O aviso da tela olha o valor digitado. O ajuste rápido de investimento, se o usuário mexer no slider, escala todas as linhas de CAPEX de uma vez; isso não está embutido no modelo.
+Tudo é fictício, a validar. Equipamento de R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000, sem fator escondido: 1,05 não multiplica o preço digitado. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. Obras, elétrica e rede continuam R$ 50.000. O suporte pago à fornecedora é R$ 5.500, na faixa de R$ 5.000 a R$ 6.000. A energia é calculada (2,5 kW, 16 h/dia, 30 dias, R$ 1,17/kWh) e, com os outros custos de R$ 200, o custo mensal informado fica em R$ 7.104. O cenário otimista ainda multiplica o CAPEX por 0,97 e o custo mensal por 0,92, inclusive a tarifa. O aviso da tela olha o suporte digitado. O ajuste rápido de investimento, se o usuário mexer no slider, escala todas as linhas de CAPEX de uma vez; isso não está embutido no modelo.
 
 O custo de cada linha do quadro já inclui encargos e benefícios, no mesmo critério para todos os cargos. Não há um fator 1,3333 aplicado só a alguns. O adicional noturno no JSON é fração: 100% = 1,0. Abaixo de 100% a importação avisa e o quadro passa a usar 100%.
 
@@ -58,17 +58,17 @@ Custo mensal da tabela é o OPEX do robô já com o fator do cenário. ROI acumu
 
 | Modelo | Cenário | Investimento líquido | Custo mensal | Benefício líquido | Payback | ROI acumulado | VPL |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Exemplo fictício (nova) | Conservador | R$ 1.031.400 | R$ 5.750 | R$ 11.522 | Não recupera em 60 meses | 67% | -R$ 506.135 |
-| Exemplo fictício (nova) | Base | R$ 955.000 | R$ 5.000 | R$ 16.590 | 57,6 meses | 104,2% | -R$ 198.695 |
-| Exemplo fictício (nova) | Otimista | R$ 926.350 | R$ 4.600 | R$ 19.581 | 47,3 meses | 126,8% | -R$ 33.701 |
-| Loja de R$ 1 milhão | Conservador | R$ 1.074.600 | R$ 5.750 | R$ 14.798 | Não recupera em 60 meses | 77,5% | -R$ 462.202 |
-| Loja de R$ 1 milhão | Base | R$ 995.000 | R$ 5.000 | R$ 20.685 | 51,9 meses | 117,9% | -R$ 127.087 |
-| Loja de R$ 1 milhão | Otimista | R$ 965.150 | R$ 4.600 | R$ 24.167 | 43,6 meses | 142,3% | R$ 53.792 |
-| Loja de R$ 2 milhões | Conservador | R$ 1.412.100 | R$ 6.325 | R$ 34.611 | 44,6 meses | 139,3% | R$ 41.317 |
-| Loja de R$ 2 milhões | Base | R$ 1.307.500 | R$ 5.500 | R$ 45.670 | 32,1 meses | 199,1% | R$ 624.353 |
-| Loja de R$ 2 milhões | Otimista | R$ 1.268.275 | R$ 5.060 | R$ 52.251 | 27,6 meses | 235,1% | R$ 948.131 |
-| Loja de R$ 4 milhões | Conservador | R$ 1.887.300 | R$ 6.900 | R$ 102.385 | 20,4 meses | 319,7% | R$ 2.589.626 |
-| Loja de R$ 4 milhões | Base | R$ 1.747.500 | R$ 6.000 | R$ 130.606 | 15,1 meses | 440,6% | R$ 3.990.250 |
-| Loja de R$ 4 milhões | Otimista | R$ 1.695.075 | R$ 5.520 | R$ 147.479 | 13,1 meses | 513% | R$ 4.796.435 |
+| Exemplo fictício (nova) | Conservador | R$ 1.031.400 | R$ 8.170 | R$ 9.102 | Não recupera em 60 meses | 53% | -R$ 616.439 |
+| Exemplo fictício (nova) | Base | R$ 955.000 | R$ 7.104 | R$ 14.486 | Não recupera em 60 meses | 91% | -R$ 294.612 |
+| Exemplo fictício (nova) | Otimista | R$ 926.350 | R$ 6.536 | R$ 17.645 | 52,5 meses | 114,3% | -R$ 121.944 |
+| Loja de R$ 1 milhão | Conservador | R$ 1.074.600 | R$ 8.170 | R$ 12.378 | Não recupera em 60 meses | 64% | -R$ 572.507 |
+| Loja de R$ 1 milhão | Base | R$ 995.000 | R$ 7.104 | R$ 18.581 | 57,8 meses | 105,2% | -R$ 223.004 |
+| Loja de R$ 1 milhão | Otimista | R$ 965.150 | R$ 6.536 | R$ 22.232 | 47,3 meses | 130,3% | -R$ 34.451 |
+| Loja de R$ 2 milhões | Conservador | R$ 1.412.100 | R$ 8.170 | R$ 32.767 | 47,1 meses | 131,5% | -R$ 42.774 |
+| Loja de R$ 2 milhões | Base | R$ 1.307.500 | R$ 7.104 | R$ 44.066 | 33,3 meses | 191,8% | R$ 551.230 |
+| Loja de R$ 2 milhões | Otimista | R$ 1.268.275 | R$ 6.536 | R$ 50.775 | 28,4 meses | 228,1% | R$ 880.858 |
+| Loja de R$ 4 milhões | Conservador | R$ 1.887.300 | R$ 8.170 | R$ 101.116 | 20,6 meses | 315,7% | R$ 2.531.748 |
+| Loja de R$ 4 milhões | Base | R$ 1.747.500 | R$ 7.104 | R$ 129.502 | 15,2 meses | 436,8% | R$ 3.939.922 |
+| Loja de R$ 4 milhões | Otimista | R$ 1.695.075 | R$ 6.536 | R$ 146.464 | 13,2 meses | 509,4% | R$ 4.750.132 |
 
-O investimento já desconta 25% do preço do equipamento como crédito recuperável de impostos (IBS/CBS ou ICMS). É premissa a validar com o fiscal. O exemplo no base recupera em 57,6 meses. A loja de R$ 1 milhão recupera em 51,9 meses no base e não recupera no conservador. A de R$ 2 milhões fica em 32,1 meses. A de R$ 4 milhões fica em 15,1 meses no base e em 20,4 meses no conservador. Nenhuma dessas três foi puxada para 30 meses com benefício inventado. A importação avisa se o JSON vier com posto liberado zerado, adicional noturno abaixo de 100%, dois custos no mesmo cargo e balcão, equipamento abaixo de R$ 1.000.000 ou com cara de fator 1,05, instalação diferente de R$ 50.000, custo mensal fora de R$ 5.000 a R$ 6.000, ou perfil divergente do quadro. Um arquivo antigo sem o percentual do crédito passa a usar 25%.
+O investimento já desconta 25% do preço do equipamento como crédito recuperável de impostos (IBS/CBS ou ICMS). É premissa a validar com o fiscal. O exemplo no base não recupera em 60 meses. A loja de R$ 1 milhão recupera em 57,8 meses no base e não recupera no conservador. A de R$ 2 milhões fica em 33,3 meses. A de R$ 4 milhões fica em 15,2 meses no base e em 20,6 meses no conservador. Nenhuma dessas três foi puxada para 30 meses com benefício inventado. A importação avisa se o JSON vier com posto liberado zerado, adicional noturno abaixo de 100%, dois custos no mesmo cargo e balcão, equipamento abaixo de R$ 1.000.000 ou com cara de fator 1,05, instalação diferente de R$ 50.000, suporte fora de R$ 5.000 a R$ 6.000, campos removidos do custo mensal, energia antiga em reais, ou perfil divergente do quadro. Um arquivo antigo sem o percentual do crédito passa a usar 25%. A energia antiga em reais é trocada por 2,5 kW, 16 h/dia, 30 dias e R$ 1,17/kWh.

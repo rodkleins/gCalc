@@ -1,5 +1,6 @@
 import { applyDriver, DRIVER_IDS } from './drivers';
 import { equipmentFloorWarning, monthlyRobotCostWarning } from './example';
+import { informedMonthlyRobotCost } from './robotCost';
 import {
   annualizeMonthlyRate,
   discountedPayback,
@@ -121,7 +122,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     schedule.filter((tranche) => tranche.month === month).reduce((total, tranche) => total + tranche.share, 0);
 
   const grossCapex = round2(sum(Object.values(inputs.robot.capex)) * capexMultiplier);
-  const monthlyOpex = round2(sum(Object.values(inputs.robot.opexMonthly)) * factors.opexFactor);
+  const monthlyOpex = round2(informedMonthlyRobotCost(inputs.robot) * factors.opexFactor);
   const monthlyRate = monthlyRateFromAnnual(inputs.robot.discountRateAnnual);
 
   const shelvingGate = gateBenefit(
@@ -932,12 +933,12 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
   }
   if (opexLooksLikeEquipmentPrice(grossCapex, monthlyOpex)) {
     warnings.push(
-      'O custo mensal do robô, em um ano, passa de 20% do CAPEX. O preço do equipamento entra só no CAPEX; aqui ficam manutenção, suporte e os demais gastos recorrentes.',
+      'O custo mensal do robô, em um ano, passa de 20% do CAPEX. O preço do equipamento entra só no CAPEX; aqui ficam o suporte pago à fornecedora, a energia calculada e os outros custos.',
     );
   }
   const equipmentWarning = equipmentFloorWarning(inputs.robot.capex.equipment);
   if (equipmentWarning) warnings.push(equipmentWarning);
-  const robotCostWarning = monthlyRobotCostWarning(sum(Object.values(inputs.robot.opexMonthly)));
+  const robotCostWarning = monthlyRobotCostWarning(inputs.robot.opexMonthly.maintenance);
   if (robotCostWarning) warnings.push(robotCostWarning);
   if (
     inputs.profile.demandGrowthPctPerYear !== 0 &&
@@ -1613,7 +1614,7 @@ function buildAudit(ctx: {
       },
       monthlyValue: ctx.monthlyOpex,
       formula:
-        'Manutenção, suporte, software, energia, indisponibilidade, seguros e outros gastos que se repetem. O preço do equipamento não entra aqui: ele está só no CAPEX.',
+        'Suporte pago à fornecedora, energia calculada (potência × horas × dias × tarifa com impostos) e outros custos. A energia acompanha a inflação de OPEX. O preço do equipamento não entra aqui: ele está só no CAPEX.',
     }),
   ];
 

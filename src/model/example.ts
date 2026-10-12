@@ -1,3 +1,4 @@
+import { DEFAULT_ENERGY, DEFAULT_SUPPORT_MONTHLY, SUPPORT_MAX, SUPPORT_MIN } from './robotCost';
 import type { Inputs, ModelResult } from './types';
 
 /** Sugestão fictícia de drogaria, a validar. R$ 14.500 foi considerado alto para o cargo. */
@@ -6,8 +7,9 @@ export const SUGGESTED_PHARMACIST_MONTHLY_COST = 8_500;
 export const SUGGESTED_TRAINING_PER_HIRE = 6_000;
 /** Nenhuma configuração do robô é lançada abaixo deste preço de equipamento. */
 export const MINIMUM_EQUIPMENT_PRICE = 1_000_000;
-/** Manutenção, suporte e o restante do custo mensal partem deste piso. */
-export const MINIMUM_MONTHLY_ROBOT_COST = 5_000;
+/** Piso do suporte pago à fornecedora. A faixa não vale para energia nem para outros custos. */
+export const MINIMUM_MONTHLY_ROBOT_COST = SUPPORT_MIN;
+export const MAXIMUM_SUPPORT_MONTHLY = SUPPORT_MAX;
 /** Crédito de IBS/CBS ou ICMS sobre o preço do equipamento, até o fiscal confirmar. */
 export const DEFAULT_RECOVERABLE_TAX_CREDIT_PCT = 0.25;
 export const RECOVERABLE_TAX_CREDIT_HELP =
@@ -23,8 +25,12 @@ export function equipmentPriceBelowMinimum(equipment: number): boolean {
   return equipment > 0 && equipment < MINIMUM_EQUIPMENT_PRICE;
 }
 
-export function monthlyRobotCostBelowMinimum(monthlyCost: number): boolean {
-  return monthlyCost > 0 && monthlyCost < MINIMUM_MONTHLY_ROBOT_COST;
+export function monthlyRobotCostBelowMinimum(support: number): boolean {
+  return support > 0 && support < MINIMUM_MONTHLY_ROBOT_COST;
+}
+
+export function supportOutsideBand(support: number): boolean {
+  return support > 0 && (support < SUPPORT_MIN || support > SUPPORT_MAX);
 }
 
 export function equipmentFloorWarning(equipment: number): string | null {
@@ -32,15 +38,21 @@ export function equipmentFloorWarning(equipment: number): string | null {
   return 'O equipamento informado está abaixo de R$ 1.000.000. Nenhuma configuração do robô custa menos que isso.';
 }
 
-export function monthlyRobotCostWarning(monthlyCost: number): string | null {
-  if (!monthlyRobotCostBelowMinimum(monthlyCost)) return null;
-  return 'O custo mensal informado está abaixo de R$ 5.000. Manutenção, suporte e os demais gastos recorrentes partem desse piso.';
+export function monthlyRobotCostWarning(support: number): string | null {
+  if (!(support > 0)) return null;
+  if (support < SUPPORT_MIN) {
+    return 'O suporte pago à fornecedora está abaixo de R$ 5.000. A faixa deste campo é de R$ 5.000 a R$ 6.000 por mês.';
+  }
+  if (support > SUPPORT_MAX) {
+    return 'O suporte pago à fornecedora está acima de R$ 6.000. A faixa deste campo é de R$ 5.000 a R$ 6.000 por mês.';
+  }
+  return null;
 }
 
 /**
  * Exemplo ilustrativo fictício do escopo.
  * Equipamento R$ 1.000.000, com 25% de crédito recuperável de impostos
- * sobre esse preço. O benefício líquido é R$ 20.500/mês.
+ * sobre esse preço. O suporte é R$ 5.500 e a energia é calculada.
  * Avarias ficam fora do caixa: as perdas entram uma vez só.
  */
 const EXAMPLE: Inputs = {
@@ -53,7 +65,7 @@ const EXAMPLE: Inputs = {
     source: 'Hipóteses do escopo funcional, não são dados de uma loja real',
     owner: 'Time comercial (exemplo)',
     notes:
-      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo. O equipamento da configuração base é R$ 1.000.000 e o custo mensal do robô é R$ 5.000. O crédito de impostos parte de 25% do equipamento e precisa de validação fiscal.',
+      'Todos os valores são fictícios e servem para conferir as fórmulas. Não são parâmetros oficiais da Gollmann. O custo do farmacêutico (R$ 8.500 por pessoa/mês), o do auxiliar (R$ 4.200) e o treinamento por contratação (R$ 6.000) são sugestões a validar, não dados de loja. O turnover sugerido é 30% ao ano. Perdas entram uma vez só: avarias não somam de novo. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500 por mês, na faixa de R$ 5.000 a R$ 6.000. A energia é calculada (2,5 kW, 16 h/dia, 30 dias, R$ 1,17/kWh) e os outros custos são R$ 200. O crédito de impostos parte de 25% do equipamento e precisa de validação fiscal.',
   },
   assumptions: {
     includePotential: false,
@@ -279,13 +291,10 @@ const EXAMPLE: Inputs = {
     },
     recoverableTaxCreditPct: DEFAULT_RECOVERABLE_TAX_CREDIT_PCT,
     opexMonthly: {
-      maintenance: 2_800,
-      software: 900,
-      energy: 500,
-      downtime: 300,
-      insurance: 300,
+      maintenance: DEFAULT_SUPPORT_MONTHLY,
       other: 200,
     },
+    energy: { ...DEFAULT_ENERGY },
     availabilityPct: 1,
     capacityDispensationsPerDay: 1_200,
     reorganizationEffectiveness: 1,
@@ -403,29 +412,30 @@ export function blankInputs(): Inputs {
     implementationContingency: 0,
   };
   inputs.robot.opexMonthly = {
-    maintenance: 0,
-    software: 0,
-    energy: 0,
-    downtime: 0,
-    insurance: 0,
+    maintenance: DEFAULT_SUPPORT_MONTHLY,
     other: 0,
   };
+  inputs.robot.energy = { ...DEFAULT_ENERGY };
   inputs.robot.residualValue = 0;
   inputs.robot.includeTax = false;
   inputs.robot.financing.enabled = false;
   return inputs;
 }
 
+const EXAMPLE_NET_INVESTMENT = 945_000;
+const EXAMPLE_STEADY_NET = 18_396;
+const EXAMPLE_ANNUAL_NET = EXAMPLE_STEADY_NET * 12;
+
 export function matchesIllustrativeExample(result: ModelResult): boolean {
   return (
     result.scenario === 'base' &&
     result.storeType === 'nova' &&
     result.storeCount === 1 &&
-    Math.abs(result.netInvestment - 945_000) < 1 &&
-    Math.abs(result.steadyNet - 20_500) < 1 &&
+    Math.abs(result.netInvestment - EXAMPLE_NET_INVESTMENT) < 1 &&
+    Math.abs(result.steadyNet - EXAMPLE_STEADY_NET) < 1 &&
     result.payback !== null &&
-    Math.abs(result.payback - 945_000 / 20_500) < 0.05 &&
+    Math.abs(result.payback - EXAMPLE_NET_INVESTMENT / EXAMPLE_STEADY_NET) < 0.05 &&
     result.roi !== null &&
-    Math.abs(result.roi - 246_000 / 945_000) < 0.000_001
+    Math.abs(result.roi - EXAMPLE_ANNUAL_NET / EXAMPLE_NET_INVESTMENT) < 0.000_001
   );
 }

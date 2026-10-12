@@ -1,8 +1,8 @@
-import { Callout, CheckField, ModuleImpact, NumberField, PercentField, SelectField, StageNote, Switch } from './Fields';
+import { Callout, CheckField, ModuleImpact, NumberField, PercentField, ReadOnlyField, SelectField, StageNote, Switch } from './Fields';
 import { opexLooksLikeEquipmentPrice } from '../model/calculate';
 import { equipmentFloorWarning, monthlyRobotCostWarning, RECOVERABLE_TAX_CREDIT_HELP } from '../model/example';
-import { sum } from '../model/round';
-import { formatBRL, formatIrr, formatPercent } from '../model/format';
+import { formatBRL, formatIrr, formatNumber, formatPercent } from '../model/format';
+import { energyConsumptionKwh, energyMonthlyCost } from '../model/robotCost';
 import type { Inputs, ModelResult } from '../model/types';
 
 const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string; help: string }> = [
@@ -14,14 +14,20 @@ const CAPEX_FIELDS: Array<{ key: keyof Inputs['robot']['capex']; label: string; 
   { key: 'implementationContingency', label: 'Implantação e contingência', help: 'Implantação e contingência, em R$, pagas uma vez. Somam o CAPEX bruto.' },
 ];
 
-const OPEX_FIELDS: Array<{ key: keyof Inputs['robot']['opexMonthly']; label: string; help: string }> = [
-  { key: 'maintenance', label: 'Manutenção e suporte', help: 'Manutenção e suporte, em R$ por mês. Entra no OPEX a partir do go-live e reduz a sobra mensal. Não é o preço do equipamento.' },
-  { key: 'software', label: 'Software, conectividade e monitoramento', help: 'Software, conectividade e monitoramento, em R$ por mês. Entram no OPEX recorrente.' },
-  { key: 'energy', label: 'Energia e consumíveis', help: 'Energia e consumíveis, em R$ por mês. Entram no OPEX recorrente.' },
-  { key: 'downtime', label: 'Indisponibilidade e contingência', help: 'Custo de indisponibilidade e contingência, em R$ por mês. Entra no OPEX recorrente.' },
-  { key: 'insurance', label: 'Seguros', help: 'Seguro do robô, em R$ por mês. Entra no OPEX recorrente.' },
-  { key: 'other', label: 'Outros custos', help: 'Outros custos recorrentes do robô, em R$ por mês. Entram no OPEX.' },
-];
+const SUPPORT_HELP =
+  'Suporte pago à fornecedora, em R$ por mês. A faixa deste campo é de R$ 5.000 a R$ 6.000. Entra no OPEX a partir do go-live. Não é o preço do equipamento.';
+const POWER_HELP =
+  'Potência média do robô em operação, em kW. O consumo mensal é potência × horas por dia × dias por mês. O padrão é 2,5 kW.';
+const HOURS_HELP = 'Horas de operação por dia. Entram no consumo mensal de energia. O padrão é 16 horas.';
+const DAYS_HELP =
+  'Dias de operação por mês usados na energia. O padrão é 30. Este campo não acompanha sozinho os dias de funcionamento da loja.';
+const TARIFF_HELP =
+  'Tarifa de energia em R$ por kWh, já com impostos. O custo mensal é o consumo em kWh vezes esta tarifa. Na inflação e no cenário, este valor acompanha o OPEX.';
+const CONSUMPTION_HELP =
+  'Consumo mensal calculado, em kWh: potência média × horas por dia × dias de operação. Somente leitura.';
+const ENERGY_COST_HELP =
+  'Custo mensal de energia calculado: consumo em kWh × tarifa com impostos. Somente leitura. Acompanha a inflação de OPEX e o fator de OPEX do cenário.';
+const OTHER_HELP = 'Outros custos recorrentes do robô, em R$ por mês. Entram no OPEX junto com o suporte e a energia calculada.';
 
 export function InvestmentForm({
   inputs,
@@ -39,8 +45,8 @@ export function InvestmentForm({
     <div className="stack">
       <StageNote>
         Esta tela separa o preço de comprar o robô do custo de mantê-lo. O equipamento entra uma vez no CAPEX. O custo
-        mensal é manutenção, suporte e o que se repete. Os dois não se somam como se o robô fosse pago duas vezes. O
-        payback e o ROI usam o investimento líquido e a sobra mensal depois desse custo.
+        mensal é o suporte pago à fornecedora, a energia calculada e os outros custos. Os dois não se somam como se o
+        robô fosse pago duas vezes. O payback e o ROI usam o investimento líquido e a sobra mensal depois desse custo.
       </StageNote>
       <ModuleImpact result={result} module="Investimento" />
       <section className="card">
@@ -87,15 +93,17 @@ export function InvestmentForm({
         </p>
       </section>
 
-      <section className="card">
+      <section className="card" data-testid="monthly-robot-cost">
         <h2>Custo mensal do robô</h2>
         <p className="lede">
-          Só manutenção, suporte e outros gastos recorrentes. Total {formatBRL(result.monthlyOpex)} por mês, a partir do
-          go-live. O preço do equipamento não entra aqui.
+          Suporte pago à fornecedora, na faixa de R$ 5.000 a R$ 6.000, energia calculada e outros custos. O consumo e o
+          custo de energia são somente leitura. Na escala de crescimento, a energia acompanha a inflação de OPEX. Total
+          neste cenário {formatBRL(result.monthlyOpex)} por mês, a partir do go-live. O preço do equipamento não entra
+          aqui.
         </p>
-        {monthlyRobotCostWarning(sum(Object.values(robot.opexMonthly))) ? (
+        {monthlyRobotCostWarning(robot.opexMonthly.maintenance) ? (
           <Callout tone="warn">
-            <span data-testid="opex-floor-warning">{monthlyRobotCostWarning(sum(Object.values(robot.opexMonthly)))}</span>
+            <span data-testid="opex-floor-warning">{monthlyRobotCostWarning(robot.opexMonthly.maintenance)}</span>
           </Callout>
         ) : null}
         {opexLooksLikeEquipmentPrice(result.grossCapex, result.monthlyOpex) ? (
@@ -105,18 +113,83 @@ export function InvestmentForm({
           </Callout>
         ) : null}
         <div className="form-grid">
-          {OPEX_FIELDS.map((field) => (
-            <NumberField
-              key={field.key}
-              fieldId={`robot.opexMonthly.${field.key}`}
-              label={field.label}
-              help={field.help}
-              value={robot.opexMonthly[field.key]}
-              suffix="R$"
-              min={0}
-              onChange={(value) => setRobot({ ...robot, opexMonthly: { ...robot.opexMonthly, [field.key]: value } })}
-            />
-          ))}
+          <NumberField
+            fieldId="robot.opexMonthly.maintenance"
+            label="Manutenção e suporte"
+            help={SUPPORT_HELP}
+            hint={SUPPORT_HELP}
+            value={robot.opexMonthly.maintenance}
+            suffix="R$"
+            min={0}
+            onChange={(maintenance) => setRobot({ ...robot, opexMonthly: { ...robot.opexMonthly, maintenance } })}
+          />
+          <NumberField
+            fieldId="robot.energy.powerKw"
+            label="Potência média"
+            help={POWER_HELP}
+            hint={POWER_HELP}
+            value={robot.energy.powerKw}
+            suffix="kW"
+            min={0}
+            onChange={(powerKw) => setRobot({ ...robot, energy: { ...robot.energy, powerKw } })}
+          />
+          <NumberField
+            fieldId="robot.energy.hoursPerDay"
+            label="Horas de operação por dia"
+            help={HOURS_HELP}
+            hint={HOURS_HELP}
+            value={robot.energy.hoursPerDay}
+            suffix="h/dia"
+            min={0}
+            onChange={(hoursPerDay) => setRobot({ ...robot, energy: { ...robot.energy, hoursPerDay } })}
+          />
+          <NumberField
+            fieldId="robot.energy.daysPerMonth"
+            label="Dias de operação por mês"
+            help={DAYS_HELP}
+            hint={DAYS_HELP}
+            value={robot.energy.daysPerMonth}
+            suffix="dias"
+            min={0}
+            onChange={(daysPerMonth) => setRobot({ ...robot, energy: { ...robot.energy, daysPerMonth } })}
+          />
+          <NumberField
+            fieldId="robot.energy.tariffPerKwh"
+            label="Tarifa com impostos"
+            help={TARIFF_HELP}
+            hint={TARIFF_HELP}
+            value={robot.energy.tariffPerKwh}
+            suffix="R$/kWh"
+            min={0}
+            onChange={(tariffPerKwh) => setRobot({ ...robot, energy: { ...robot.energy, tariffPerKwh } })}
+          />
+          <ReadOnlyField
+            testId="energy-readout"
+            fieldId="robot.energy.consumptionKwh"
+            label="Consumo mensal"
+            help={CONSUMPTION_HELP}
+            hint={CONSUMPTION_HELP}
+            value={formatNumber(energyConsumptionKwh(robot.energy))}
+            suffix="kWh"
+          />
+          <ReadOnlyField
+            testId="energy-cost"
+            fieldId="robot.energy.monthlyCost"
+            label="Custo mensal de energia"
+            help={ENERGY_COST_HELP}
+            hint={ENERGY_COST_HELP}
+            value={formatBRL(energyMonthlyCost(robot.energy))}
+          />
+          <NumberField
+            fieldId="robot.opexMonthly.other"
+            label="Outros custos"
+            help={OTHER_HELP}
+            hint={OTHER_HELP}
+            value={robot.opexMonthly.other}
+            suffix="R$"
+            min={0}
+            onChange={(other) => setRobot({ ...robot, opexMonthly: { ...robot.opexMonthly, other } })}
+          />
         </div>
       </section>
 

@@ -1,4 +1,5 @@
 import { occupancyRate } from './normalize';
+import { scaleRobotMonthlyCost } from './robotCost';
 import { clamp, round2 } from './round';
 import type { Inputs, SensitivityDriver } from './types';
 
@@ -62,12 +63,7 @@ export function projectDriver(
     return next;
   }
   if (driver === 'opex') {
-    const base = sumRecord(anchor.robot.opexMonthly);
-    const target = round2(base * factor);
-    next.robot.opexMonthly =
-      base > 0
-        ? scaleRecord(anchor.robot.opexMonthly, factor, target)
-        : { ...anchor.robot.opexMonthly, maintenance: target };
+    next.robot = scaleRobotMonthlyCost(anchor.robot, factor);
     return next;
   }
   if (driver === 'maoDeObra') {

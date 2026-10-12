@@ -11,13 +11,14 @@ describe('modelos com quadro de RH', () => {
     expect(rows.map((row) => row.id)).toEqual(['exemplo', 'loja-1m', 'loja-2m', 'loja-4m']);
     for (const row of rows) {
       expect(row.equipment).toBeGreaterThanOrEqual(MINIMUM_EQUIPMENT_PRICE);
-      expect(row.informedMonthlyCost).toBeGreaterThanOrEqual(MINIMUM_MONTHLY_ROBOT_COST);
-      expect(row.informedMonthlyCost).toBeLessThanOrEqual(6_000);
+      expect(row.informedMonthlyCost).toBe(7_104);
       expect(row.present).toBeGreaterThan(0);
       expect(row.payroll).toBeGreaterThan(0);
       expect(row.avoidedHired).toBeGreaterThan(0);
       const model = rhModels().find((item) => item.id === row.id);
       if (!model) throw new Error(row.id);
+      expect(model.inputs.robot.opexMonthly.maintenance).toBeGreaterThanOrEqual(MINIMUM_MONTHLY_ROBOT_COST);
+      expect(model.inputs.robot.opexMonthly.maintenance).toBeLessThanOrEqual(6_000);
       const result = evaluate(model.inputs);
       const summary = summarizeRoster(model.roster);
       expect(result.audit.find((line) => line.id === 'payroll')?.monthlyValue).toBeCloseTo(summary.avoidedPayroll, 0);
@@ -33,7 +34,7 @@ describe('modelos com quadro de RH', () => {
     expect(rows[0].storeType).toBe('nova');
     expect(rows[1].storeType).toBe('existente');
     expect(rows.map((row) => row.equipment)).toEqual([1_000_000, 1_000_000, 1_350_000, 1_850_000]);
-    expect(rows.map((row) => row.informedMonthlyCost)).toEqual([5_000, 5_000, 5_500, 6_000]);
+    expect(rows.map((row) => row.informedMonthlyCost)).toEqual([7_104, 7_104, 7_104, 7_104]);
     const people = rows.map((row) => row.present);
     expect(people[1]).toBeLessThan(people[2]);
     expect(people[2]).toBeLessThan(people[3]);
@@ -42,10 +43,10 @@ describe('modelos com quadro de RH', () => {
     expect(rows[0].avoidedPayroll).toBeCloseTo(2 * factor61 * 4_200, 2);
     expect(rows[3].avoidedPayroll).toBeCloseTo(6 * factor61 * 4_200 + 3 * factor12 * 4_200 * 2, 2);
     expect(rows.map((row) => row.cells.map((cell) => formatPayback(cell.payback)))).toEqual([
-      ['Não recupera em 60 meses', '57,6 meses', '47,3 meses'],
-      ['Não recupera em 60 meses', '51,9 meses', '43,6 meses'],
-      ['44,6 meses', '32,1 meses', '27,6 meses'],
-      ['20,4 meses', '15,1 meses', '13,1 meses'],
+      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '52,5 meses'],
+      ['Não recupera em 60 meses', '57,8 meses', '47,3 meses'],
+      ['47,1 meses', '33,3 meses', '28,4 meses'],
+      ['20,6 meses', '15,2 meses', '13,2 meses'],
     ]);
   });
 });

@@ -1,4 +1,5 @@
 import { exampleInputs } from './example';
+import { informedMonthlyRobotCost } from './robotCost';
 import type { Inputs } from './types';
 
 export const WIZARD_STEPS = [
@@ -89,21 +90,18 @@ export function withOtherCapex(inputs: Inputs, value: number): Inputs {
 }
 
 export function totalOpex(inputs: Inputs): number {
-  return Object.values(inputs.robot.opexMonthly).reduce((total, value) => total + value, 0);
+  return informedMonthlyRobotCost(inputs.robot);
 }
 
+/** O campo simplificado edita só o suporte. Energia e outros custos permanecem. */
 export function withTotalOpex(inputs: Inputs, value: number): Inputs {
   return {
     ...inputs,
     robot: {
       ...inputs.robot,
       opexMonthly: {
+        ...inputs.robot.opexMonthly,
         maintenance: value,
-        software: 0,
-        energy: 0,
-        downtime: 0,
-        insurance: 0,
-        other: 0,
       },
     },
   };

@@ -11,9 +11,9 @@ export function RhPresetPanel({ presets, onLoad }: { presets: RhPreset[]; onLoad
     <section className="card" data-testid="rh-preset-table">
       <h2>Três portes com quadro por turno</h2>
       <p className="lede">
-        Modelos fictícios. O equipamento fica em R$ 1.000.000 ou mais e o custo mensal do robô fica entre R$ 5.000 e R$
-        6.000. A loja de R$ 4 milhões tem 3 turnos. O turno da noite usa escala 12x36, então o folguista dessa escala pesa
-        na folha e na vaga evitada.
+        Modelos fictícios. O equipamento fica em R$ 1.000.000 ou mais. O suporte pago à fornecedora fica entre R$ 5.000
+        e R$ 6.000, e a energia é calculada à parte. A loja de R$ 4 milhões tem 3 turnos. O turno da noite usa escala
+        12x36, então o folguista dessa escala pesa na folha e na vaga evitada.
       </p>
       <div className="preset-actions">
         {presets.map((preset) => (

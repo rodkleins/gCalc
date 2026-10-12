@@ -1,4 +1,5 @@
 import { projectDriver } from './drivers';
+import { informedMonthlyRobotCost } from './robotCost';
 import { round2 } from './round';
 import type { SectionId } from './storage';
 import type { Inputs, SensitivityDriver } from './types';
@@ -20,7 +21,7 @@ export const QUICK_LEVERS = [
     label: 'OPEX',
     fieldId: 'robot.opexMonthly.maintenance',
     kind: 'money' as const,
-    hint: 'Custo mensal do robô. O percentual reparte manutenção, software e o restante.',
+    hint: 'Custo mensal do robô. O percentual reparte o suporte, os outros custos e a tarifa de energia. Potência, horas e dias não mudam.',
   },
   {
     id: 'salarios',
@@ -122,7 +123,7 @@ export function sectionForField(fieldId: string): SectionId {
 
 export function leverValue(inputs: Inputs, id: LeverId): number {
   if (id === 'investimento') return round2(sumRecord(inputs.robot.capex));
-  if (id === 'opex') return round2(sumRecord(inputs.robot.opexMonthly));
+  if (id === 'opex') return informedMonthlyRobotCost(inputs.robot);
   if (id === 'salarios') return inputs.people.payroll.monthlyCostPerPosition;
   if (id === 'turnover') return inputs.people.turnover.annualRate;
   if (id === 'volume') return inputs.profile.dispensationsPerDay;
@@ -245,7 +246,17 @@ function leverSlice(inputs: Inputs, id: LeverId): number[] {
   if (id === 'investimento') {
     return [...Object.values(inputs.robot.capex), inputs.logistics.shelving.avoidedAcquisition];
   }
-  if (id === 'opex') return Object.values(inputs.robot.opexMonthly);
+  if (id === 'opex') {
+    const energy = inputs.robot.energy;
+    return [
+      inputs.robot.opexMonthly.maintenance,
+      inputs.robot.opexMonthly.other,
+      energy.powerKw,
+      energy.hoursPerDay,
+      energy.daysPerMonth,
+      energy.tariffPerKwh,
+    ];
+  }
   if (id === 'salarios') {
     return [
       inputs.people.payroll.monthlyCostPerPosition,

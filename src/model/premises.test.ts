@@ -40,8 +40,9 @@ describe('premissas e ajuste rápido', () => {
     expect(leverDelta(raised, anchor, 'investimento')).toBeCloseTo(0.3, 6);
 
     const opex = withLeverValue(anchor, anchor, 'opex', leverValue(anchor, 'opex') * 1.1);
-    expect(leverValue(opex, 'opex')).toBeCloseTo(5_000 * 1.1, 2);
-    expect(opex.robot.opexMonthly.software).toBeCloseTo(anchor.robot.opexMonthly.software * 1.1, 2);
+    expect(leverValue(opex, 'opex')).toBeCloseTo(leverValue(anchor, 'opex') * 1.1, 2);
+    expect(opex.robot.energy.tariffPerKwh).toBeCloseTo(anchor.robot.energy.tariffPerKwh * 1.1, 2);
+    expect(opex.robot.energy.powerKw).toBe(anchor.robot.energy.powerKw);
   });
 
   it('aplica salário, turnover, volume, vendas e desconto sem mexer nas outras alavancas', () => {
@@ -106,7 +107,7 @@ describe('premissas e ajuste rápido', () => {
     const undone = exampleInputs();
     expect(leversDiffer(current, undone)).toBe(true);
     expect(evaluate(undone).netInvestment).toBe(945_000);
-    expect(evaluate(undone).steadyNet).toBe(20_500);
+    expect(evaluate(undone).steadyNet).toBe(18_396);
   });
 
   it('grava edição direta no âncora e preserva o ajuste das outras alavancas', () => {

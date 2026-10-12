@@ -11,16 +11,16 @@ No cenário **base**, loja **nova**, com as premissas ilustrativas carregadas ao
 | Indicador | Valor |
 | --- | --- |
 | Investimento líquido | R$ 945.000 |
-| Benefício líquido | R$ 20.500 por mês |
-| Benefício anual | R$ 246.000 |
-| Payback simples | 46,1 meses |
-| ROI anual simples | 26% |
+| Benefício líquido | R$ 18.396 por mês |
+| Benefício anual | R$ 220.752 |
+| Payback simples | 51,4 meses |
+| ROI anual simples | 23,4% |
 
-O payback de 46,1 meses é a interpolação: `945.000 / 20.500`. O caixa acumulado fica positivo no mês 47. O ROI é `246.000 / 945.000` e não é a TIR.
+O payback de 51,4 meses é a interpolação: `945.000 / 18.396`. O caixa acumulado fica positivo no mês 52. O ROI é `220.752 / 945.000` e não é a TIR.
 
-O investimento bruto do exemplo é R$ 1.235.000, com R$ 50.000 de obras, elétrica e rede e R$ 1.000.000 de equipamento. Em loja nova, R$ 40.000 de prateleiras evitadas e R$ 250.000 de créditos recuperáveis de impostos (25% do equipamento, premissa a validar com o fiscal) reduzem o CAPEX ao líquido de R$ 945.000. O benefício bruto de R$ 25.500 menos o OPEX de R$ 5.000 produz os R$ 20.500. Avarias ficam fora do caixa: a perda é uma linha só. Tudo continua fictício, a validar.
+O investimento bruto do exemplo é R$ 1.235.000, com R$ 50.000 de obras, elétrica e rede e R$ 1.000.000 de equipamento. Em loja nova, R$ 40.000 de prateleiras evitadas e R$ 250.000 de créditos recuperáveis de impostos (25% do equipamento, premissa a validar com o fiscal) reduzem o CAPEX ao líquido de R$ 945.000. O benefício bruto de R$ 25.500 menos o OPEX de R$ 7.104 produz os R$ 18.396. Esse OPEX é suporte de R$ 5.500, energia calculada de R$ 1.404 (2,5 kW × 16 h × 30 dias × R$ 1,17/kWh) e outros custos de R$ 200. Avarias ficam fora do caixa: a perda é uma linha só. Tudo continua fictício, a validar.
 
-O equipamento dos padrões fica em R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000. O custo mensal informado fica em R$ 5.000, R$ 5.500 e R$ 6.000. O crédito de impostos parte de 25% do equipamento nas três lojas. No cenário base, o payback das lojas é 44,0, 28,2 e 22,1 meses. A de R$ 1 milhão continua acima de 30 meses. A tela avisa se o equipamento digitado ficar abaixo de R$ 1.000.000 ou se o custo mensal digitado ficar abaixo de R$ 5.000.
+O equipamento dos padrões fica em R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000. O suporte pago à fornecedora fica em R$ 5.500 nas três lojas, na faixa de R$ 5.000 a R$ 6.000. A energia é calculada e o custo mensal informado fica em R$ 7.104. O crédito de impostos parte de 25% do equipamento nas três lojas. No cenário base, o payback das lojas é 48,2, 29,1 e 22,4 meses. A de R$ 1 milhão continua acima de 30 meses. A tela avisa se o equipamento digitado ficar abaixo de R$ 1.000.000 ou se o suporte digitado ficar fora de R$ 5.000 a R$ 6.000.
 
 ## Como rodar
 
@@ -91,7 +91,7 @@ O imposto, quando ligado, aplica a alíquota sobre o resultado operacional menos
 npm test
 ```
 
-A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 / R$ 20.500 / 46,1 meses / 26%, as regras de dupla contagem e a presença desses números na tela.
+A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 / R$ 18.396 / 51,4 meses / 23,4%, as regras de dupla contagem e a presença desses números na tela.
 
 ## Publicar no GitHub Pages
 

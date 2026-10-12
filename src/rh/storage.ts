@@ -2,6 +2,7 @@ import { isInputs, isScenarioId, isSectionId, type KeyValueStore, type SectionId
 import { normalizeInputs } from '../model/normalize';
 import { normalizeWizardStep } from '../model/wizard';
 import type { Inputs, ScenarioId } from '../model/types';
+import { opexMigrationWarnings } from '../model/robotCost';
 import { nightPremiumBelowMinimum, rhImportWarnings } from './importCheck';
 import {
   DEFAULT_ABSENCE_DAYS,
@@ -279,6 +280,7 @@ function importWarnings(value: Record<string, unknown>): string[] {
   }
   for (const chunk of chunks) {
     if (!isInputs(chunk.inputs)) continue;
+    messages.push(...opexMigrationWarnings(chunk.inputs));
     const inputs = normalizeInputs(chunk.inputs);
     const rawPremium = isRecord(chunk.roster) && 'nightPremiumPct' in chunk.roster ? chunk.roster.nightPremiumPct : undefined;
     const explicitRoster = normalizeRoster(chunk.roster);

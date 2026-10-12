@@ -74,7 +74,7 @@ Perdas, área, prateleiras e o custo do robô seguem as premissas do modelo. Nã
 
 ## 7. Pisos e modelos
 
-O equipamento dos padrões não fica abaixo de R$ 1.000.000 e não leva um fator escondido de 1,05. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. O custo mensal informado fica entre R$ 5.000 e R$ 6.000. O crédito recuperável de impostos (IBS/CBS ou ICMS) parte de 25% do preço do equipamento, é editável de 0% a 100% e abate o investimento líquido no mês 0. É premissa a validar com o fiscal. Um JSON antigo sem esse campo recebe os 25%. Loja maior pode ter segundo braço, carregador automático e módulo refrigerado. Tudo é fictício, a validar.
+O equipamento dos padrões não fica abaixo de R$ 1.000.000 e não leva um fator escondido de 1,05. A instalação, comissionamento e treinamento fica em R$ 50.000 em todos os modelos desta versão. O suporte pago à fornecedora fica entre R$ 5.000 e R$ 6.000. A energia é calculada (potência, horas, dias e tarifa com impostos) e acompanha a inflação de OPEX. O crédito recuperável de impostos (IBS/CBS ou ICMS) parte de 25% do preço do equipamento, é editável de 0% a 100% e abate o investimento líquido no mês 0. É premissa a validar com o fiscal. Um JSON antigo sem esse campo recebe os 25%. Software, indisponibilidade e seguros saem na importação, com aviso. Energia antiga em reais vira os parâmetros padrão, com aviso. O suporte antigo é mantido e a importação avisa se ele ficar fora da faixa. Loja maior pode ter segundo braço, carregador automático e módulo refrigerado. Tudo é fictício, a validar.
 
 O exemplo e a loja de R$ 1 milhão têm 2 turnos e 1 balcão. O robô libera 1 auxiliar em cada turno. A de R$ 1 milhão ainda tem 1 auxiliar futuro no turno 1.
 
@@ -82,6 +82,6 @@ A de R$ 2 milhões tem 2 turnos e 2 balcões, com 1 auxiliar liberado por turno 
 
 A de R$ 4 milhões tem 3 turnos e 3 balcões. De dia a escala é 6x1, e o gerente fica em 5x2. À noite, farmacêutico noturno e auxiliar noturno usam 12x36, com adicional de 100%. O nome da função separa esses custos dos cargos do dia. Estoquista e gerente da noite continuam em 6x1 e 5x2. O robô libera 1 auxiliar por turno em cada balcão, inclusive à noite. O fator 2,2188 entra só nas cadeiras 12x36. Se a operação real não cobre a noite assim, mude a escala, as férias, as faltas ou a quantidade. O resultado abaixo é o que a conta dá, sem ajuste para caber em 30 meses.
 
-A importação avisa se o arquivo vier com todos os postos liberados zerados, adicional noturno abaixo de 100%, dois custos para o mesmo cargo no mesmo balcão, equipamento abaixo de R$ 1.000.000 ou fora de milhar cheio, instalação diferente de R$ 50.000, custo mensal fora de R$ 5.000 a R$ 6.000, ou perfil diferente do quadro. O quadro importado prevalece.
+A importação avisa se o arquivo vier com todos os postos liberados zerados, adicional noturno abaixo de 100%, dois custos para o mesmo cargo no mesmo balcão, equipamento abaixo de R$ 1.000.000 ou fora de milhar cheio, instalação diferente de R$ 50.000, suporte fora de R$ 5.000 a R$ 6.000, campos removidos do custo mensal, energia antiga em reais, ou perfil diferente do quadro. O quadro importado prevalece.
 
 A tabela no fim desta página sai dos mesmos modelos, nos cenários conservador, base e otimista.

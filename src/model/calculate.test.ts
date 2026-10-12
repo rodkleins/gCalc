@@ -23,12 +23,12 @@ describe('exemplo ilustrativo do escopo', () => {
     expect(result.recoverableTaxCredit).toBe(250_000);
     expect(result.grossCapex - result.avoidedCapex - result.recoverableTaxCredit).toBe(945_000);
     expect(result.steadyBenefit).toBe(25_500);
-    expect(result.monthlyOpex).toBe(5_000);
-    expect(result.steadyNet).toBe(20_500);
-    expect(result.annualSteadyNet).toBe(246_000);
-    expect(result.roi).toBeCloseTo(246_000 / 945_000, 10);
-    expect(result.payback).toBeCloseTo(945_000 / 20_500, 6);
-    expect(result.firstPositiveMonth).toBe(47);
+    expect(result.monthlyOpex).toBe(7_104);
+    expect(result.steadyNet).toBe(18_396);
+    expect(result.annualSteadyNet).toBe(220_752);
+    expect(result.roi).toBeCloseTo(220_752 / 945_000, 10);
+    expect(result.payback).toBeCloseTo(945_000 / 18_396, 6);
+    expect(result.firstPositiveMonth).toBe(52);
     expect(result.payback as number).toBeGreaterThan(30);
     expect(result.roi).toBeGreaterThan(0);
     expect(result.npv).toBeLessThan(0);
@@ -45,7 +45,7 @@ describe('exemplo ilustrativo do escopo', () => {
   it('mantém o fluxo mensal constante por 60 meses', () => {
     expect(result.cashFlows).toHaveLength(61);
     expect(result.cashFlows[0]).toBe(-945_000);
-    expect(result.cashFlows.slice(1).every((value) => value === 20_500)).toBe(true);
+    expect(result.cashFlows.slice(1).every((value) => value === 18_396)).toBe(true);
     expect(simplePayback(result.cashFlows)).toBeCloseTo(result.payback as number, 8);
   });
 
@@ -63,9 +63,9 @@ describe('exemplo ilustrativo do escopo', () => {
   it('reconcilia custos sem robô e com robô', () => {
     const month = result.months[0];
     expect(month.costWithout).toBe(30_500);
-    expect(month.costWith).toBe(10_000);
+    expect(month.costWith).toBe(12_104);
     expect(month.costWithout - month.costWith + month.salesMargin).toBe(month.netOperating);
-    expect(month.netOperating).toBe(20_500);
+    expect(month.netOperating).toBe(18_396);
   });
 
   it('soma das linhas recorrentes incluídas é o benefício bruto', () => {
@@ -162,9 +162,9 @@ describe('regras anti-dupla-contagem', () => {
     const inputs = cloneExample();
     inputs.people.training.includedInReplacementCost = false;
     const opened = evaluate(inputs);
-    expect(opened.months[0].incremental).toBe(20_500 + 3 * 6_000);
-    expect(opened.months[1].incremental).toBe(20_500);
-    expect(opened.steadyNet).toBe(20_500);
+    expect(opened.months[0].incremental).toBe(18_396 + 3 * 6_000);
+    expect(opened.months[1].incremental).toBe(18_396);
+    expect(opened.steadyNet).toBe(18_396);
   });
 
   it('não soma recrutamento que já está no turnover', () => {
@@ -173,19 +173,19 @@ describe('regras anti-dupla-contagem', () => {
     const inputs = cloneExample();
     inputs.people.recruitment.includedInTurnoverCost = false;
     const opened = evaluate(inputs);
-    expect(opened.months[0].incremental).toBe(20_500 + 3 * 3_500);
-    expect(opened.steadyNet).toBe(20_500);
+    expect(opened.months[0].incremental).toBe(18_396 + 3 * 3_500);
+    expect(opened.steadyNet).toBe(18_396);
   });
 
   it('não monetiza venda consultiva sem evidência independente', () => {
     const line = evaluate(cloneExample()).audit.find((item) => item.id === 'consultative');
     expect(line?.includedInCashFlow).toBe(false);
-    expect(evaluate(cloneExample()).steadyNet).toBe(20_500);
+    expect(evaluate(cloneExample()).steadyNet).toBe(18_396);
 
     const inputs = cloneExample();
     inputs.people.consultativeSales.independentEvidence = true;
     inputs.people.consultativeSales.confidence = 'comprovavel';
-    expect(evaluate(inputs).steadyNet).toBe(20_500 + 20 * 80);
+    expect(evaluate(inputs).steadyNet).toBe(18_396 + 20 * 80);
   });
 
   it('mantém só a maior alavanca de venda até haver confirmação de independência', () => {
@@ -203,10 +203,10 @@ describe('regras anti-dupla-contagem', () => {
     const blocked = evaluate(inputs);
     expect(includedMonthly(inputs, 'ruptures')).toBeCloseTo(20_000 * 0.32, 2);
     expect(blocked.audit.find((line) => line.id === 'service')?.includedInCashFlow).toBe(false);
-    expect(blocked.steadyNet).toBeCloseTo(20_500 + 6_400, 2);
+    expect(blocked.steadyNet).toBeCloseTo(18_396 + 6_400, 2);
 
     inputs.stock.salesIndependenceConfirmed = true;
-    expect(evaluate(inputs).steadyNet).toBeCloseTo(20_500 + 6_400 + 3_200, 2);
+    expect(evaluate(inputs).steadyNet).toBeCloseTo(18_396 + 6_400 + 3_200, 2);
   });
 
   it('deixa caixas de fora até o processo logístico ser validado', () => {
@@ -217,7 +217,7 @@ describe('regras anti-dupla-contagem', () => {
     const inputs = cloneExample();
     inputs.logistics.boxes.processValidated = true;
     inputs.logistics.boxes.confidence = 'comprovavel';
-    expect(evaluate(inputs).steadyNet).toBe(20_500 + 400 * 8);
+    expect(evaluate(inputs).steadyNet).toBe(18_396 + 400 * 8);
   });
 
   it('não soma ocupação e margem da mesma área', () => {
@@ -230,7 +230,7 @@ describe('regras anti-dupla-contagem', () => {
     const switched = evaluate(inputs);
     expect(switched.audit.find((line) => line.id === 'spaceOccupancy')?.includedInCashFlow).toBe(false);
     expect(switched.audit.find((line) => line.id === 'spaceMargin')?.includedInCashFlow).toBe(true);
-    expect(switched.steadyNet).toBe(20_500 - 3_200 + 16 * 150);
+    expect(switched.steadyNet).toBe(18_396 - 3_200 + 16 * 150);
   });
 
   it('não coloca liberação de capital e custo financeiro no mesmo fluxo', () => {
@@ -241,8 +241,8 @@ describe('regras anti-dupla-contagem', () => {
     inputs.stock.workingCapital.treatment = 'liberacao_caixa';
     const release = evaluate(inputs);
     expect(release.months[2].workingCapital).toBe(130_000);
-    expect(release.months[2].incremental).toBe(20_500 + 130_000);
-    expect(release.steadyNet).toBe(20_500);
+    expect(release.months[2].incremental).toBe(18_396 + 130_000);
+    expect(release.steadyNet).toBe(18_396);
     expect(release.audit.find((line) => line.id === 'financialCost')?.includedInCashFlow).toBe(false);
     expect(release.informational.financialCostAvoidedAnnual).toBeCloseTo(130_000 * 0.12, 2);
     expect(release.informational.financialCostIncluded).toBe(false);
@@ -250,7 +250,7 @@ describe('regras anti-dupla-contagem', () => {
     inputs.stock.workingCapital.treatment = 'custo_financeiro';
     const interest = evaluate(inputs);
     expect(interest.months.every((month) => month.workingCapital === 0)).toBe(true);
-    expect(interest.steadyNet).toBe(20_500 + 1_300);
+    expect(interest.steadyNet).toBe(18_396 + 1_300);
     expect(interest.audit.find((line) => line.id === 'workingCapital')?.includedInCashFlow).toBe(false);
   });
 
@@ -259,8 +259,8 @@ describe('regras anti-dupla-contagem', () => {
     inputs.profile.storeType = 'existente';
     inputs.people.futureHires.enabled = true;
     const result = evaluate(inputs);
-    expect(result.months[11].netOperating).toBe(20_900);
-    expect(result.months[12].netOperating).toBe(20_900 + 4_200 + 200);
+    expect(result.months[11].netOperating).toBe(18_796);
+    expect(result.months[12].netOperating).toBe(18_796 + 4_200 + 200);
   });
 
   it('aplica rescisão só em loja existente e CAPEX evitado só em loja nova', () => {
@@ -275,12 +275,12 @@ describe('regras anti-dupla-contagem', () => {
     inputs.profile.storeType = 'existente';
     const existing = evaluate(inputs);
     expect(existing.netInvestment).toBe(985_000);
-    expect(existing.months[0].incremental).toBe(20_500 - 18_000);
-    expect(existing.months[1].incremental).toBe(20_500);
+    expect(existing.months[0].incremental).toBe(18_396 - 18_000);
+    expect(existing.months[1].incremental).toBe(18_396);
 
     inputs.profile.storeType = 'nova';
     const opened = evaluate(inputs);
-    expect(opened.months[0].incremental).toBe(20_500);
+    expect(opened.months[0].incremental).toBe(18_396);
     expect(opened.netInvestment).toBe(985_000);
   });
 
@@ -291,9 +291,9 @@ describe('regras anti-dupla-contagem', () => {
     const result = evaluate(inputs);
     expect(result.netInvestment).toBe(985_000);
     expect(result.recoverableTaxCredit).toBe(250_000);
-    expect(result.steadyNet).toBe(20_500 + 400);
+    expect(result.steadyNet).toBe(18_396 + 400);
     expect(result.months[0].resale).toBe(8_000);
-    expect(result.months[0].incremental).toBe(20_500 + 400 + 8_000);
+    expect(result.months[0].incremental).toBe(18_396 + 400 + 8_000);
   });
 });
 
@@ -305,9 +305,9 @@ describe('imposto, financiamento e sensibilidade', () => {
     inputs.robot.depreciationYears = 10;
     const result = evaluate(inputs);
     const depreciation = 945_000 / 120;
-    const tax = Math.round((20_500 - depreciation) * 0.34 * 100) / 100;
-    expect(result.steadyNet).toBeCloseTo(20_500 - tax, 2);
-    expect(result.months[0].opex).toBe(5_000);
+    const tax = Math.round((18_396 - depreciation) * 0.34 * 100) / 100;
+    expect(result.steadyNet).toBeCloseTo(18_396 - tax, 2);
+    expect(result.months[0].opex).toBe(7_104);
   });
 
   it('mantém o VPL econômico fora do fluxo da dívida', () => {
@@ -323,22 +323,22 @@ describe('imposto, financiamento e sensibilidade', () => {
 
   it('alonga o payback quando o investimento sobe 30%', () => {
     const point = sensitivity(cloneExample(), 'base').investimento.find((item) => item.delta === 0.3);
-    expect(point?.payback).toBeCloseTo((945_000 * 1.3) / 20_500, 4);
-    expect(point?.payback).toBeGreaterThan(evaluate(cloneExample()).payback as number);
-    expect(point?.steadyNet).toBe(20_500);
+    expect((945_000 * 1.3) / 18_396).toBeGreaterThan(60);
+    expect(point?.payback).toBeNull();
+    expect(point?.steadyNet).toBe(18_396);
   });
 
   it('não altera o caso base no ponto zero da sensibilidade', () => {
     const table = sensitivity(cloneExample(), 'base');
     for (const points of Object.values(table)) {
       const center = points.find((point) => point.delta === 0);
-      expect(center?.steadyNet).toBe(20_500);
-      expect(center?.payback).toBeCloseTo(945_000 / 20_500, 6);
+      expect(center?.steadyNet).toBe(18_396);
+      expect(center?.payback).toBeCloseTo(945_000 / 18_396, 6);
     }
   });
 
   it('reduz mão de obra, turnover e horas sem mexer em perdas', () => {
     const point = sensitivity(cloneExample(), 'base').maoDeObra.find((item) => item.delta === -0.3);
-    expect(point?.steadyNet).toBeCloseTo(15_910, 2);
+    expect(point?.steadyNet).toBeCloseTo(13_806, 2);
   });
 });

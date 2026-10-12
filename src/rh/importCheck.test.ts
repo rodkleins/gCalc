@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { storePresets } from '../model/presets';
+import type { Inputs } from '../model/types';
 import { RH_KIND, RH_STORAGE_VERSION, importRhPayload } from './storage';
 import { rhModels } from './presets';
 import { summarizeRoster } from './roster';
@@ -68,7 +69,14 @@ describe('JSON do quadro de RH', () => {
     ];
     inputs.robot.capex.equipment = 1_165_500;
     inputs.robot.capex.installationTraining = 47_250;
-    inputs.robot.opexMonthly = { maintenance: 1_000, software: 0, energy: 0, downtime: 0, insurance: 0, other: 0 };
+    inputs.robot.opexMonthly = {
+      maintenance: 1_000,
+      software: 0,
+      energy: 500,
+      downtime: 0,
+      insurance: 0,
+      other: 0,
+    } as Inputs['robot']['opexMonthly'];
     const imported = importRhPayload({
       kind: RH_KIND,
       version: RH_STORAGE_VERSION,

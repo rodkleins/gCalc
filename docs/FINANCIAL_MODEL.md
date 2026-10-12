@@ -58,7 +58,7 @@ A alíquota default de 34% não é adequada a qualquer regime. Depreciação lin
 
 `liberação = estoque antes - estoque depois`, somente se a redução estiver comprovada. O padrão é não presumir queda: o robô pode até aumentar o estoque. Entra no mês escolhido e pode reverter no mês 60. O custo financeiro mensal (`liberação × taxa / 12`) é alternativa, não soma. A leitura informativa permanece quando o principal já está no fluxo, porque o desconto do VPL já remunera o capital.
 
-O OPEX mensal é manutenção, suporte e gasto recorrente. O preço do equipamento entra só no CAPEX. OPEX anual acima de 20% do CAPEX bruto gera aviso.
+O OPEX mensal é o suporte pago à fornecedora, a energia calculada (potência × horas × dias × tarifa com impostos) e os outros custos. A faixa de R$ 5.000 a R$ 6.000 vale só para o suporte. A energia acompanha a inflação de OPEX e o fator de OPEX do cenário. O preço do equipamento entra só no CAPEX. OPEX anual acima de 20% do CAPEX bruto gera aviso.
 
 Contratação futura e rescisão só entram em loja existente. Em loja nova a vaga que não nasce já está na folha, sem desligamento.
 

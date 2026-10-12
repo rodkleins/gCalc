@@ -1,11 +1,10 @@
-import { MINIMUM_EQUIPMENT_PRICE, MINIMUM_MONTHLY_ROBOT_COST } from '../model/example';
+import { MINIMUM_EQUIPMENT_PRICE } from '../model/example';
 import { formatBRL, formatPercent } from '../model/format';
 import type { Inputs } from '../model/types';
 import { applyRoster, NIGHT_PREMIUM_MIN, shiftNightMultiplier, type Roster, type RosterPost } from './roster';
 
 const CHARGES_FACTOR = 1.3333;
 const INSTALLATION_TRAINING = 50_000;
-const MONTHLY_COST_MAX = 6_000;
 
 function near(value: number, target: number): boolean {
   return Math.abs(value - target) <= 0.02 * Math.max(1, Math.abs(target));
@@ -84,10 +83,6 @@ function profileDiverges(inputs: Inputs, roster: Roster): boolean {
   return signature(inputs.profile.roles) !== signature(aligned);
 }
 
-function monthlyRobotCost(inputs: Inputs): number {
-  return Object.values(inputs.robot.opexMonthly).reduce((total, value) => total + value, 0);
-}
-
 /**
  * Inconsistências do JSON antes de o quadro reescrever o perfil.
  * `explicitRoster` falso é migração da calculadora antiga: o perfil ainda não é um quadro.
@@ -109,10 +104,6 @@ export function rhImportWarnings(inputs: Inputs, roster: Roster, explicitRoster:
     messages.push(
       `Instalação do robô em ${formatBRL(installation)} em vez de R$ 50.000. Os modelos desta versão usam R$ 50.000, sem fator de 1,05.`,
     );
-  }
-  const monthly = monthlyRobotCost(inputs);
-  if (monthly < MINIMUM_MONTHLY_ROBOT_COST || monthly > MONTHLY_COST_MAX) {
-    messages.push(`Custo mensal do robô em ${formatBRL(monthly)}, fora da faixa de R$ 5.000 a R$ 6.000.`);
   }
   if (!explicitRoster) return messages;
   if (inputs.people.payroll.chargesPct > 0) {

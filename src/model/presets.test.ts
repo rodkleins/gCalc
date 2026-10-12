@@ -9,6 +9,7 @@ import {
 } from './example';
 import { normalizeInputs } from './normalize';
 import { storePresets } from './presets';
+import { informedMonthlyRobotCost } from './robotCost';
 
 describe('modelos de loja', () => {
   it('oferece três portes fictícios, com o robô à parte e sem queda de estoque', () => {
@@ -30,8 +31,7 @@ describe('modelos de loja', () => {
         SUGGESTED_PHARMACIST_MONTHLY_COST,
       );
       const gross = Object.values(preset.inputs.robot.capex).reduce((total, value) => total + value, 0);
-      const opex = Object.values(preset.inputs.robot.opexMonthly).reduce((total, value) => total + value, 0);
-      expect(opexLooksLikeEquipmentPrice(gross, opex)).toBe(false);
+      expect(opexLooksLikeEquipmentPrice(gross, informedMonthlyRobotCost(preset.inputs.robot))).toBe(false);
       expect(preset.inputs.profile.dispensationsPerDay).toBeGreaterThan(0);
       expect(preset.inputs.logistics.space.m2Freed).toBeGreaterThan(0);
     }
@@ -49,7 +49,7 @@ describe('modelos de loja', () => {
     const losses = 14_000 - 6_000;
     const maintenance = 600;
     const benefit = payroll + future + turnover + supervision + movement + count + losses + maintenance;
-    const opex = 2_800 + 900 + 500 + 300 + 300 + 200;
+    const opex = 5_500 + 1_404 + 200;
     expect(benefit).toBe(28_880);
     expect(result.steadyBenefit).toBe(benefit);
     expect(result.steadyNet).toBe(benefit - opex);
@@ -98,11 +98,9 @@ describe('modelos de loja', () => {
     expect(presets[1].inputs.robot.capex.civilElectrical).toBe(50_000);
     expect(presets[2].inputs.robot.capex.civilElectrical).toBe(50_000);
     const equipment = presets.map((preset) => preset.inputs.robot.capex.equipment);
-    const opex = presets.map((preset) =>
-      Object.values(preset.inputs.robot.opexMonthly).reduce((total, value) => total + value, 0),
-    );
+    const opex = presets.map((preset) => informedMonthlyRobotCost(preset.inputs.robot));
     expect(equipment).toEqual([1_000_000, 1_350_000, 1_850_000]);
-    expect(opex).toEqual([5_000, 5_500, 6_000]);
+    expect(opex).toEqual([7_104, 7_104, 7_104]);
     expect(presets[0].inputs.people.payroll.positionsReduced).toBe(3);
     expect(presets[1].inputs.people.payroll.positionsReduced).toBe(6);
     expect(presets[2].inputs.people.payroll.positionsReduced).toBe(9);
@@ -136,10 +134,6 @@ describe('avisos de leitura', () => {
     inputs.robot.capex.equipment = 1_000_000;
     inputs.robot.opexMonthly = {
       maintenance: 4_000,
-      software: 0,
-      energy: 0,
-      downtime: 0,
-      insurance: 0,
       other: 0,
     };
     expect(evaluate(inputs).warnings).toContain(monthlyRobotCostWarning(4_000));
@@ -147,17 +141,13 @@ describe('avisos de leitura', () => {
     inputs.robot.opexMonthly.maintenance = 0;
     const empty = evaluate(inputs);
     expect(empty.warnings.some((warning) => /1\.000\.000/.test(warning))).toBe(false);
-    expect(empty.warnings.some((warning) => /partem desse piso/.test(warning))).toBe(false);
+    expect(empty.warnings.some((warning) => /suporte pago à fornecedora/i.test(warning))).toBe(false);
   });
 
   it('avisa quando o OPEX anual passa de 20% do CAPEX', () => {
     const inputs = exampleInputs();
     inputs.robot.opexMonthly = {
       maintenance: 40_000,
-      software: 0,
-      energy: 0,
-      downtime: 0,
-      insurance: 0,
       other: 0,
     };
     const result = evaluate(inputs);

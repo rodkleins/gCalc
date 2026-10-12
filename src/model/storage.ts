@@ -1,5 +1,6 @@
 import { scenarioLabel } from './format';
 import { normalizeInputs } from './normalize';
+import { opexMigrationWarnings } from './robotCost';
 import type { Inputs, ScenarioId } from './types';
 import { normalizeWizardStep } from './wizard';
 
@@ -248,6 +249,35 @@ export function insertDuplicate(simulations: SimulationRecord[], id: string): Si
 export interface ImportedPayload {
   draft: DraftState | null;
   simulations: SimulationRecord[];
+  warnings: string[];
+}
+
+function migrationWarningsFrom(value: unknown): string[] {
+  const messages: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: unknown) => {
+    for (const message of opexMigrationWarnings(raw)) {
+      if (seen.has(message)) continue;
+      seen.add(message);
+      messages.push(message);
+    }
+  };
+  if (isInputs(value)) {
+    push(value);
+    return messages;
+  }
+  if (!isRecord(value)) return messages;
+  if (isRecord(value.draft)) {
+    push(value.draft.inputs);
+    push(value.draft.adjustAnchor);
+  }
+  if (isRecord(value.inputs)) push(value.inputs);
+  if (Array.isArray(value.simulations)) {
+    for (const simulation of value.simulations) {
+      if (isRecord(simulation)) push(simulation.inputs);
+    }
+  }
+  return messages;
 }
 
 export function importPayload(raw: unknown): ImportedPayload | null {
@@ -259,13 +289,15 @@ export function importPayload(raw: unknown): ImportedPayload | null {
       return null;
     }
   }
-  if (isInputs(value)) return { draft: draftFrom(value, 'base', 'dashboard'), simulations: [] };
+  const warnings = migrationWarningsFrom(value);
+  if (isInputs(value)) return { draft: draftFrom(value, 'base', 'dashboard'), simulations: [], warnings };
 
   const single = parseSimulation(value);
   if (single) {
     return {
       draft: draftFrom(single.inputs, single.scenario, single.section),
       simulations: [single],
+      warnings,
     };
   }
   if (!isRecord(value)) return null;
@@ -277,7 +309,7 @@ export function importPayload(raw: unknown): ImportedPayload | null {
     const scenario = isRecord(value.draft) ? value.draft.scenario : value.scenario;
     const section = isRecord(value.draft) ? value.draft.section : value.section;
     const wizardStep = isRecord(value.draft) ? value.draft.wizardStep : value.wizardStep;
-    return { draft: draftFrom(legacyInputs, scenario, section, wizardStep), simulations: [] };
+    return { draft: draftFrom(legacyInputs, scenario, section, wizardStep), simulations: [], warnings };
   }
 
   const simulations = parseSimulations(value.simulations);
@@ -291,7 +323,7 @@ export function importPayload(raw: unknown): ImportedPayload | null {
       )
     : null;
   if (!draft && simulations.length === 0) return null;
-  return { draft, simulations };
+  return { draft, simulations, warnings };
 }
 
 export function mergeSimulations(current: SimulationRecord[], incoming: SimulationRecord[]): SimulationRecord[] {

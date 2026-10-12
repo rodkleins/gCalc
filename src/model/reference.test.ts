@@ -16,6 +16,8 @@ function bare(): Inputs {
   inputs.profile.contributionMarginPct = 0.5;
   inputs.profile.roles = [];
   inputs.robot.recoverableTaxCreditPct = 0;
+  inputs.robot.opexMonthly = { maintenance: 0, other: 0 };
+  inputs.robot.energy = { powerKw: 0, hoursPerDay: 0, daysPerMonth: 0, tariffPerKwh: 0 };
   return inputs;
 }
 
@@ -337,6 +339,15 @@ describe('casos de referência independentes do exemplo', () => {
     const result = evaluate(inputs);
     expect(result.months[0].netOperating).toBe(900);
     expect(result.months[12].netOperating).toBeCloseTo(1_000 * 1.12 - 100 * 1.12, 2);
+  });
+
+  it('faz a energia calculada acompanhar a inflação de OPEX', () => {
+    const inputs = bare();
+    inputs.robot.energy = { powerKw: 2.5, hoursPerDay: 16, daysPerMonth: 30, tariffPerKwh: 1.17 };
+    inputs.profile.opexInflationPctPerYear = 0.12;
+    const result = evaluate(inputs);
+    expect(result.months[0].opex).toBe(1_404);
+    expect(result.months[12].opex).toBeCloseTo(1_404 * 1.12, 2);
   });
 
   it('rede escalonada guarda paybacks diferentes', () => {

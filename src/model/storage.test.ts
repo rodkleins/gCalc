@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from './calculate';
 import { exampleInputs } from './example';
+import type { Inputs } from './types';
 import {
   STORAGE_KEY,
   STORAGE_VERSION,
@@ -260,8 +261,8 @@ describe('serialização da sessão', () => {
     expect(loaded.simulations[0].inputs.robot.recoverableTaxCreditPct).toBe(0.25);
     expect(result.recoverableTaxCredit).toBe(250_000);
     expect(result.netInvestment).toBe(945_000);
-    expect(result.steadyNet).toBe(20_500);
-    expect(result.roi).toBeCloseTo(246_000 / 945_000);
+    expect(result.steadyNet).toBe(18_396);
+    expect(result.roi).toBeCloseTo(220_752 / 945_000);
     expect(store.getItem('gcalc.preview.library.v2')).toContain('Só prévia');
 
     writeSession(store, {
@@ -341,6 +342,34 @@ describe('biblioteca de simulações', () => {
     const old = importPayload({ version: 1, inputs: oldInputs, scenario: 'conservador' });
     expect(old?.draft?.scenario).toBe('conservador');
     expect(old?.simulations).toEqual([]);
+    expect(imported?.warnings).toEqual([]);
+  });
+
+  it('descarta campos antigos do custo mensal e avisa na importação', () => {
+    const legacy = exampleInputs() as Inputs & {
+      robot: { opexMonthly: Record<string, number> };
+    };
+    legacy.robot.opexMonthly = {
+      maintenance: 2_800,
+      software: 900,
+      energy: 500,
+      downtime: 300,
+      insurance: 300,
+      other: 200,
+    };
+    delete (legacy.robot as { energy?: unknown }).energy;
+    const imported = importPayload(legacy);
+    const warnings = (imported?.warnings.join('\n') ?? '').replace(/\u00a0/g, ' ');
+    expect(warnings).toContain('Software, conectividade e monitoramento');
+    expect(warnings).toContain('Indisponibilidade e contingência');
+    expect(warnings).toContain('Seguros');
+    expect(warnings).toContain('R$ 500');
+    expect(warnings).toContain('2,5 kW');
+    expect(warnings).toContain('foi mantido');
+    const robot = imported?.draft?.inputs.robot;
+    expect(robot?.opexMonthly).toEqual({ maintenance: 2_800, other: 200 });
+    expect(robot?.energy).toEqual({ powerKw: 2.5, hoursPerDay: 16, daysPerMonth: 30, tariffPerKwh: 1.17 });
+    expect('software' in (robot?.opexMonthly ?? {})).toBe(false);
   });
 
   it('não reutiliza id já existente na hora de importar', () => {
@@ -369,8 +398,8 @@ describe('biblioteca de simulações', () => {
     const left = evaluate(loaded.simulations[0].inputs, { scenario: loaded.simulations[0].scenario });
     const right = evaluate(loaded.simulations[1].inputs, { scenario: loaded.simulations[1].scenario });
     expect(left.netInvestment).toBe(945_000);
-    expect(left.steadyNet).toBe(20_500);
+    expect(left.steadyNet).toBe(18_396);
     expect(right.netInvestment).toBe(985_000);
-    expect(right.steadyNet).toBe(20_900);
+    expect(right.steadyNet).toBe(18_796);
   });
 });

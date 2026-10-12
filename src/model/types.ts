@@ -18,6 +18,14 @@ export type TaxPolicy =
   | 'beneficio_condicionado';
 export type ViewMode = 'simples' | 'avancado';
 export type MoneyBasis = 'nominal' | 'real';
+
+/** Parâmetros da energia. O custo mensal é potência × horas × dias × tarifa. */
+export interface RobotEnergy {
+  powerKw: number;
+  hoursPerDay: number;
+  daysPerMonth: number;
+  tariffPerKwh: number;
+}
 export type TurnoverCostMode = 'consolidado' | 'detalhado';
 export type HourMonetization = 'nenhuma' | 'reducao_custo' | 'ganho_incremental';
 
@@ -244,14 +252,12 @@ export interface Inputs {
     };
     /** Fração de 0 a 1 sobre o preço do equipamento. 0,25 = 25%. */
     recoverableTaxCreditPct: number;
+    /** Suporte pago à fornecedora e outros custos. Energia fica em `energy`. */
     opexMonthly: {
       maintenance: number;
-      software: number;
-      energy: number;
-      downtime: number;
-      insurance: number;
       other: number;
     };
+    energy: RobotEnergy;
     availabilityPct: number;
     capacityDispensationsPerDay: number;
     reorganizationEffectiveness: number;

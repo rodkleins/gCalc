@@ -1,6 +1,7 @@
 import { flushSync } from 'react-dom';
 import { useState, type ReactNode } from 'react';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { energyConsumptionKwh, energyMonthlyCost, informedMonthlyRobotCost } from '../model/robotCost';
 import type { AuditLine, Inputs, ModelResult, ScenarioId } from '../model/types';
 import './print.css';
 
@@ -22,10 +23,6 @@ function dateLabel(raw: string): string {
 
 function printedOn(): string {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date());
-}
-
-function opexSum(inputs: Inputs): number {
-  return Object.values(inputs.robot.opexMonthly).reduce((total, value) => total + value, 0);
 }
 
 function groupsOf(lines: AuditLine[]): Array<{ module: string; lines: AuditLine[] }> {
@@ -102,12 +99,14 @@ function parameterGroups(inputs: Inputs, scenario: ScenarioId): Array<{ title: s
         ['Integração', money(capex.integration)],
         ['Contingência', money(capex.implementationContingency)],
         ['Manutenção e suporte', `${money(opex.maintenance)}/mês`],
-        ['Software', `${money(opex.software)}/mês`],
-        ['Energia', `${money(opex.energy)}/mês`],
-        ['Parada', `${money(opex.downtime)}/mês`],
-        ['Seguro', `${money(opex.insurance)}/mês`],
+        ['Potência média', `${formatNumber(inputs.robot.energy.powerKw, 1)} kW`],
+        ['Horas por dia', `${formatNumber(inputs.robot.energy.hoursPerDay, 0)} h`],
+        ['Dias de operação', `${formatNumber(inputs.robot.energy.daysPerMonth, 0)} dias`],
+        ['Tarifa com impostos', `${formatBRL(inputs.robot.energy.tariffPerKwh, 2)}/kWh`],
+        ['Consumo mensal', `${formatNumber(energyConsumptionKwh(inputs.robot.energy))} kWh`],
+        ['Energia calculada', `${money(energyMonthlyCost(inputs.robot.energy))}/mês`],
         ['Outros custos mensais', `${money(opex.other)}/mês`],
-        ['Custo mensal informado', `${money(opexSum(inputs))}/mês`],
+        ['Custo mensal informado', `${money(informedMonthlyRobotCost(inputs.robot))}/mês`],
         ['Disponibilidade', formatPercent(inputs.robot.availabilityPct)],
         ['Taxa de desconto', `${formatPercent(inputs.robot.discountRateAnnual)} ao ano`],
         ['Entrada em operação', `mês ${formatNumber(inputs.robot.goLiveMonth)}`],

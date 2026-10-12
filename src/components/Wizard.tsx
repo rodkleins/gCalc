@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { energyConsumptionKwh, energyMonthlyCost } from '../model/robotCost';
 import type { Inputs, ModelResult, PlannedHire, ScenarioId, SpaceMode } from '../model/types';
 import {
   otherCapex,
-  totalOpex,
   validateWizardStep,
   withOtherCapex,
   withTotalOpex,
   WIZARD_STEPS,
 } from '../model/wizard';
 import { equipmentFloorWarning, monthlyRobotCostWarning, RECOVERABLE_TAX_CREDIT_HELP } from '../model/example';
-import { Callout, NumberField, PercentField, StageNote, Switch, TextField } from './Fields';
+import { Callout, NumberField, PercentField, ReadOnlyField, StageNote, Switch, TextField } from './Fields';
 
 export function Wizard({
   inputs,
@@ -500,9 +500,9 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           <span data-testid="equipment-floor-warning">{equipmentFloorWarning(robot.capex.equipment)}</span>
         </Callout>
       ) : null}
-      {monthlyRobotCostWarning(totalOpex(inputs)) ? (
+      {monthlyRobotCostWarning(robot.opexMonthly.maintenance) ? (
         <Callout tone="warn">
-          <span data-testid="opex-floor-warning">{monthlyRobotCostWarning(totalOpex(inputs))}</span>
+          <span data-testid="opex-floor-warning">{monthlyRobotCostWarning(robot.opexMonthly.maintenance)}</span>
         </Callout>
       ) : null}
       <div className="form-grid">
@@ -540,12 +540,39 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           onChange={(value) => onInputs(withOtherCapex(inputs, value))}
         />
         <NumberField
-          label="Custo mensal do robô"
+          label="Manutenção e suporte"
           suffix="R$"
           min={0}
-          value={totalOpex(inputs)}
-          hint="Só manutenção, suporte e gastos recorrentes. O preço do equipamento fica no campo acima e não se repete aqui."
+          value={robot.opexMonthly.maintenance}
+          help="Suporte pago à fornecedora, em R$ por mês. A faixa deste campo é de R$ 5.000 a R$ 6.000. Não inclui a energia calculada nem o preço do equipamento."
+          hint="Suporte pago à fornecedora. A faixa é de R$ 5.000 a R$ 6.000. A energia é calculada à parte."
           onChange={(value) => onInputs(withTotalOpex(inputs, value))}
+        />
+        <NumberField
+          label="Outros custos"
+          suffix="R$"
+          min={0}
+          value={robot.opexMonthly.other}
+          help="Outros custos recorrentes do robô, em R$ por mês. Entram no OPEX junto com o suporte e a energia calculada."
+          hint="Outros custos recorrentes, em R$ por mês."
+          onChange={(other) =>
+            onInputs({ ...inputs, robot: { ...robot, opexMonthly: { ...robot.opexMonthly, other } } })
+          }
+        />
+        <ReadOnlyField
+          testId="energy-readout"
+          label="Consumo mensal"
+          help="Consumo mensal calculado, em kWh: potência média × horas por dia × dias de operação. Somente leitura."
+          hint="Potência × horas × dias. Somente leitura. O padrão é 2,5 kW, 16 h e 30 dias."
+          value={formatNumber(energyConsumptionKwh(robot.energy))}
+          suffix="kWh"
+        />
+        <ReadOnlyField
+          testId="energy-cost"
+          label="Custo mensal de energia"
+          help="Custo mensal de energia calculado: consumo em kWh × tarifa com impostos. Somente leitura. Acompanha a inflação de OPEX."
+          hint="Consumo × tarifa com impostos. Somente leitura. Acompanha a inflação de OPEX."
+          value={formatBRL(energyMonthlyCost(robot.energy))}
         />
         <PercentField
           label="Taxa de desconto ao ano"

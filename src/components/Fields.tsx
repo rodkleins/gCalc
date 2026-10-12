@@ -82,6 +82,37 @@ export function PremiseFocus({ field, children }: { field: string | null; childr
   return <PremiseFocusContext.Provider value={field}>{children}</PremiseFocusContext.Provider>;
 }
 
+export function ReadOnlyField({
+  label,
+  value,
+  suffix,
+  hint,
+  help,
+  fieldId,
+  testId,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  hint?: string;
+  help?: string;
+  fieldId?: string;
+  testId?: string;
+}) {
+  const helpOn = useFieldHelpEnabled();
+  const description = helpText(help, hint);
+  return (
+    <label className="field" data-field={fieldId} data-testid={testId}>
+      <FieldLabel label={label} help={helpOn ? description : undefined} />
+      <span className="control is-calculated">
+        <output {...fieldHelpAttr(helpOn, description)}>{value}</output>
+        {suffix ? <i>{suffix}</i> : null}
+      </span>
+      {hint ? <small>{hint}</small> : null}
+    </label>
+  );
+}
+
 export function NumberField({
   label,
   value,
