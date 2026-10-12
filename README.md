@@ -110,7 +110,7 @@ A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 /
 
 O build usa caminhos relativos e gera as páginas no mesmo `dist`: a calculadora atual (`index.html`), o rascunho head-to-head (`headtohead/index.html`), a documentação dos cálculos (`calculos/index.html`) e a versão em validação (`rh/index.html` e `rh/calculos/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere que o artefato não traz o prefixo antigo nem host absoluto, grava o arquivo `CNAME` com `gcalc.t2software.co` e publica no Pages a cada push na branch `main`. A raiz continua sem a pasta de prévia.
 
-A página de cálculos fica em [https://gcalc.t2software.co/calculos/](https://gcalc.t2software.co/calculos/) e descreve a lógica da calculadora atual em linguagem de negócio.
+A página de cálculos fica em [https://gcalc.t2software.co/calculos/](https://gcalc.t2software.co/calculos/) e a da versão de RH em [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/). O texto, as fórmulas e as tabelas já vêm no HTML. Os exemplos numéricos são recalculados no build pela mesma conta da calculadora. O JavaScript dessas páginas só refaz a navegação.
 
 O site publicado é [https://gcalc.t2software.co/](https://gcalc.t2software.co/). Para o Pages continuar respondendo nesse domínio:
 

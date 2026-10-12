@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate, sensitivity } from '../model/calculate';
 import { exampleInputs } from '../model/example';
-import { formatPayback } from '../model/format';
+import { formatBRL, formatPayback } from '../model/format';
+import { storePresets } from '../model/presets';
 import rhConteudo from '../rh/calculos/conteudo.md?raw';
 import conteudo from './conteudo.md?raw';
+import { engineExamplesHtml } from './engineExamples';
 import { renderMarkdown } from './render';
+
+function plain(html: string): string {
+  return html.replace(/\u00a0/g, ' ');
+}
 
 function assertClientLanguage(source: string) {
   expect(source).not.toMatch(/\/gCalc\//);
@@ -25,14 +31,18 @@ describe('página de cálculos', () => {
     expect(result.firstPositiveMonth).toBe(52);
     expect(formatPayback(result.discountedPayback)).toBe('Não recupera em 60 meses');
     expect(result.firstPositiveDiscountedMonth).toBeNull();
-    expect(conteudo).toContain('−R$ 106.366,93');
-    expect(conteudo).toContain('51,4 meses');
-    expect(conteudo).toContain('Não recupera em 60 meses');
-    expect(conteudo).toContain('23,4%');
+    const examples = plain(engineExamplesHtml());
+    expect(examples).toContain(plain(formatBRL(result.npv, 2)));
+    expect(examples).toContain(formatPayback(result.payback));
+    expect(examples).toContain(formatPayback(result.discountedPayback));
+    expect(examples).toContain('23,4%');
     const paybacks = sensitivity(exampleInputs(), 'base').investimento.map((point) => formatPayback(point.payback));
     expect(paybacks).toEqual(['36,0 meses', '43,7 meses', '51,4 meses', '59,1 meses', 'Não recupera em 60 meses']);
-    expect(conteudo).toContain('36,0 m');
-    expect(conteudo).toContain('não recupera');
+    for (const payback of paybacks) expect(examples).toContain(payback);
+    const store = evaluate(storePresets()[0].inputs, { scenario: 'base' });
+    expect(examples).toContain(formatPayback(store.payback));
+    expect(examples).not.toMatch(/\/gCalc\/|src\/|\bevaluate\b|rodkleins\.github\.io|gcalc\.t2software\.co/);
+    expect(examples).not.toMatch(/\b[a-z]{3,}[A-Z][A-Za-z0-9]*\b/);
   });
 
   it('monta índice, fórmulas e tabelas', () => {
@@ -41,7 +51,6 @@ describe('página de cálculos', () => {
     expect(toc.some((item) => item.level === 3 && /Perfil/.test(item.text))).toBe(true);
     expect(html).toContain('<pre><code>');
     expect(html).toContain('mês de início');
-    expect(html).toContain('51,4 meses');
     expect(html).not.toContain('<script');
     expect((html.match(/<table>/g) ?? []).length).toBeGreaterThan(8);
     expect((html.match(/<pre>/g) ?? []).length).toBeGreaterThan(8);

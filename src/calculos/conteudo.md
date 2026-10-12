@@ -499,93 +499,25 @@ O controle vai de −100% a +30%, em passos de 5%. O campo numérico aceita zero
 
 ### 9.2 Sensibilidade do exemplo
 
-Cenário base, loja nova. Payback simples. Origem: o exemplo fictício de abertura, variado em cada alavanca.
+Cenário base, loja nova. Payback simples. A tabela numérica no fim desta página é recalculada na publicação, com o exemplo fictício de abertura, nos cinco pontos −30%, −15%, zero, +15% e +30%.
 
-| Alavanca | −30% | −15% | 0 | +15% | +30% |
-|---|---|---|---|---|---|
-| Investimento | 36,0 m | 43,7 m | 51,4 m | 59,1 m | não recupera |
-| Custo mensal do robô | 46,0 m | 48,6 m | 51,4 m | 54,5 m | 58,1 m |
-| Mão de obra | não recupera | 58,7 m | 51,4 m | 45,7 m | 41,1 m |
-| Turnover | 51,9 m | 51,6 m | 51,4 m | 51,1 m | 50,9 m |
-| Volume | 58,9 m | 54,9 m | 51,4 m | 48,3 m | 45,6 m |
-| Vendas | 51,4 m | 51,4 m | 51,4 m | 51,4 m | 51,4 m |
-| Desconto | 51,4 m | 51,4 m | 51,4 m | 51,4 m | 51,4 m |
-| Disponibilidade | 52,0 m | 51,7 m | 51,4 m | 51,4 m | 51,4 m |
-| Cobertura do estoque | 58,4 m | 54,7 m | 51,4 m | 51,4 m | 51,4 m |
-
-Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move valor presente e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então +15% e +30% batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas e inventário. Avarias estão desligadas no exemplo, então não entram nessa curva. Investimento +30% e mão de obra −30% passam de 60 meses.
+Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move valor presente e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então os aumentos batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas e inventário. Avarias estão desligadas no exemplo, então não entram nessa curva.
 
 ## 10. Exemplo numérico ilustrativo
 
-Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto sobre o resultado, rede desligada, capturas em 1, encargos e benefícios zero. O benefício líquido é R$ 18.396. Obras, elétrica e rede continuam R$ 50.000. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500, a energia calculada é R$ 1.404 e os outros custos são R$ 200. O crédito recuperável de impostos parte de 25% do equipamento (R$ 250.000) e é premissa a validar com o fiscal. Avarias ficam fora do caixa. O investimento líquido é R$ 945.000. O payback passa de 30 meses: o piso do robô não foi compensado com benefício novo.
+Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto sobre o resultado, rede desligada, capturas em 1, encargos e benefícios zero. Obras, elétrica e rede continuam R$ 50.000. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500. A energia é calculada (2,5 quilowatts, 16 horas por dia, 30 dias, R$ 1,17 por quilowatt-hora) e os outros custos são R$ 200. O crédito recuperável de impostos parte de 25% do equipamento e é premissa a validar com o fiscal. Avarias ficam fora do caixa. O piso do equipamento não foi compensado com benefício novo.
 
 Quadro de 12 pessoas, 3 vagas evitadas, jornada de 176 horas. Horas reivindicadas no exemplo somam 70 (supervisão 20, movimentação 20, inventário 10 e venda consultiva 20, esta última fora do caixa), abaixo das 1.584 horas de quem permanece, então as horas entram inteiras.
 
-| Benefício, do mês 1 ao 60 | Fórmula | R$/mês |
-|---|---|---|
-| Folha e encargos | 3 × 4.200 | 12.600 |
-| Turnover | 3 × 30% × 8.000 / 12 | 600 |
-| Supervisão | 20 h × 45 | 900 |
-| Espaço (ocupação) | 16 m² × 200 | 3.200 |
-| Movimentação | 20 h × 40 | 800 |
-| Inventário | 10 h × 40 | 400 |
-| Perdas evitadas | 12.000 − 5.000 | 7.000 |
-| Benefício bruto | soma | 25.500 |
-| Custo mensal do robô | 5.500 + 1.404 + 200 | −7.104 |
-| Benefício líquido | 25.500 − 7.104 | 18.396 |
+O retorno estabilizado é o ritmo do mês 60. Não é o retorno acumulado e não é a taxa interna. A energia entra no custo mensal e acompanha a inflação desse custo. O crédito entra só no investimento, no mês 0.
 
-| Indicador | Cálculo | Resultado |
-|---|---|---|
-| Investimento bruto | soma dos seis itens | R$ 1.235.000 |
-| Investimento evitado (prateleiras, loja nova) | 40.000 | R$ 40.000 |
-| Créditos recuperáveis (25% do equipamento) | 1.000.000 × 25% | R$ 250.000, premissa a validar |
-| Investimento líquido | 1.235.000 − 40.000 − 250.000 | R$ 945.000 |
-| Benefício operacional anual | 25.500 × 12 | R$ 306.000 |
-| Economia acumulada em 60 meses | 25.500 × 60 | R$ 1.530.000 |
-| Operacional líquido anual (mês 60 × 12) | 18.396 × 12 | R$ 220.752 |
-| Retorno anual simples estabilizado | 220.752 / 945.000 | 23,4% |
-| Retorno acumulado em 60 meses | (18.396 × 60) / 945.000 | 116,8% |
-| Caixa acumulado | −945.000 + 18.396 × 60 | R$ 158.760 |
-| Payback simples | 945.000 / 18.396 | 51,4 meses (acumulado positivo no mês 52) |
-| Payback descontado (12% ao ano) | interpolação dos fluxos descontados | Não recupera em 60 meses |
-| Valor presente (12% ao ano) | soma dos fluxos descontados | −R$ 106.366,93 |
-| Caixa descontado acumulado | mesma soma, neste exemplo plano | −R$ 106.366,93 |
-| Taxa interna de retorno | mensal 0,52% | anual 6,5% |
-
-O retorno de 23,4% é o ritmo estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 116,8% porque sessenta meses de R$ 18.396 cobrem o investimento 1,168 vez. Nenhum dos dois é a taxa interna. A taxa anual é 6,5% e a mensal é 0,52%. A energia de R$ 1.404 entra no custo mensal e acompanha a inflação desse custo. O crédito de R$ 250.000 entra só no investimento, no mês 0, e continua marcado como premissa a validar.
-
-Fora do fluxo no exemplo (aparecem na auditoria): venda consultiva (R$ 1.600 por mês, potencial), rupturas (R$ 6.400 por mês, que são 20.000 × 32%) e atendimento (R$ 3.200 por mês), caixas, recrutamento, treinamento, capital de giro, horas realocadas e avarias.
-
-| Cenário e loja | Investimento líquido | Líquido por mês | Payback | Retorno estabilizado | Valor presente | Taxa ao ano |
-|---|---|---|---|---|---|---|
-| Conservador, nova | 1.020.600 | 12.230,4 | não recupera | 14,4% | −463.043 | −11,6% |
-| Base, nova | 945.000 | 18.396 | 51,4 m | 23,4% | −106.367 | 6,5% |
-| Otimista, nova | 916.650 | 22.024,3 | 41,6 m | 28,8% | 87.390 | 16,6% |
-| Conservador, existente | 1.063.800 | 12.550,4 | não recupera | 14,2% | −496.212 | −12,3% |
-| Base, existente | 985.000 | 18.796 | 52,6 m | 22,9% | −132.689 | 5,4% |
-| Otimista, existente | 955.450 | 22.472,3 | 42,7 m | 28,2% | 64.457 | 15,2% |
-
-Na loja existente base: sem investimento evitado de prateleira, com crédito de R$ 250.000 (investimento R$ 985.000), manutenção de prateleiras de mais R$ 400 por mês (líquido R$ 18.796) e, no mês 1, revenda de R$ 8.000 menos rescisão de R$ 12.600 (menos R$ 4.600 pontual). O cenário otimista reduz o investimento informado em 3% e o custo mensal informado em 8%; o preço digitado do equipamento continua R$ 1.000.000, o crédito continua 25% desse preço e o suporte digitado continua R$ 5.500. A energia calculada entra no fator do custo mensal. No conservador o equipamento entra 8% maior, então o crédito em reais sobe junto (R$ 270.000).
+Na loja existente do mesmo exemplo não há investimento evitado de prateleira. Entram a manutenção evitada das prateleiras e, no mês 1, a revenda menos a rescisão. O cenário otimista reduz o investimento informado em 3% e o custo mensal informado em 8%. O preço digitado do equipamento não muda, o percentual do crédito não muda e o suporte digitado não muda. A energia calculada entra no fator do custo mensal. No conservador o equipamento entra 8% maior, então o crédito em reais sobe junto.
 
 ### 10.1 Lojas de R$ 1, 2 e 4 milhões
 
-Loja existente, dados fictícios a validar com a operação. Obras, elétrica e rede permanecem R$ 50.000. O equipamento é R$ 1.000.000, R$ 1.350.000 (segundo braço) e R$ 1.850.000 (segundo braço, carregador automático e módulo refrigerado). Frete, instalação, integração e contingência ficam em torno de 6%, 4%, 2,5% e 5% do conjunto. O suporte pago à fornecedora é R$ 5.500 nas três lojas. A energia calculada e os outros custos levam o custo mensal informado a R$ 7.104. A ocupação da área liberada não entra no caixa. Perdas entram uma vez, na taxa de 1,4% para 0,6% do faturamento; avarias ficam desligadas. Contratações futuras começam no mês 13, então o payback simples não é o investimento dividido pelo líquido do mês 60.
+Loja existente, dados fictícios a validar com a operação. Obras, elétrica e rede permanecem R$ 50.000. O equipamento é R$ 1.000.000, R$ 1.350.000 (segundo braço) e R$ 1.850.000 (segundo braço, carregador automático e módulo refrigerado). Frete, instalação, integração e contingência ficam em torno de 6%, 4%, 2,5% e 5% do conjunto. O suporte pago à fornecedora é R$ 5.500 nas três lojas. A energia calculada e os outros custos entram no custo mensal. A ocupação da área liberada não entra no caixa. Perdas entram uma vez, na taxa de 1,4% para 0,6% do faturamento; avarias ficam desligadas. Contratações futuras começam no mês 13, então o payback simples não é o investimento dividido pelo líquido do mês 60.
 
-| Modelo | Cenário | Investimento líquido | Custo mensal | Líquido por mês | Payback | Retorno acumulado | Valor presente |
-|---|---|---|---|---|---|---|---|
-| R$ 1 milhão | Conservador | 1.063.800 | 8.169,6 | 14.934,4 | não recupera | 80,3% | −435.201 |
-| R$ 1 milhão | Base | 985.000 | 7.104 | 21.776 | 48,2 m | 127,3% | −54.444 |
-| R$ 1 milhão | Otimista | 955.450 | 6.535,7 | 25.809,9 | 39,8 m | 155,9% | 153.041 |
-| R$ 2 milhões | Conservador | 1.417.500 | 8.169,6 | 37.206,4 | 41,0 m | 151,5% | 174.202 |
-| R$ 2 milhões | Base | 1.312.500 | 7.104 | 49.616 | 29,1 m | 218,8% | 825.056 |
-| R$ 2 milhões | Otimista | 1.273.125 | 6.535,7 | 56.990,7 | 24,9 m | 259,3% | 1.188.704 |
-| R$ 4 milhões | Conservador | 1.914.300 | 8.169,6 | 67.926,4 | 30,6 m | 206,3% | 1.025.632 |
-| R$ 4 milhões | Base | 1.772.500 | 7.104 | 88.016 | 22,4 m | 289% | 2.053.463 |
-| R$ 4 milhões | Otimista | 1.719.325 | 6.535,7 | 99.998,7 | 19,3 m | 338,7% | 2.635.018 |
-
-No base, o payback cai com o porte: 48,2 meses, 29,1 meses e 22,4 meses. A loja de R$ 1 milhão continua acima de 30 meses. As de R$ 2 milhões e R$ 4 milhões fecham em até 30 meses no base, já com o crédito de 25% do equipamento — premissa a validar, não um ajuste para caber no prazo. A folha completa sugerida, que não entra inteira no caixa, continua R$ 63.500, R$ 127.000 e R$ 249.500 por mês (12, 24 e 47 pessoas). As vagas evitadas são 3, 6 e 9: uma por turno e uma de pico em cada balcão na loja de um balcão e na de dois; na de três balcões, um posto por turno, inclusive a noite.
-
-A loja de R$ 1 milhão, com equipamento no piso, suporte de R$ 5.500, energia calculada e crédito de 25%, fica em 48,2 meses no base. A de R$ 2 milhões, com seis vagas, fica em 29,1 meses. Essas lojas não ganharam benefício novo para encurtar o prazo.
+O quadro do fim da página mostra investimento, custo mensal, líquido, payback, retorno acumulado e valor presente em cada cenário. A loja de R$ 1 milhão não ganhou benefício novo para encurtar o prazo. As vagas evitadas são 3, 6 e 9: uma por turno e uma de pico em cada balcão na loja de um balcão e na de dois; na de três balcões, um posto por turno, inclusive a noite. A folha completa sugerida, que não entra inteira no caixa, cresce com o quadro (12, 24 e 47 pessoas).
 
 ## 11. Limitações e pontos de atenção
 
@@ -600,7 +532,7 @@ A loja de R$ 1 milhão, com equipamento no piso, suporte de R$ 5.500, energia ca
 - Avarias do exemplo ficam desligadas. Perdas entram uma vez, pelo histórico menos o projetado.
 - Imposto: prejuízo não vira crédito sozinho. A política é configurável e pede validação fiscal. 34% não é premissa de regime.
 - A taxa interna com mais de uma troca de sinal fica marcada como ambígua. A decisão usa o valor presente.
-- A coluna descontada da tabela é arredondada mês a mês. Valor presente e payback descontado usam os fluxos e só arredondam o resultado. Pode haver diferença de centavos. No exemplo plano os dois fecham em −R$ 106.366,93.
+- A coluna descontada da tabela é arredondada mês a mês. Valor presente e payback descontado usam os fluxos e só arredondam o resultado. Pode haver diferença de centavos. No exemplo plano, sem variação mês a mês, os dois fecham no mesmo valor. O quadro calculado no fim da página mostra esse valor.
 - A auditoria mostra valor mensal também do que ficou de fora. A marcação de inclusão é que decide o caixa.
 - Rede desligada replica a loja em linha reta. Rede ligada desloca cada unidade para a data dela e pode produzir paybacks diferentes.
 - No assistente, investimento além do robô vai para implantação e contingência, e o custo mensal total vai para manutenção. Os totais não mudam; muda a distribuição que o ajuste rápido escala.

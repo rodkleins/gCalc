@@ -2,6 +2,9 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
+import { evaluate } from '../model/calculate';
+import { exampleInputs } from '../model/example';
+import { formatPayback } from '../model/format';
 import { CalculosPage } from './CalculosPage';
 
 describe('tela de cálculos', () => {
@@ -20,6 +23,8 @@ describe('tela de cálculos', () => {
     expect(text).toContain('Como os cálculos são feitos');
     expect(text).toContain('Visão geral');
     expect(host.querySelector('pre code')?.textContent).toContain('mês de início');
+    expect(host.querySelector('[data-testid="engine-examples"]')).not.toBeNull();
+    expect(text.replace(/\u00a0/g, ' ')).toContain(formatPayback(evaluate(exampleInputs()).payback));
     expect(host.querySelector('table')).not.toBeNull();
     expect(host.querySelector('[data-testid="doc-back"]')?.getAttribute('href')).toBe('../');
     expect(host.querySelector('[data-testid="doc-headtohead"]')?.getAttribute('href')).toBe('../headtohead/');

@@ -53,11 +53,38 @@ export function checkRelativeBuild(distDir) {
     }
   }
 
+  problems.push(...staticCalculosProblems(distDir));
+
   if (problems.length > 0) {
     const message = problems.join('\n');
     console.error(message);
     throw new Error(message);
   }
+}
+
+function visibleHtml(html) {
+  return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+}
+
+function staticCalculosProblems(distDir) {
+  const problems = [];
+  const calculos = visibleHtml(readFileSync(join(distDir, 'calculos/index.html'), 'utf8'));
+  const rh = visibleHtml(readFileSync(join(distDir, 'rh/calculos/index.html'), 'utf8'));
+  if (calculos.includes('<div id="root"></div>')) problems.push('calculos/index.html depende de JavaScript para o texto');
+  if (!calculos.includes('mês de início da operação')) problems.push('calculos/index.html não traz a fórmula no HTML');
+  if (!calculos.includes('data-testid="engine-examples"')) problems.push('calculos/index.html não traz os exemplos calculados');
+  if (!calculos.includes('51,4 meses') || !calculos.includes('Não recupera em 60 meses')) {
+    problems.push('calculos/index.html não traz o exemplo numérico no HTML');
+  }
+  if ((calculos.match(/<pre>/g) ?? []).length < 8) problems.push('calculos/index.html não traz as fórmulas em texto');
+  if ((calculos.match(/<table>/g) ?? []).length < 8) problems.push('calculos/index.html não traz as tabelas no HTML');
+  if (rh.includes('<div id="root"></div>')) problems.push('rh/calculos/index.html depende de JavaScript para o texto');
+  if (!rh.includes('1,2943')) problems.push('rh/calculos/index.html não traz a fórmula do folguista no HTML');
+  if (!rh.includes('data-testid="rh-scorecard"') || !rh.includes('data-testid="score-exemplo-base"')) {
+    problems.push('rh/calculos/index.html não traz a tabela calculada dos modelos');
+  }
+  if (!rh.includes('Não recupera em 60 meses')) problems.push('rh/calculos/index.html não traz o payback calculado no HTML');
+  return problems;
 }
 
 function collectLocalUrls(text) {
