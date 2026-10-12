@@ -2,8 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { evaluate, sensitivity } from '../model/calculate';
 import { exampleInputs } from '../model/example';
 import { formatPayback } from '../model/format';
+import rhConteudo from '../rh/calculos/conteudo.md?raw';
 import conteudo from './conteudo.md?raw';
 import { renderMarkdown } from './render';
+
+function assertClientLanguage(source: string) {
+  expect(source).not.toMatch(/\/gCalc\//);
+  expect(source).not.toMatch(/rodkleins\.github\.io|gcalc\.t2software\.co/);
+  expect(source).not.toMatch(/src\/|\.tsx?\b|\.jsx?\b/);
+  expect(source).not.toMatch(/\bevaluate\b|\bfunction\b|\bclass\b|\bimport\b/);
+  expect(source).not.toMatch(/\b[a-z]{3,}[A-Z][A-Za-z0-9]*\b/);
+  expect(source).not.toMatch(/\b[A-Z][A-Z0-9]+_[A-Z0-9_]+\b/);
+}
 
 describe('página de cálculos', () => {
   it('repete os números que o motor produz no exemplo', () => {
@@ -30,10 +40,19 @@ describe('página de cálculos', () => {
     expect(toc[0]?.text).toMatch(/Visão geral/);
     expect(toc.some((item) => item.level === 3 && /Perfil/.test(item.text))).toBe(true);
     expect(html).toContain('<pre><code>');
-    expect(html).toContain('goLive');
+    expect(html).toContain('mês de início');
     expect(html).toContain('51,4 meses');
     expect(html).not.toContain('<script');
     expect((html.match(/<table>/g) ?? []).length).toBeGreaterThan(8);
     expect((html.match(/<pre>/g) ?? []).length).toBeGreaterThan(8);
+  });
+
+  it('explica a conta em linguagem de negócio, sem arquivo nem código', () => {
+    assertClientLanguage(conteudo);
+    assertClientLanguage(rhConteudo);
+    expect(conteudo).toContain('mês de início da operação');
+    expect(conteudo).toContain('R$ 7.104');
+    expect(rhConteudo).toContain('1,2943');
+    expect(rhConteudo).not.toContain('alreadyCounted');
   });
 });

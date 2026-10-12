@@ -32,18 +32,18 @@ npm test
 npm run dev
 ```
 
-Abra [http://localhost:5173/gCalc/](http://localhost:5173/gCalc/). O `base` do Vite é `/gCalc/`, o mesmo caminho usado no GitHub Pages.
+Abra [http://localhost:5173/](http://localhost:5173/). Os caminhos do build são relativos, os mesmos do domínio publicado.
 
-O rascunho de comparação head-to-head fica em [http://localhost:5173/gCalc/headtohead/](http://localhost:5173/gCalc/headtohead/). Ele não substitui a calculadora atual. No Pages, o endereço é [https://rodkleins.github.io/gCalc/headtohead/](https://rodkleins.github.io/gCalc/headtohead/).
+O rascunho de comparação head-to-head fica em [http://localhost:5173/headtohead/](http://localhost:5173/headtohead/). Ele não substitui a calculadora atual. No ar, o endereço é [https://gcalc.t2software.co/headtohead/](https://gcalc.t2software.co/headtohead/).
 
-A versão em validação, com quadro de RH por turno, fica em [http://localhost:5173/gCalc/rh/](http://localhost:5173/gCalc/rh/) e no Pages em [https://rodkleins.github.io/gCalc/rh/](https://rodkleins.github.io/gCalc/rh/). Ela não altera a calculadora desta raiz. Os cálculos dela estão em [/gCalc/rh/calculos/](https://rodkleins.github.io/gCalc/rh/calculos/).
+A versão em validação, com quadro de RH por turno, fica em [http://localhost:5173/rh/](http://localhost:5173/rh/) e no ar em [https://gcalc.t2software.co/rh/](https://gcalc.t2software.co/rh/). Ela não altera a calculadora desta raiz. Os cálculos dela estão em [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/).
 
 ```bash
 npm run build
 npm run preview
 ```
 
-O preview também fica em `/gCalc/`.
+O preview local também abre na raiz do servidor.
 
 ## Como usar numa visita
 
@@ -58,6 +58,19 @@ O preview também fica em `/gCalc/`.
 9. Em **Simulações**, dê um nome para guardar cliente, loja e cenário. Dá para listar, carregar, duplicar, renomear, excluir e comparar duas simulações pelos indicadores principais. A mesma tela exporta e importa JSON. O seletor de porte (R$ 1, 2 e 4 milhões) fica no topo em qualquer tela. Carregar um modelo pede confirmação e oferece salvar a simulação atual antes de substituir.
 
 Quando os dados forem de uma loja real, desmarque **Marcar esta simulação como dados fictícios** no perfil.
+
+## Simulações neste navegador
+
+As chaves não mudaram com o domínio novo:
+
+- `gcalc.library.v2` — simulações nomeadas da calculadora
+- `gcalc.inputs.v1` — rascunho da calculadora
+- `gcalc.headtohead.v1` — rascunho da comparação
+- `gcalc.rh.library.v1` — sessão da versão com quadro de RH, separada da calculadora
+
+As preferências de tela (`gcalc.ui.railCollapsed`, `gcalc.ui.quickDockOpen`, `gcalc.ui.quickAdjustOpen`, e as equivalentes `gcalc.rh.ui.railCollapsed`, `gcalc.rh.ui.quickDockOpen`, `gcalc.rh.ui.quickAdjustOpen`) também continuam as mesmas.
+
+O navegador guarda cada chave por endereço. Uma simulação salva em [https://rodkleins.github.io/gCalc/](https://rodkleins.github.io/gCalc/) não aparece em [https://gcalc.t2software.co/](https://gcalc.t2software.co/). No endereço antigo, exporte o JSON em **Simulações** e importe o mesmo arquivo no endereço novo. O mesmo vale para a comparação e para a versão de RH.
 
 ## Metodologia
 
@@ -95,11 +108,11 @@ A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 /
 
 ## Publicar no GitHub Pages
 
-O build usa o caminho base `/gCalc/` e gera as páginas no mesmo `dist`: a calculadora atual (`index.html`), o rascunho head-to-head (`headtohead/index.html`), a documentação dos cálculos (`calculos/index.html`) e a versão em validação (`rh/index.html` e `rh/calculos/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere esses arquivos e publica no Pages a cada push na branch `main`. A raiz continua sem o caminho `/preview/`.
+O build usa caminhos relativos e gera as páginas no mesmo `dist`: a calculadora atual (`index.html`), o rascunho head-to-head (`headtohead/index.html`), a documentação dos cálculos (`calculos/index.html`) e a versão em validação (`rh/index.html` e `rh/calculos/index.html`). O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) roda testes, gera `dist`, confere que o artefato não traz o prefixo antigo nem host absoluto, grava o arquivo `CNAME` com `gcalc.t2software.co` e publica no Pages a cada push na branch `main`. A raiz continua sem a pasta de prévia.
 
-A página de cálculos fica em [https://rodkleins.github.io/gCalc/calculos/](https://rodkleins.github.io/gCalc/calculos/) e descreve o motor da calculadora atual.
+A página de cálculos fica em [https://gcalc.t2software.co/calculos/](https://gcalc.t2software.co/calculos/) e descreve a lógica da calculadora atual em linguagem de negócio.
 
-Para o endereço [https://rodkleins.github.io/gCalc/](https://rodkleins.github.io/gCalc/) passar a responder:
+O site publicado é [https://gcalc.t2software.co/](https://gcalc.t2software.co/). Para o Pages continuar respondendo nesse domínio:
 
 1. No repositório, abra **Settings > Pages**.
 2. Em **Build and deployment**, fonte **Source: GitHub Actions**.
@@ -108,17 +121,17 @@ Para o endereço [https://rodkleins.github.io/gCalc/](https://rodkleins.github.i
 
 ## Stack
 
-Vite, React e TypeScript. Gráficos com Recharts. Testes com Vitest. Não há servidor de aplicação: o cálculo inteiro roda no browser. O build estático serve no GitHub Pages, na Vercel ou na Netlify, desde que o caminho base `/gCalc/` seja respeitado. Num host na raiz do domínio, altere `base` em `vite.config.ts`.
+Vite, React e TypeScript. Gráficos com Recharts. Testes com Vitest. Não há servidor de aplicação: o cálculo inteiro roda no browser. O build estático usa caminhos relativos, então serve na raiz de um domínio e também numa subpasta, no GitHub Pages, na Vercel ou na Netlify.
 
 ## Versão em validação — quadro de RH
 
-[https://rodkleins.github.io/gCalc/rh/](https://rodkleins.github.io/gCalc/rh/) é uma cópia da calculadora com quadro de gente por turno. A raiz, `/headtohead/` e `/calculos/` seguem iguais até essa versão ser promovida.
+[https://gcalc.t2software.co/rh/](https://gcalc.t2software.co/rh/) é uma cópia da calculadora com quadro de gente por turno. A raiz, `/headtohead/` e `/calculos/` seguem iguais até essa versão ser promovida.
 
-A sessão fica em `gcalc.rh.library.v1`. Ela não lê nem grava `gcalc.library.v2`. A tela avisa “Versão em validação” e aponta de volta para a calculadora atual. O detalhe das fórmulas e a tabela dos modelos estão em [docs/RH_QUADRO.md](docs/RH_QUADRO.md) e em [/gCalc/rh/calculos/](https://rodkleins.github.io/gCalc/rh/calculos/).
+A sessão fica em `gcalc.rh.library.v1`. Ela não lê nem grava `gcalc.library.v2`. A tela avisa “Versão em validação” e aponta de volta para a calculadora atual. O detalhe das fórmulas e a tabela dos modelos estão em [docs/RH_QUADRO.md](docs/RH_QUADRO.md) e em [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/).
 
 ## Rascunho head-to-head
 
-A página `/gCalc/headtohead/` é um rascunho para discutir com a rede, não uma substituição da calculadora. A tabela coloca a loja **Hoje** ao lado da mesma loja **Com robô** e termina na linha **Resultado que sobra**, com a diferença de cada linha.
+A página [https://gcalc.t2software.co/headtohead/](https://gcalc.t2software.co/headtohead/) é um rascunho para discutir com a rede, não uma substituição da calculadora. A tabela coloca a loja **Hoje** ao lado da mesma loja **Com robô** e termina na linha **Resultado que sobra**, com a diferença de cada linha.
 
 O exemplo fictício é uma loja de R$ 1 milhão de receita por mês. Dá para editar receita, CMV, pessoal por função, ocupação, logística, perdas, outras despesas e o custo do robô, criar indicadores de produtividade e acrescentar linhas da rede. Embaixo, payback, ROI, VPL e TIR usam a diferença mensal de resultado e o investimento, na mesma convenção de 60 meses da calculadora atual. O rascunho fica na chave `gcalc.headtohead.v1`, separada da sessão da versão atual.
 

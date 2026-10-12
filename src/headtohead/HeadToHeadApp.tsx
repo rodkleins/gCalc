@@ -56,7 +56,7 @@ export function HeadToHeadApp({ initialDraft }: { initialDraft?: HeadToHeadDraft
 
   return (
     <div className="hh">
-      <PreviewNotice />
+      <PreviewNotice from="headtohead" />
       <PageNav current="headtohead" />
       <header className="hh-top">
         <div className="hh-title">

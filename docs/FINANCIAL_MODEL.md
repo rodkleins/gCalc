@@ -1,5 +1,7 @@
 # Modelo financeiro do gCalc
 
+A versão publicada está em [https://gcalc.t2software.co/](https://gcalc.t2software.co/). A explicação para o cliente fica em [https://gcalc.t2software.co/calculos/](https://gcalc.t2software.co/calculos/).
+
 Horizonte de 60 meses. O índice 0 do fluxo é a data zero e não é descontado. A taxa mensal é `(1 + taxa anual) ^ (1/12) - 1`. Valores do exemplo são fictícios.
 
 ## Fluxo do projeto

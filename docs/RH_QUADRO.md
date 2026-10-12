@@ -1,10 +1,10 @@
 # Quadro de RH por turno (versão em validação)
 
-Endereço: [https://rodkleins.github.io/gCalc/rh/](https://rodkleins.github.io/gCalc/rh/).
+Endereço: [https://gcalc.t2software.co/rh/](https://gcalc.t2software.co/rh/).
 
-Os cálculos desta versão: [https://rodkleins.github.io/gCalc/rh/calculos/](https://rodkleins.github.io/gCalc/rh/calculos/).
+Os cálculos desta versão: [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/).
 
-A calculadora em `/gCalc/`, o rascunho `/gCalc/headtohead/` e a página `/gCalc/calculos/` não usam este quadro. A sessão fica em `gcalc.rh.library.v1` e não mexe em `gcalc.library.v2`, `gcalc.inputs.v1` nem `gcalc.headtohead.v1`.
+A calculadora em [https://gcalc.t2software.co/](https://gcalc.t2software.co/), a comparação em [/headtohead/](https://gcalc.t2software.co/headtohead/) e a página [/calculos/](https://gcalc.t2software.co/calculos/) não usam este quadro. A sessão fica em `gcalc.rh.library.v1` e não mexe em `gcalc.library.v2`, `gcalc.inputs.v1` nem `gcalc.headtohead.v1`.
 
 ## Conta do folguista
 

@@ -17,7 +17,7 @@ export function CalculosPage() {
         ))}
       </nav>
       <article className="doc-body">
-        <PreviewNotice />
+        <PreviewNotice from="calculos" />
         <PageNav current="calculos" />
         <div data-testid="doc-content" dangerouslySetInnerHTML={{ __html: html }} />
       </article>

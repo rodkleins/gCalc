@@ -1,131 +1,129 @@
 # gCalc — Como os cálculos são feitos
 
-Documento da calculadora de ROI Gollmann (robô de armazenagem e dispensação para farmácias), a página em `/gCalc/`.
+Documento da calculadora de ROI do robô de armazenagem e dispensação para farmácias. Serve para auditar a lógica e para o cliente conferir premissa, fórmula e número.
 
-O texto descreve o motor em `src/model`: `evaluate`, `finance`, `drivers`, `normalize`, `example` e `premises`. As fórmulas seguem o mesmo critério de `docs/FINANCIAL_MODEL.md`. Os números do exemplo foram refeitos com `evaluate(exampleInputs())`. O rascunho head-to-head em `/gCalc/headtohead/` não entra aqui: ele monta uma DRE própria e só reaproveita VPL, TIR, payback e ROI. Os valores são fictícios, como o próprio app avisa.
+A conta roda inteira no navegador. Os valores de abertura são um exemplo fictício, não parâmetro oficial nem resultado de uma loja real. A comparação entre a loja de hoje e a loja com robô fica de fora desta página: ela monta um demonstrativo próprio e só reaproveita valor presente, taxa interna de retorno, payback e retorno.
 
 ## 1. Visão geral e fluxo de cálculo
 
-Fonte: `src/model/calculate.ts`, função `evaluate(inputs, options)`; `src/App.tsx`.
+Cada alteração na tela recalcula na hora. O horizonte é fixo em 60 meses. Simulações antigas que não trazem um campo novo recebem um padrão neutro antes da conta.
 
-O app roda inteiro no navegador (sem backend). A cada alteração, `App.tsx` chama `evaluate(inputs, { scenario })` e o dashboard recalcula. O horizonte é fixo em 60 meses (`HORIZON_MONTHS = 60`). Antes de calcular, `normalizeInputs` completa campos que faltam em simulações antigas com padrões neutros.
-
-O fluxo que alimenta VPL, TIR, payback e retorno é o fluxo do projeto. Dívida, entrada e parcelas ficam num fluxo do investidor, à parte.
+O fluxo que alimenta valor presente, taxa interna de retorno, payback e retorno é o fluxo do projeto. Dívida, entrada e parcelas ficam num fluxo do investidor, à parte.
 
 ```
-goLive        = mês de início da operação, entre 1 e 60
-caixa(0) = −investimento líquido × parcela do cronograma na data zero
-investimento líquido = CAPEX bruto − CAPEX evitado − crédito recuperável de impostos
-operacional(m) = benefício(m) − OPEX(m) × índice de inflação
-imposto(m)     = política tributária sobre (operacional − depreciação)
-líquido(m)     = operacional − imposto
-pontual(m)     = variação de capital de giro − rescisão − remoção
-               + revenda + residual + recrutamento evitado
-               + treinamento evitado + parcela posterior do CAPEX
-incremental(m) = líquido(m) + pontual(m)
+mês de início da operação = mês informado, entre 1 e 60
+caixa na data zero = −investimento líquido × parcela do cronograma na data zero
+investimento líquido = investimento bruto − investimento evitado − crédito recuperável de impostos
+resultado do mês = benefício do mês − custo mensal do robô × índice de inflação
+imposto do mês = política tributária sobre (resultado − depreciação)
+líquido do mês = resultado − imposto
+caixa pontual = variação de capital de giro − rescisão − remoção
+              + revenda + valor residual + recrutamento evitado
+              + treinamento evitado + parcela posterior do investimento
+fluxo do mês = líquido + caixa pontual
 ```
 
-Sequência executada por `evaluate`:
+A sequência é esta:
 
-- Lê o cenário (padrão "base") e seus fatores (`benefitFactor`, `opexFactor`, `capexFactor`, `salesFactor`), o tipo de loja e a taxa de desconto.
+- Lê o cenário (padrão: base) e os fatores de benefício, de custo mensal, de investimento e de vendas, o tipo de loja e a taxa de desconto.
 - Separa quatro capturas: dispensação (cobertura × disponibilidade), folha (reorganização; zero se a disponibilidade é zero), estoque (fração automatizada; zero se a disponibilidade é zero) e vendas (cobertura × disponibilidade × atendimento × conversão).
-- Calcula CAPEX bruto, CAPEX evitado (prateleiras de loja nova, se ainda forem necessárias, mais investimento imobiliário evitado quando essa é a tese da área) e o cronograma de desembolso.
-- Passa cada benefício por uma trava (`gateBenefit`): ligado/desligado, bloqueio anti-dupla-contagem e confiança comprovável/potencial.
-- Aplica a curva da família (pessoas, logística, estoque, vendas) e o índice de salário, de OPEX ou de preço.
-- Para cada mês 1..60, forma o resultado contábil, a base tributável, o imposto de caixa, o fluxo incremental, o acumulado e o acumulado descontado.
-- Monta `cashFlows = [caixa na data zero, fluxo do mês 1, ..., fluxo do mês 60]` e calcula payback simples, payback descontado, retorno anual simples estabilizado, ROI acumulado, VPL e TIR anual efetiva.
-- Gera a auditoria (o que entrou e o que ficou de fora), os avisos, o fluxo do investidor e a visão de rede.
+- Calcula o investimento bruto, o investimento evitado (prateleiras de loja nova, se ainda forem necessárias, mais investimento imobiliário evitado quando essa é a tese da área) e o cronograma de desembolso.
+- Passa cada benefício por uma trava: ligado ou desligado, bloqueio para não contar o mesmo real duas vezes, e confiança comprovável ou potencial.
+- Aplica a curva da família (pessoas, logística, estoque, vendas) e o índice de salário, de custo mensal ou de preço.
+- Para cada mês de 1 a 60, forma o resultado, a base tributável, o imposto de caixa, o fluxo, o acumulado e o acumulado descontado.
+- O fluxo usado nos indicadores é o caixa na data zero seguido dos 60 meses. Dali saem payback simples, payback descontado, retorno anual simples estabilizado, retorno acumulado, valor presente e taxa interna de retorno anual efetiva.
+- A auditoria lista o que entrou e o que ficou de fora, os avisos, o fluxo do investidor e a visão de rede.
 
-A lógica é incremental: o modelo não projeta o custo total da loja sem robô e com robô. Ele calcula a diferença (custos evitados + margem incremental − OPEX). As colunas "custo sem robô" e "custo com robô" são uma reconstrução para exibição (seção 5). Benefício excluído soma zero no caixa. O OPEX não é reduzido pela captura.
+A lógica é incremental. A conta não projeta o custo total da loja sem robô e com robô. Ela calcula a diferença: custos evitados mais margem incremental, menos o custo mensal do robô. As colunas "custo sem robô" e "custo com robô" são uma reconstrução para exibição. Benefício excluído soma zero no caixa. O custo mensal do robô não é reduzido pela captura.
 
-O modo simples esconde premissas avançadas na tela. Não muda a fórmula: o que já estiver preenchido continua no cálculo.
+O modo simples esconde premissas avançadas na tela. Não muda a fórmula: o que já estiver preenchido continua na conta.
 
-## 2. Premissas de entrada por módulo
+## 2. Premissas de entrada
 
-Fonte: `src/model/types.ts` (interface `Inputs`), `src/model/example.ts` (`EXAMPLE`). Percentuais são frações (0,32 = 32%). Os padrões abaixo são os do exemplo fictício.
+Percentuais na tela são frações na conta: 32% entra como 0,32. Os padrões abaixo são os do exemplo fictício. A origem de cada número é o campo correspondente da tela, salvo quando a linha diz que é calculado.
 
-Cada benefício tem `enabled` e `confidence` ("comprovavel" ou "potencial"). `assumptions.includePotential` (padrão: falso) decide se o potencial entra no caixa. `assumptions.viewMode` (padrão: "avancado") só muda a tela.
+Cada benefício pode estar ligado ou desligado e ser comprovável ou potencial. A opção de incluir ganhos potenciais vem desligada: potencial não entra no caixa até alguém ligar. O modo de tela (simples ou avançado) só muda o que aparece, não a conta.
 
-### 2.1 Perfil da farmácia (profile)
+### 2.1 Perfil da farmácia
 
-| Campo (código) | Rótulo na tela | Unidade | Padrão do exemplo | Usado no motor? |
-|---|---|---|---|---|
-| storeType | Tipo de loja | nova/existente | nova | Sim |
-| monthlyRevenue | Faturamento mensal | R$ | 850.000 | Só em aviso |
-| contributionMarginPct | Margem de contribuição | % | 32% | Sim (vendas) |
-| attendancesPerDay | Atendimentos por dia | nº | 320 | Não |
-| dispensationsPerDay | Dispensações por dia | nº/dia | 720 | Sim (cobertura) |
-| operatingDaysPerMonth | Dias de operação no mês | dias | 26 | Não |
-| roles | Cargos (cargo, pessoas, custo completo R$/pessoa/mês, escala) | lista | 4 cargos, 12 pessoas; farmacêutico R$ 8.500 e auxiliar R$ 4.200 (sugestões fictícias, a validar); 1 balcão e 2 turnos | Sim (teto de vagas e orçamento de horas) |
-| totalAreaM2 / backroomAreaM2 | Área total / Retaguarda | m² | 200 / 40 | Não |
-| occupancyCostPerM2 | Aluguel ou ocupação de referência | R$/m² | 120 | Sim, só se o campo da logística for 0 |
-| averageInventory | Estoque médio | R$ | 480.000 | Sim (capital de giro) |
-| inventoryTurnsPerYear | Giro do estoque | x/ano | 8 | Não |
-| skuCount | SKUs | nº | 6.500 | Não |
-| historicalLossesMonthly | Perdas históricas | R$/mês | 12.000 | Sim |
-| demandGrowthPctPerYear | Crescimento anual da demanda | %/ano | 0% | Sim |
-| wageGrowthPctPerYear | Reajuste de salários | %/ano | 0% | Sim |
-| opexInflationPctPerYear | Inflação de OPEX | %/ano | 0% | Sim |
-| priceInflationPctPerYear | Inflação de preços | %/ano | 0% | Sim |
-| moneyBasis | Base dos fluxos | nominal/real | nominal | Sim (aviso se divergir da taxa) |
-| storeCount | Lojas na projeção | lojas | 1 | Sim (réplica linear, rede desligada) |
+| O que se informa | Unidade | Padrão do exemplo | Entra na conta? |
+|---|---|---|---|
+| Tipo de loja | nova ou existente | nova | Sim |
+| Faturamento mensal | R$ | 850.000 | Só em aviso |
+| Margem de contribuição | % | 32% | Sim, nas vendas |
+| Atendimentos por dia | número | 320 | Não |
+| Dispensações por dia | número | 720 | Sim, na cobertura |
+| Dias de operação no mês | dias | 26 | Não |
+| Cargos: função, pessoas, custo completo e escala | lista | 4 cargos, 12 pessoas; farmacêutico R$ 8.500 e auxiliar R$ 4.200, sugestões fictícias a validar; 1 balcão e 2 turnos | Sim, no teto de vagas e no orçamento de horas |
+| Área total e retaguarda | m² | 200 e 40 | Não |
+| Aluguel ou ocupação de referência | R$/m² | 120 | Sim, só se o campo da logística estiver em zero |
+| Estoque médio | R$ | 480.000 | Sim, no capital de giro |
+| Giro do estoque | vezes por ano | 8 | Não |
+| Quantidade de itens | número | 6.500 | Não |
+| Perdas históricas | R$/mês | 12.000 | Sim |
+| Crescimento anual da demanda | % ao ano | 0% | Sim |
+| Reajuste de salários | % ao ano | 0% | Sim |
+| Inflação do custo mensal do robô | % ao ano | 0% | Sim |
+| Inflação de preços | % ao ano | 0% | Sim |
+| Base dos fluxos | nominal ou real | nominal | Sim, aviso se divergir da taxa |
+| Lojas na projeção | lojas | 1 | Sim, réplica linear quando a rede está desligada |
 
-### 2.2 Pessoas / turnover (people)
+### 2.2 Pessoas e turnover
 
-| Bloco | Campos (código → rótulo) | Padrão do exemplo |
+| Bloco | O que se informa | Padrão do exemplo |
 |---|---|---|
-| payroll — Folha e encargos | positionsReduced → Vagas evitadas; monthlyCostPerPosition → Custo completo (R$/pessoa/mês, com encargos e benefícios); chargesPct → Encargos; benefitsPerPosition → Benefícios (R$); costConfirmedFullyLoaded; startMonth; severanceCost → Rescisão (R$, só loja existente) | ligado, comprovável; 3 vagas (uma por turno e uma de pico); R$ 4.200; encargos 0; benefícios 0; custo confirmado; mês 1; R$ 12.600 |
-| journeyHoursPerMonth | Jornada mensal para o orçamento de horas | 176 h |
-| reallocatedHours — Horas realocadas | hoursPerMonth; monetization (nenhuma, reducao_custo, ganho_incremental); costReductionMonthly; incrementalMarginMonthly; evidence | desligado; monetização nenhuma |
-| futureHires — Contratações futuras | lista: role, month, headcount, monthlyCost. Só entra em loja existente | desligado; 1 auxiliar no mês 13, R$ 4.200 |
-| recruitment — Recrutamento e seleção | costPerHire; includedInTurnoverCost | ligado, comprovável; R$ 3.500; incluso = sim |
-| training — Treinamento e integração | costPerPerson (sugestão fictícia R$ 6.000 por contratação, a validar); includedInReplacementCost | ligado, comprovável; R$ 6.000; incluso = sim |
-| turnover — Turnover evitado | annualRate; costMode (consolidado ou detalhado); costPerReplacement; components (recrutamento, treinamento do substituto, adaptação, desligamento, supervisão) | ligado, comprovável; 30% a.a.; consolidado; R$ 8.000; componentes 0 |
-| supervision — Supervisão | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 20 h; R$ 45; não |
-| consultativeSales — Venda consultiva | hoursFreedPerMonth; marginPerHour; independentEvidence | ligado, potencial; 20 h; R$ 80; sem evidência |
+| Folha e encargos | vagas evitadas; custo completo por pessoa e por mês, já com encargos e benefícios; encargos; benefícios; se o custo está confirmado; mês de início; rescisão, só loja existente | ligado, comprovável; 3 vagas (uma por turno e uma de pico); R$ 4.200; encargos 0; benefícios 0; custo confirmado; mês 1; rescisão R$ 12.600 |
+| Jornada | horas mensais para o orçamento de quem permanece | 176 h |
+| Horas realocadas | horas no mês; nenhuma monetização, redução de custo ou ganho incremental; valor mensal; evidência | desligado; sem monetização |
+| Contratações futuras | cargo, mês, vagas e custo mensal. Só entra em loja existente | desligado; 1 auxiliar no mês 13, R$ 4.200 |
+| Recrutamento e seleção | custo por contratação; se já está incluso no turnover | ligado, comprovável; R$ 3.500; incluso = sim |
+| Treinamento e integração | custo por pessoa, sugestão fictícia de R$ 6.000 a validar; se já está incluso no custo de substituição | ligado, comprovável; R$ 6.000; incluso = sim |
+| Turnover evitado | taxa anual; custo consolidado ou detalhado; custo por substituição; componentes de recrutamento, treinamento do substituto, adaptação, desligamento e supervisão | ligado, comprovável; 30% ao ano; consolidado; R$ 8.000; componentes 0 |
+| Supervisão | horas poupadas no mês; custo da hora; se a hora já está na folha | ligado, comprovável; 20 h; R$ 45; não |
+| Venda consultiva | horas liberadas no mês; margem por hora; evidência independente | ligado, potencial; 20 h; R$ 80; sem evidência |
 
-### 2.3 Logística / infraestrutura (logistics)
+### 2.3 Logística e infraestrutura
 
-| Bloco | Campos | Padrão do exemplo |
+| Bloco | O que se informa | Padrão do exemplo |
 |---|---|---|
-| boxes — Caixas retornáveis | cyclesAvoidedPerMonth; costPerCycle; processValidated; useDetailed e componentes (ciclos, transporte reverso, higienização, manuseio, perdas/reposição, espaço), cada um com valor e interruptor | ligado, potencial; 400 ciclos; R$ 8; processo não validado; detalhe desligado |
-| shelving — Prateleiras | avoidedAcquisition; resaleValue; avoidedMaintenanceMonthly; stillRequired; removalCost | ligado, comprovável; R$ 40.000; R$ 8.000; R$ 400; ainda necessárias = não; remoção R$ 0 |
-| space — Espaço | m2Freed; mode (ocupacao ou margem); treatment (ocupacao_evitavel, expansao_comercial, sem_monetizacao, investimento_imobiliario); contractUnchanged; occupancyCostPerM2; contributionPerM2Month; avoidedRealEstate; commercialEvidence | ligado, comprovável; 16 m²; ocupação; ocupação evitável; contrato muda; R$ 200; R$ 150; imobiliário 0; sem evidência comercial |
-| movement — Movimentação | hoursSavedPerMonth; costPerHour; alreadyCountedInPayroll | ligado, comprovável; 20 h; R$ 40; não |
-| inventoryCount — Inventário | hoursSavedPerMonth; costPerHour | ligado, comprovável; 10 h; R$ 40 |
+| Caixas retornáveis | ciclos evitados no mês; custo por ciclo; se o processo foi validado; modo detalhado e componentes (ciclos, transporte reverso, higienização, manuseio, perdas e reposição, espaço), cada um com valor e interruptor | ligado, potencial; 400 ciclos; R$ 8; processo não validado; detalhe desligado |
+| Prateleiras | aquisição evitada; revenda; manutenção mensal evitada; se ainda são necessárias; custo de remoção | ligado, comprovável; R$ 40.000; R$ 8.000; R$ 400; ainda necessárias = não; remoção R$ 0 |
+| Espaço | metros liberados; ocupação ou margem; tratamento (ocupação evitável, expansão comercial, sem monetização, investimento imobiliário); se o contrato muda; custo por metro; margem por metro; investimento imobiliário evitado; evidência comercial | ligado, comprovável; 16 m²; ocupação; ocupação evitável; contrato muda; R$ 200; R$ 150; imobiliário 0; sem evidência comercial |
+| Movimentação | horas poupadas; custo da hora; se a hora já está na folha | ligado, comprovável; 20 h; R$ 40; não |
+| Inventário | horas poupadas; custo da hora | ligado, comprovável; 10 h; R$ 40 |
 
-### 2.4 Estoque / perdas / vendas (stock)
+### 2.4 Estoque, perdas e vendas
 
-| Bloco | Campos | Padrão do exemplo |
+| Bloco | O que se informa | Padrão do exemplo |
 |---|---|---|
-| salesIndependenceConfirmed | confirma que as alavancas de venda não se sobrepõem | falso |
-| losses — Perdas | projectedLossesMonthly; useDetailed; expiryMonthly, damageMonthly, missingMonthly, errorsMonthly | ligado, comprovável; R$ 5.000; detalhe desligado |
-| shrinkage — Avarias, extravios e erros | avoidedMonthly | desligado; R$ 0. Não soma com as perdas históricas |
-| ruptures — Rupturas | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 20.000 |
-| serviceSpeed — Atendimento | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 10.000 |
-| abandonment — Abandono | additionalMonthlySales; independentEvidence | desligado, potencial; R$ 0 |
-| workingCapital — Capital de giro | inventoryAfter; releaseMonth; treatment (liberacao_caixa ou custo_financeiro); costOfCapitalAnnual; reverseAtHorizon; reductionProven | desligado, comprovável; estoque depois igual ao atual (R$ 480.000); mês 3; liberação; 12% a.a.; não reverte; redução não comprovada |
+| Independência das vendas | confirma que as alavancas de venda não se sobrepõem | falso |
+| Perdas | perdas projetadas no mês; modo detalhado; vencimento, avaria, extravio e erro | ligado, comprovável; R$ 5.000; detalhe desligado |
+| Avarias, extravios e erros | valor evitado no mês | desligado; R$ 0. Não soma com as perdas históricas |
+| Rupturas | vendas adicionais no mês; evidência independente | desligado, potencial; R$ 20.000 |
+| Atendimento | vendas adicionais no mês; evidência independente | desligado, potencial; R$ 10.000 |
+| Abandono | vendas adicionais no mês; evidência independente | desligado, potencial; R$ 0 |
+| Capital de giro | estoque depois; mês da liberação; liberação de caixa ou custo financeiro; custo de capital ao ano; se reverte no fim; se a redução foi comprovada | desligado, comprovável; estoque depois igual ao atual (R$ 480.000); mês 3; liberação; 12% ao ano; não reverte; redução não comprovada |
 
-### 2.5 Investimento, curvas e política tributária (robot)
+### 2.5 Investimento, curvas e tributos
 
-| Grupo | Campos | Padrão do exemplo |
+| Grupo | O que se informa | Padrão do exemplo |
 |---|---|---|
-| capex | equipment 1.000.000; freightImportTaxes 60.000; installationTraining 40.000; civilElectrical 50.000; integration 25.000; implementationContingency 60.000 | Bruto R$ 1.235.000. O equipamento não entra abaixo de R$ 1.000.000 |
-| opexMonthly e energy | suporte pago à fornecedora (maintenance 5.500, faixa de 5.000 a 6.000) e other 200. Energia calculada: powerKw 2,5; hoursPerDay 16; daysPerMonth 30; tariffPerKwh 1,17. Consumo 1.200 kWh e custo R$ 1.404, somente leitura. Software, indisponibilidade e seguros saíram. Não inclui o preço do equipamento | R$ 7.104/mês antes do cenário. A energia acompanha a inflação de OPEX |
-| Operação | availabilityPct; capacityDispensationsPerDay; reorganizationEffectiveness; automatedStockShare; serviceLevel; conversionFactor; goLiveMonth | 100%; 1.200/dia; reorganização 100%; estoque automatizado 100%; atendimento 100%; conversão 100%; mês 1 |
-| Curvas | ramp.people, ramp.logistics, ramp.stock, ramp.sales | [1] em cada família (100% no go-live) |
-| Cronograma | capexSchedule: month e share | mês 0, parcela 1 |
-| Fim de horizonte | residualValue; depreciationYears | R$ 0; 10 anos |
-| Imposto | includeTax; taxRate; taxPolicy; lossUtilizationLimit; taxCapacityMonthly; taxBenefitValidated; taxValidated; extraordinaryEventsTaxable | desligado; 34%; sem_impostos; limite 0; capacidade 0; benefício não validado; premissa não validada; eventos extraordinários tributáveis |
-| Taxa | discountRateAnnual; discountBasis | 12% a.a.; nominal |
-| Financiamento | enabled; downPaymentPct; termMonths; annualInterest; balloon | desligado; 30%; 48 meses; 14% a.a.; R$ 0 |
-| Rede | network.enabled; sharedMonthlyCost; stores (nome, tipo, data, fatores de investimento, volume e mão de obra, quantidade) | desligada |
+| Investimento | equipamento 1.000.000; frete e impostos de importação 60.000; instalação e treinamento 40.000; obras, elétrica e rede 50.000; integração 25.000; contingência de implantação 60.000 | Bruto R$ 1.235.000. O equipamento não entra abaixo de R$ 1.000.000 |
+| Custo mensal e energia | suporte pago à fornecedora de 5.500, faixa de 5.000 a 6.000, e outros custos de 200. Energia calculada: 2,5 quilowatts, 16 horas por dia, 30 dias, R$ 1,17 por quilowatt-hora. Consumo de 1.200 quilowatts-hora e custo de R$ 1.404, somente leitura. Software, indisponibilidade e seguros saíram. Não inclui o preço do equipamento | R$ 7.104 por mês antes do cenário. A energia acompanha a inflação do custo mensal |
+| Operação | disponibilidade; capacidade em dispensações por dia; efetividade da reorganização; fração de estoque automatizado; nível de atendimento; conversão; mês de início da operação | 100%; 1.200 por dia; reorganização 100%; estoque automatizado 100%; atendimento 100%; conversão 100%; mês 1 |
+| Curvas | pessoas, logística, estoque e vendas | 100% desde o início em cada família |
+| Cronograma | mês e parcela do desembolso | mês 0, parcela de 100% |
+| Fim de horizonte | valor residual; anos de depreciação | R$ 0; 10 anos |
+| Imposto | se entra; alíquota; política; limite de uso do prejuízo; capacidade mensal; se o benefício foi validado; se a premissa foi validada; se eventos extraordinários são tributáveis | desligado; 34%; sem impostos; limite 0; capacidade 0; benefício não validado; premissa não validada; eventos extraordinários tributáveis |
+| Taxa | taxa de desconto ao ano; base nominal ou real | 12% ao ano; nominal |
+| Financiamento | se entra; entrada; prazo em meses; juros ao ano; balão | desligado; 30%; 48 meses; 14% ao ano; R$ 0 |
+| Rede | se entra; custo mensal compartilhado; lojas com nome, tipo, data e fatores de investimento, volume e mão de obra, e quantidade | desligada |
 
 A alíquota de 34% é só um campo editável. Não é recomendação para qualquer regime.
 
-### 2.6 Cenários (scenarios)
+### 2.6 Cenários
 
-| Cenário | benefitFactor | salesFactor | opexFactor | capexFactor |
+| Cenário | Fator de benefício | Fator de vendas | Fator do custo mensal | Fator do investimento |
 |---|---|---|---|---|
 | Conservador | 0,80 | 0,60 | 1,15 | 1,08 |
 | Base | 1,00 | 1,00 | 1,00 | 1,00 |
@@ -133,381 +131,380 @@ A alíquota de 34% é só um campo editável. Não é recomendação para qualqu
 
 ## 3. Fórmulas de cada benefício
 
-Fonte: closures de `evaluate` em `src/model/calculate.ts`.
-
 ### 3.1 Fatores comuns
 
 ```
-goLive        = clamp(round(goLiveMonth) || 1, 1, 60)
-dispensações  = max(0, dispensationsPerDay × volumeFactor)
-cobertura     = se capacidade ≤ 0: 0
-                senão se dispensações ≤ 0: 1
-                senão: min(1, capacidade / dispensações)
-disponib.     = clamp(availabilityPct, 0, 1)
-captura de dispensação = cobertura × disponib.
-captura de folha       = 0 se disponib. ≤ 0; senão reorganização (0 a 1)
-captura de estoque     = 0 se disponib. ≤ 0; senão fração de estoque automatizado
-captura de vendas      = cobertura × disponib. × atendimento × conversão
-rampa(família, m) = 0 se m < goLive
-                    senão o patamar do mês (m − goLive), ou o último, limitado a 0–1
-índice(taxa, m)   = 1 se a taxa é 0; senão (1 + taxa) ^ ((m − 1) / 12)
-crescimento(m)    = índice da demanda
-volume(m)         = volumeFactor × crescimento(m)
+mês de início = o mês informado, limitado de 1 a 60
+dispensações = máximo entre zero e dispensações por dia × fator de volume
+cobertura = zero se a capacidade é zero ou negativa
+            1 se não há dispensações informadas
+            senão o menor entre 1 e capacidade / dispensações
+disponibilidade = percentual limitado de 0 a 1
+captura de dispensação = cobertura × disponibilidade
+captura de folha = zero se a disponibilidade é zero; senão a reorganização, de 0 a 1
+captura de estoque = zero se a disponibilidade é zero; senão a fração de estoque automatizado
+captura de vendas = cobertura × disponibilidade × atendimento × conversão
+rampa da família no mês = zero antes do início da operação
+                          depois, o patamar daquele mês da curva, ou o último, limitado de 0 a 1
+índice de uma taxa no mês = 1 se a taxa é zero; senão (1 + taxa) elevado a (mês − 1) / 12
+crescimento do mês = índice da demanda
+volume do mês = fator de volume × crescimento do mês
 ```
 
-Curva vazia vale 1 depois do go-live. O exemplo usa [1], então a rampa é um degrau de 100%.
+Curva vazia vale 100% depois do início da operação. O exemplo usa esse degrau.
 
-Horas reivindicadas (supervisão e movimentação só se ainda não estão na folha, mais inventário, consultiva e horas realocadas) não podem passar de `(quadro − vagas) × jornada`. O excedente é cortado por `hourScale`. Sem quadro informado, não há teto.
+Horas reivindicadas (supervisão e movimentação só se ainda não estão na folha, mais inventário, venda consultiva e horas realocadas) não podem passar de (pessoas do quadro − vagas evitadas) × jornada. O excedente é cortado na proporção. Sem quadro informado, não há teto.
 
-Vagas da folha não passam do quadro quando o quadro é maior que zero. Custo completo da vaga = `custo × (1 + encargos) + benefícios`.
+Vagas da folha não passam do quadro quando o quadro é maior que zero. Custo completo da vaga = custo × (1 + encargos) + benefícios.
 
 | Família | O que a curva multiplica |
 |---|---|
 | Pessoas | Folha, contratações futuras, turnover, supervisão, horas realocadas |
 | Logística | Caixas, manutenção de prateleiras, ocupação, movimentação, inventário |
 | Estoque | Perdas, avarias e custo financeiro do estoque |
-| Vendas | Rupturas, atendimento, abandono, consultiva e margem de área |
+| Vendas | Rupturas, atendimento, abandono, venda consultiva e margem de área |
 
 ### 3.2 Três vias de mão de obra
 
 ```
-Folha(m) = min(vagas, quadro) × custo completo × laborFactor
-           × captura de folha × rampa de pessoas × índice salarial × benefitFactor
-           a partir de m ≥ max(goLive, startMonth)
-           o teto extra é a folha do quadro, quando o quadro existe
+Folha do mês = mínimo entre vagas e quadro × custo completo × fator de mão de obra
+               × captura de folha × rampa de pessoas × índice salarial × fator de benefício
+               a partir do maior entre o início da operação e o mês de início da folha
+               o teto extra é a folha do quadro, quando o quadro existe
 
-Contratações futuras(m) = 0 em loja nova
-                          em loja existente, Σ (vagas_h × custo_h × laborFactor)
-                          × captura de folha × rampa de pessoas × índice salarial × benefitFactor
-                          só para vagas com m ≥ mês_h e m ≥ goLive
+Contratações futuras = zero em loja nova
+                       em loja existente, a soma de vagas × custo × fator de mão de obra
+                       × captura de folha × rampa de pessoas × índice salarial × fator de benefício
+                       só para vagas cujo mês já chegou e que não são anteriores ao início da operação
 
-Turnover(m) = posições expostas × taxa anual × turnoverFactor × custo da substituição × laborFactor / 12
-              × captura de folha × rampa de pessoas × benefitFactor
-posições expostas = vagas da folha (se a folha entrou e m ≥ startMonth) + futuras já ativas
+Turnover do mês = posições expostas × taxa anual × fator de turnover × custo da substituição
+                  × fator de mão de obra / 12
+                  × captura de folha × rampa de pessoas × fator de benefício
+posições expostas = vagas da folha, se a folha entrou e o mês já começou, mais as futuras já ativas
 
-Supervisão(m) = horas × hourScale × custo da hora × laborFactor
-                × captura de folha × rampa de pessoas × índice salarial × benefitFactor
+Supervisão do mês = horas × corte de horas × custo da hora × fator de mão de obra
+                    × captura de folha × rampa de pessoas × índice salarial × fator de benefício
 ```
 
 O turnover não recebe o índice salarial. O custo da substituição é o valor consolidado ou a soma dos componentes (recrutamento, treinamento do substituto, adaptação, desligamento, supervisão). Nunca os dois.
 
-Horas realocadas não são folha. Com monetização "nenhuma", ficam fora. "reducao_custo" usa `costReductionMonthly`. "ganho_incremental" só entra com evidência. O valor passa por `hourScale`, captura de folha, rampa de pessoas e índice salarial.
+Horas realocadas não são folha. Sem monetização, ficam de fora. Redução de custo usa o valor mensal informado. Ganho incremental só entra com evidência. O valor passa pelo corte de horas, pela captura de folha, pela rampa de pessoas e pelo índice salarial.
 
 Recrutamento e treinamento iniciais são eventos pontuais, não o custo mensal de substituição:
 
 ```
-unidade = round2(custo unitário × laborFactor)
-Loja nova e folha incluída: no mês max(goLive, startMonth), vagas informadas × unidade
-Contratações futuras incluídas, só em loja existente: no mês max(goLive, mês_h), vagas_h × unidade
+unidade = custo unitário × fator de mão de obra, arredondado em centavos
+Loja nova e folha incluída: no maior entre o início da operação e o mês da folha,
+  vagas informadas × unidade
+Contratações futuras incluídas, só em loja existente: no maior entre o início da operação e o mês da vaga,
+  vagas daquele evento × unidade
 ```
 
-Esses eventos não passam por captura, rampa nem `benefitFactor`. A folha mensal usa as vagas já limitadas ao quadro; o evento pontual de recrutamento e treinamento da folha usa as vagas informadas.
+Esses eventos não passam por captura, rampa nem fator de benefício do cenário. A folha mensal usa as vagas já limitadas ao quadro. O evento pontual de recrutamento e treinamento da folha usa as vagas informadas.
 
 ### 3.3 Logística, caixas, prateleiras e espaço
 
 ```
-Caixas(m), modo consolidado = ciclos × custo por ciclo × volume(m)
-                              × captura de dispensação × rampa de logística × benefitFactor
+Caixas, modo consolidado = ciclos × custo por ciclo × volume do mês
+                           × captura de dispensação × rampa de logística × fator de benefício
 
-Caixas(m), modo detalhado = só os componentes ligados
-                            a parcela de ciclos cresce com volume(m)
-                            transporte, higienização, manuseio, perdas e espaço são valores mensais
-                            a linha consolidada não entra junto
+Caixas, modo detalhado = só os componentes ligados
+                         a parcela de ciclos cresce com o volume do mês
+                         transporte, higienização, manuseio, perdas e espaço são valores mensais
+                         a linha consolidada não entra junto
 
-Manutenção de prateleiras(m) = manutenção mensal × rampa de logística × índice de OPEX × benefitFactor
-                               só loja existente, e só se a prateleira deixa de ser necessária
+Manutenção de prateleiras = manutenção mensal × rampa de logística × índice do custo mensal × fator de benefício
+                            só loja existente, e só se a prateleira deixa de ser necessária
 
-Ocupação(m) = m² × taxa × rampa de logística × benefitFactor
-              taxa = custo por m² da logística, se for > 0; senão o do perfil
-              não usa a captura de dispensação
+Ocupação = metros × taxa × rampa de logística × fator de benefício
+           taxa = custo por metro da logística, se for maior que zero; senão o do perfil
+           não usa a captura de dispensação
 
-Margem de área(m) = m² × margem por m² × rampa de logística × índice de preço
-                    × benefitFactor × salesFactor
-                    entra como alavanca de venda, nunca somada à ocupação
+Margem de área = metros × margem por metro × rampa de logística × índice de preço
+                 × fator de benefício × fator de vendas
+                 entra como alavanca de venda, nunca somada à ocupação
 
-Movimentação(m) = horas × hourScale × custo da hora × laborFactor × volume(m)
-                  × captura de dispensação × rampa de logística × índice salarial × benefitFactor
+Movimentação = horas × corte de horas × custo da hora × fator de mão de obra × volume do mês
+               × captura de dispensação × rampa de logística × índice salarial × fator de benefício
 
-Inventário(m) = horas × hourScale × custo da hora × laborFactor
-                × captura de estoque × rampa de logística × índice salarial × benefitFactor
+Inventário = horas × corte de horas × custo da hora × fator de mão de obra
+             × captura de estoque × rampa de logística × índice salarial × fator de benefício
 ```
 
-Ocupação e margem da mesma área não se somam. `mode = margem` ou `treatment = expansao_comercial` trata a área como margem. Contrato inalterado bloqueia aluguel e ocupação. "sem_monetizacao" e "investimento_imobiliario" não geram caixa mensal. O investimento imobiliário evitado, em loja nova, abate o CAPEX.
+Ocupação e margem da mesma área não se somam. Tratar a área como margem, ou escolher expansão comercial, usa a margem. Contrato inalterado bloqueia aluguel e ocupação. Sem monetização, e investimento imobiliário, não geram caixa mensal. O investimento imobiliário evitado, em loja nova, abate o investimento.
 
-Prateleira ainda necessária (`stillRequired`) bloqueia aquisição evitada, revenda, manutenção e remoção. Remoção é saída de caixa no go-live da loja existente. Aquisição evitada só em loja nova. Revenda e manutenção só em loja existente.
+Prateleira ainda necessária bloqueia aquisição evitada, revenda, manutenção e remoção. Remoção é saída de caixa no início da operação da loja existente. Aquisição evitada só em loja nova. Revenda e manutenção só em loja existente.
 
-Caixas exigem `processValidated`. Sem isso o benefício fica de fora, mesmo ligado: o robô não elimina a caixa do fornecedor sozinho.
+Caixas exigem processo validado. Sem isso o benefício fica de fora, mesmo ligado: o robô não elimina a caixa do fornecedor sozinho.
 
 ### 3.4 Perdas e avarias
 
 ```
-Históricas(m) = perdas históricas × volume(m) × captura de estoque × rampa de estoque
-Projetadas(m) = perdas projetadas × volume(m) × captura de estoque × rampa de estoque
-Perdas(m), modo simples = max(0, históricas − projetadas) × benefitFactor
-Perdas(m), modo detalhado = (vencimento + avaria + extravio + erro)
-                            × volume(m) × captura de estoque × rampa de estoque
-                            × índice de preço × benefitFactor
-Avarias(m) = evitado mensal × volume(m) × captura de estoque × rampa de estoque
-             × índice de preço × benefitFactor
+Históricas do mês = perdas históricas × volume do mês × captura de estoque × rampa de estoque
+Projetadas do mês = perdas projetadas × volume do mês × captura de estoque × rampa de estoque
+Perdas, modo simples = máximo entre zero e históricas − projetadas, vezes o fator de benefício
+Perdas, modo detalhado = (vencimento + avaria + extravio + erro)
+                         × volume do mês × captura de estoque × rampa de estoque
+                         × índice de preço × fator de benefício
+Avarias = valor evitado no mês × volume do mês × captura de estoque × rampa de estoque
+          × índice de preço × fator de benefício
 ```
 
-No modo detalhado a linha de avarias separada fica bloqueada, e o par histórico − projetado não entra. No modo simples as duas linhas podem conviver: o exemplo faz isso de propósito e o motor emite aviso de sobreposição.
+No modo detalhado a linha de avarias separada fica bloqueada, e o par histórico menos projetado não entra. No modo simples as duas linhas podem conviver: o exemplo faz isso de propósito e a tela avisa sobreposição.
 
 ### 3.5 Vendas
 
 A monetização é margem de contribuição, não faturamento.
 
 ```
-marginOf(vendas, m) = vendas × margem de contribuição × volume(m)
-                      × captura de vendas × rampa de vendas × índice de preço
-                      × benefitFactor × salesFactor
-Rupturas, atendimento e abandono usam marginOf
-Consultiva(m) = horas × hourScale × margem por hora × crescimento(m)
-                × captura de vendas × rampa de vendas × índice de preço
-                × benefitFactor × salesFactor
+margem das vendas no mês = vendas × margem de contribuição × volume do mês
+                           × captura de vendas × rampa de vendas × índice de preço
+                           × fator de benefício × fator de vendas
+Rupturas, atendimento e abandono usam essa margem
+Venda consultiva = horas × corte de horas × margem por hora × crescimento do mês
+                   × captura de vendas × rampa de vendas × índice de preço
+                   × fator de benefício × fator de vendas
 ```
 
-A consultiva usa `crescimento(m)`, não `volume(m)`: não reage ao fator de volume da sensibilidade.
+A venda consultiva usa o crescimento da demanda, não o fator de volume da sensibilidade.
 
-Se mais de uma alavanca de venda passa na trava e `salesIndependenceConfirmed` é falso, só fica a de maior valor no mês 60. As candidatas são consultiva, rupturas, atendimento, abandono e margem de área.
+Se mais de uma alavanca de venda passa na trava e a independência não foi confirmada, só fica a de maior valor no mês 60. As candidatas são venda consultiva, rupturas, atendimento, abandono e margem de área.
 
 ### 3.6 Capital de giro
 
 ```
-liberação = max(0, estoque antes − estoque depois), se reductionProven
-            senão 0
-            o padrão é reductionProven falso: não se presume queda
+liberação = máximo entre zero e estoque antes − estoque depois, se a redução foi comprovada
+            senão zero
+            o padrão é não presumir queda
             o robô pode até aumentar o estoque
             não é escalada por volume nem por captura
-Principal = liberação no mês max(goLive, releaseMonth)
-            e −liberação no mês 60, se reverseAtHorizon e a entrada não foi no mês 60
-Custo financeiro mensal = liberação × taxa anual × benefitFactor / 12
-                          × rampa de estoque × índice de preço, a partir do go-live
+Principal = liberação no maior entre o início da operação e o mês informado
+            e o estorno dessa liberação no mês 60, se a reversão estiver ligada e a entrada não foi no mês 60
+Custo financeiro mensal = liberação × taxa anual × fator de benefício / 12
+                          × rampa de estoque × índice de preço, a partir do início da operação
 ```
 
-Os dois tratamentos não se somam. Quando o principal entra no fluxo, a leitura de custo financeiro permanece informativa: o VPL já remunera o capital. Sem `reductionProven`, nada entra no caixa.
+Os dois tratamentos não se somam. Quando o principal entra no fluxo, a leitura de custo financeiro permanece informativa: o valor presente já remunera o capital. Sem redução comprovada, nada entra no caixa.
 
 ### 3.7 Benefício operacional do mês
 
 ```
-Benefício(m) = Folha + Contratações futuras + Turnover + Supervisão + Horas realocadas
-             + Caixas + Manutenção + Ocupação + Movimentação + Inventário
-             + Perdas + Avarias + Vendas
-             + Custo financeiro do estoque
+Benefício do mês = Folha + Contratações futuras + Turnover + Supervisão + Horas realocadas
+                 + Caixas + Manutenção + Ocupação + Movimentação + Inventário
+                 + Perdas + Avarias + Vendas
+                 + Custo financeiro do estoque
 ```
 
-Margem de área já está dentro de Vendas. Ocupação mensal não entra quando a tese é margem.
+Margem de área já está dentro de vendas. Ocupação mensal não entra quando a tese é margem.
 
-## 4. CAPEX, OPEX, tributos e financiamento
-
-Fonte: `evaluate`, `residualAt`, `buildFinancing`.
+## 4. Investimento, custo mensal, tributos e financiamento
 
 ```
-capexMultiplier = capexFactor da sensibilidade × capexFactor do cenário
-CAPEX bruto     = round2(soma dos 6 itens × capexMultiplier)
-CAPEX evitado   = prateleiras (loja nova, incluídas, ainda não necessárias)
-                + investimento imobiliário (loja nova, tratamento correspondente, incluído)
-Crédito de impostos = round2(equipamento × percentual × capexMultiplier)
-                percentual padrão 25%, editável de 0% a 100%, sobre o preço de compra do equipamento
-                premissa a validar com o fiscal: depende do regime (IBS/CBS ou ICMS)
-Investimento líquido = round2(CAPEX bruto − CAPEX evitado − crédito de impostos)
-Parcelas do cronograma são normalizadas para somar 1
-Caixa na data zero = 0 se o líquido é 0
+multiplicador do investimento = fator da sensibilidade × fator do cenário
+investimento bruto = soma dos seis itens × multiplicador, arredondada em centavos
+investimento evitado = prateleiras, em loja nova, se entram e ainda não são necessárias
+                     + investimento imobiliário, em loja nova, se essa for a tese e o valor entrar
+crédito de impostos = equipamento × percentual × multiplicador, arredondado em centavos
+                      percentual padrão de 25%, editável de 0% a 100%, sobre o preço de compra do equipamento
+                      premissa a validar com o fiscal: depende do regime (IBS/CBS ou ICMS)
+investimento líquido = bruto − evitado − crédito, arredondado em centavos
+as parcelas do cronograma são ajustadas para somar 100%
+caixa na data zero = zero se o líquido é zero
                      senão −líquido × parcela do mês 0
-OPEX base = round2(soma dos 6 itens × opexFactor do cenário)
-OPEX(m)   = 0 antes do go-live
-            senão OPEX base × índice de inflação de OPEX
+custo mensal base = (suporte + outros custos + energia calculada) × fator do cenário, arredondado em centavos
+custo mensal do mês = zero antes do início da operação
+                      senão a base × índice de inflação do custo mensal
 ```
 
-O OPEX é manutenção, suporte e o que se repete todo mês. O preço do equipamento está só no CAPEX. Se o OPEX anual passa de 20% do CAPEX bruto, ou se há OPEX sem CAPEX, o motor avisa: o preço do robô pode ter sido lançado no lugar errado.
+O custo mensal é o que se repete: suporte pago à fornecedora, energia calculada e outros custos. O preço do equipamento está só no investimento. Se o custo mensal anual passa de 20% do investimento bruto, ou se há custo mensal sem investimento, a tela avisa: o preço do robô pode ter sido lançado no lugar errado.
 
-Parcelas posteriores ao mês 0 saem em `pontual(m)`, não na data zero. O exemplo desembolsa 100% na data zero.
+Parcelas posteriores ao mês 0 saem no caixa pontual daquele mês, não na data zero. O exemplo desembolsa 100% na data zero.
 
 Depreciação linear, só quando o imposto está ligado:
 
 ```
-meses de depreciação = max(1, round(depreciationYears × 12))
-Depreciação(m) = investimento líquido / meses, do go-live até esgotar a vida
+meses de depreciação = o maior entre 1 e os anos informados × 12, arredondados
+depreciação do mês = investimento líquido / meses, do início da operação até esgotar a vida
 ```
 
-A depreciação reduz a base e não sai do caixa. Resultado contábil, base tributável e imposto de caixa são campos separados do mês.
+A depreciação reduz a base tributável e não sai do caixa. Resultado, base tributável e imposto de caixa são leituras separadas do mês.
 
-Política efetiva: imposto desligado força "sem impostos". Imposto ligado com política "sem impostos" vira "incremental simplificado".
+Política efetiva: imposto desligado força "sem impostos". Imposto ligado com política "sem impostos" passa a tratar o resultado incremental de forma simplificada.
 
 ```
-base = operacional − depreciação
+base tributável = resultado operacional − depreciação
 
 sem impostos
-  imposto de caixa = 0
+  imposto de caixa = zero
 
-incremental simplificado
-  imposto = max(0, base) × alíquota
+resultado incremental simplificado
+  imposto = máximo entre zero e a base, vezes a alíquota
 
 prejuízo com limite
-  base negativa aumenta o saldo de prejuízo e o imposto de caixa é 0
-  base positiva usa min(saldo, base × limite) e tributa o que sobra
+  base negativa aumenta o saldo de prejuízo e o imposto de caixa é zero
+  base positiva usa o menor entre o saldo e a base × limite, e tributa o que sobra
 
 benefício condicionado
   imposto positivo = base × alíquota
   imposto negativo só se o benefício foi validado, e no máximo a capacidade mensal
 ```
 
-Valor residual no mês 60 entra cheio se não há imposto, se os eventos extraordinários não são tributáveis, ou se o residual é zero. Caso contrário entra `residual − (residual − valor contábil) × alíquota`.
+Valor residual no mês 60 entra cheio se não há imposto, se os eventos extraordinários não são tributáveis, ou se o residual é zero. Caso contrário entra residual menos (residual − valor contábil) × alíquota.
 
-Financiamento não altera o fluxo do projeto. Por isso VPL, TIR, payback e retorno do projeto ficam iguais com ou sem dívida.
+Financiamento não altera o fluxo do projeto. Por isso valor presente, taxa interna de retorno, payback e retorno do projeto ficam iguais com ou sem dívida.
 
 ```
-principal = max(0, investimento líquido) × (1 − entrada)
-parcela   = Price com balão; se o juro mensal é 0, (principal − balão) / prazo
+principal financiado = máximo entre zero e o investimento líquido, vezes (1 − entrada)
+parcela = tabela Price com balão; se o juro mensal é zero, (principal − balão) / prazo
 fluxo do investidor na data zero = fluxo do projeto + principal recebido
 nos meses do prazo, subtrai a parcela; no fim do prazo, subtrai o balão
 custo financeiro total = entrada + parcelas + balão − investimento líquido
-TIR do capital próprio = TIR anual do fluxo do investidor, quando existe
+taxa do capital próprio = taxa interna de retorno anual do fluxo do investidor, quando existe
 ```
 
-O principal recebido não é benefício operacional. A tela mostra VPL e TIR do projeto, TIR do capital próprio, serviço da dívida, saldo devedor e custo financeiro total.
+O principal recebido não é benefício operacional. A tela mostra valor presente e taxa do projeto, taxa do capital próprio, serviço da dívida, saldo devedor e custo financeiro total.
 
-## 5. Construção dos fluxos de 60 meses
+## 5. Construção dos 60 meses
 
-Para cada mês m de 1 a 60:
+Para cada mês de 1 a 60:
 
 ```
-benefício     = Benefício(m)
-opex          = OPEX(m)
-antesImposto  = benefício − opex          (resultado contábil)
-imposto       = política da seção 4
-operacional   = antesImposto − imposto
-pontual       = capital de giro − rescisão − remoção + revenda
-              + residual + recrutamento + treinamento + parcela de CAPEX
-incremental   = operacional + pontual
-acumulado     = acumulado anterior + incremental
-descontado    = incremental / (1 + taxa mensal) ^ m
+benefício = benefício daquele mês
+custo do robô = custo mensal daquele mês
+antes do imposto = benefício − custo do robô
+imposto = política da seção anterior
+operacional = antes do imposto − imposto
+caixa pontual = capital de giro − rescisão − remoção + revenda
+              + residual + recrutamento + treinamento + parcela do investimento
+fluxo = operacional + caixa pontual
+acumulado = acumulado anterior + fluxo
+descontado = fluxo / (1 + taxa mensal) elevado ao mês
 ```
 
-A taxa mensal é `(1 + taxa anual) ^ (1/12) − 1`. Com 12% a.a., cerca de 0,9489% a.m. O índice 0 não é descontado. O mês m é descontado a fim de mês. Cada etapa usa `round2`.
+A taxa mensal é (1 + taxa anual) elevado a 1/12, menos 1. Com 12% ao ano, cerca de 0,9489% ao mês. A data zero não é descontada. O mês é descontado a fim de mês. Cada etapa arredonda em centavos.
 
 Colunas de exibição:
 
 ```
-perdas hist. exib. = históricas(m) × benefitFactor, se as perdas entraram e m ≥ goLive
-perdas proj. exib. = min(projetadas, históricas) × benefitFactor
-custo sem robô     = (benefício − vendas) − perdas evitadas + perdas hist. exib.
-custo com robô     = perdas proj. exib. + opex
+perdas históricas exibidas = históricas do mês × fator de benefício, se as perdas entraram e o mês já começou
+perdas projetadas exibidas = o menor entre projetadas e históricas, vezes o fator de benefício
+custo sem robô = (benefício − vendas) − perdas evitadas + perdas históricas exibidas
+custo com robô = perdas projetadas exibidas + custo mensal do robô
 ```
 
-Assim, custo sem robô − custo com robô + margem de vendas = benefício − OPEX. Não é o custo total da loja.
+Assim, custo sem robô menos custo com robô mais margem de vendas = benefício menos custo mensal do robô. Não é o custo total da loja.
 
 ## 6. Indicadores
 
-Fonte: `src/model/finance.ts` e o bloco `indicators` de `evaluate`. O campo antigo `roi` continua igual ao retorno estabilizado.
+O retorno antigo, quando ainda aparece numa simulação salva, continua igual ao retorno estabilizado.
 
 ```
-VPL = Σ fluxo(t) / (1 + i_m) ^ t, t de 0 a 60
-TIR anual efetiva = (1 + TIR mensal) ^ 12 − 1
-Payback simples = (t − 1) + (−acumulado anterior / fluxo do mês t)
-Payback descontado = a mesma interpolação no caixa descontado
-Retorno anual simples estabilizado = (líquido do mês 60 × 12) / investimento líquido
-ROI acumulado em 60 meses = soma do operacional líquido / investimento líquido
-Benefício operacional anual = benefício bruto do mês 60 × 12
-Economia acumulada = soma do benefício bruto no horizonte
-Caixa acumulado = acumulado do mês 60, já com a data zero
-Investimento líquido total = CAPEX bruto − CAPEX evitado − crédito de impostos
+valor presente = soma de cada fluxo dividido por (1 + taxa mensal) elevado à data, da data zero ao mês 60
+taxa anual efetiva = (1 + taxa mensal interna) elevado a 12, menos 1
+payback simples = (mês − 1) + (−acumulado anterior / fluxo daquele mês)
+payback descontado = a mesma interpolação no caixa descontado
+retorno anual simples estabilizado = (líquido do mês 60 × 12) / investimento líquido
+retorno acumulado em 60 meses = soma do operacional líquido / investimento líquido
+benefício operacional anual = benefício bruto do mês 60 × 12
+economia acumulada = soma do benefício bruto no horizonte
+caixa acumulado = acumulado do mês 60, já com a data zero
+investimento líquido = investimento bruto − investimento evitado − crédito de impostos
 ```
 
 | Nome na tela | O que é | O que não é |
 |---|---|---|
-| Retorno anual simples estabilizado | Run-rate do mês 60, anualizado, sobre o investimento líquido | Retorno acumulado, TIR ou média do período |
-| ROI acumulado em 60 meses | Soma dos operacionais líquidos dividida pelo investimento | Payback nem VPL |
+| Retorno anual simples estabilizado | Ritmo do mês 60, anualizado, sobre o investimento líquido | Retorno acumulado, taxa interna ou média do período |
+| Retorno acumulado em 60 meses | Soma dos operacionais líquidos dividida pelo investimento | Payback nem valor presente |
 | Payback simples | Meses até o caixa acumulado cruzar zero | Não desconta |
-| Payback descontado | A mesma conta no caixa descontado | Não é o VPL |
-| VPL | Valor presente do fluxo do projeto | Não inclui a dívida |
-| TIR anual efetiva | Taxa anual equivalente que zera o VPL do projeto | Ambígua se o fluxo troca de sinal mais de uma vez |
+| Payback descontado | A mesma conta no caixa descontado | Não é o valor presente |
+| Valor presente | Valor de hoje do fluxo do projeto | Não inclui a dívida |
+| Taxa interna de retorno anual efetiva | Taxa anual equivalente que zera o valor presente do projeto | Ambígua se o fluxo troca de sinal mais de uma vez |
 
-Casos extremos, como o código trata:
+Casos extremos:
 
-- Investimento líquido zero: retorno nulo, payback "Imediato", TIR "Indefinida", VPL finito.
-- Investimento líquido negativo: retorno nulo, payback "Imediato", aviso de CAPEX evitado maior que o bruto.
-- Sem recuperação em 60 meses: payback nulo, texto "Não recupera em 60 meses".
-- TIR inexistente (sem fluxo positivo e negativo, ou sem raiz): "Indefinida". Newton-Raphson a partir de 1% a.m.; se falhar, bisseção.
-- Mais de uma troca de sinal (`signChanges > 1`): `irrAmbiguous`. A decisão usa o VPL.
-- Taxa anual ≤ −100%: taxa mensal indefinida, VPL e payback descontado não são calculados.
+- Investimento líquido zero: retorno nulo, payback imediato, taxa indefinida, valor presente finito.
+- Investimento líquido negativo: retorno nulo, payback imediato, aviso de investimento evitado maior que o bruto.
+- Sem recuperação em 60 meses: payback vazio, texto "Não recupera em 60 meses".
+- Taxa inexistente, quando não há fluxo positivo e negativo ou não há raiz: "Indefinida". A busca começa em 1% ao mês e, se falhar, estreita o intervalo.
+- Mais de uma troca de sinal: a taxa fica marcada como ambígua. A decisão usa o valor presente.
+- Taxa anual de −100% ou pior: a taxa mensal fica indefinida, e valor presente e payback descontado não são calculados.
 
 ## 7. Cenários, loja e rede
 
 | Item | Loja nova | Loja existente |
 |---|---|---|
-| Prateleiras — aquisição evitada | Abate o CAPEX, se ainda não forem necessárias | Não entra |
-| Prateleiras — revenda | Não entra | Entrada no go-live |
+| Prateleiras — aquisição evitada | Abate o investimento, se ainda não forem necessárias | Não entra |
+| Prateleiras — revenda | Não entra | Entrada no início da operação |
 | Prateleiras — manutenção evitada | Não entra | Benefício recorrente |
-| Prateleiras — remoção | Não entra | Saída no go-live |
-| Rescisão | Não entra | Saída em max(goLive, startMonth) |
+| Prateleiras — remoção | Não entra | Saída no início da operação |
+| Rescisão | Não entra | Saída no maior entre o início da operação e o mês da folha |
 | Recrutamento e treinamento das vagas da folha | Entram, se não bloqueados | Não entram |
 | Recrutamento e treinamento de contratações futuras | Entram | Entram |
-| Investimento imobiliário evitado | Abate o CAPEX, se essa for a tese | Não entra |
+| Investimento imobiliário evitado | Abate o investimento, se essa for a tese | Não entra |
 | Créditos recuperáveis (IBS/CBS ou ICMS) | Abatem o investimento no mês 0. Premissa a validar | Abatem o investimento no mês 0. Premissa a validar |
 
-`benefitFactor` multiplica os benefícios recorrentes. `salesFactor` multiplica só as alavancas de venda, além do `benefitFactor`. No conservador a venda fica com 0,80 × 0,60 = 0,48 do valor base. `opexFactor` multiplica o OPEX. `capexFactor` multiplica CAPEX bruto, CAPEX evitado, o crédito sobre o equipamento e o valor residual. O percentual do crédito não muda com o cenário; o valor em reais acompanha o equipamento.
+O fator de benefício multiplica os benefícios recorrentes. O fator de vendas multiplica só as alavancas de venda, além do fator de benefício. No conservador a venda fica com 0,80 × 0,60 = 0,48 do valor base. O fator do custo mensal multiplica suporte, outros custos e a energia calculada. O fator do investimento multiplica o bruto, o evitado, o crédito sobre o equipamento e o valor residual. O percentual do crédito não muda com o cenário; o valor em reais acompanha o equipamento.
 
 Não recebem fator de cenário: rescisão, remoção, revenda, recrutamento, treinamento e o principal do capital de giro.
 
-Rede desligada: `storeCount` replica investimento, líquido mensal e VPL. Payback e retorno ficam os da loja. Rede ligada, com ao menos uma unidade: cada loja é avaliada com o próprio tipo, data, fator de investimento, volume e mão de obra. O custo compartilhado sai uma vez por mês, nos meses 1 a 60. O payback de cada loja é o dela, então unidades com investimentos diferentes podem ter paybacks diferentes. O painel principal continua mostrando a loja corrente; o cartão de rede mostra a visão escalonada.
+Rede desligada: a quantidade de lojas replica investimento, líquido mensal e valor presente. Payback e retorno ficam os da loja. Rede ligada, com ao menos uma unidade: cada loja é avaliada com o próprio tipo, data, fator de investimento, volume e mão de obra. O custo compartilhado sai uma vez por mês, nos meses 1 a 60. O payback de cada loja é o dela, então unidades com investimentos diferentes podem ter paybacks diferentes. O painel principal continua mostrando a loja corrente; o cartão de rede mostra a visão escalonada.
 
-## 8. Regras anti-dupla-contagem e travas
+## 8. Regras para não contar o mesmo real duas vezes
 
-Ordem da trava: (1) desligado; (2) bloqueio específico; (3) potencial com `includePotential` falso; (4) entra.
+A trava segue esta ordem: desligado; bloqueio específico; potencial com a opção de incluir ganhos potenciais desligada; entra.
 
-| Regra | O que o código faz |
+| Regra | O que acontece |
 |---|---|
-| Recrutamento já no turnover | `includedInTurnoverCost`, ou modo detalhado com componente de recrutamento > 0, bloqueia o evento |
-| Treinamento já no custo de substituição | `includedInReplacementCost`, ou modo detalhado com treinamento do substituto > 0, bloqueia o evento |
-| Custo de turnover | Consolidado usa `costPerReplacement` e ignora componentes; detalhado soma componentes e ignora o consolidado |
-| Supervisão ou movimentação já na folha | `alreadyCountedInPayroll` bloqueia a linha |
-| Horas acima da jornada de quem ficou | `hourScale` < 1 corta o excedente; aviso |
-| Vagas acima do quadro | A folha mensal fica no quadro; aviso |
-| Horas realocadas | Não viram folha. Sem monetização, ou sem evidência no ganho incremental, ficam fora |
+| Recrutamento já no turnover | Se estiver marcado como incluso, ou se o modo detalhado tiver componente de recrutamento maior que zero, o evento fica de fora |
+| Treinamento já no custo de substituição | Se estiver marcado como incluso, ou se o modo detalhado tiver treinamento do substituto maior que zero, o evento fica de fora |
+| Custo de turnover | O modo consolidado usa o custo por substituição e ignora os componentes. O detalhado soma os componentes e ignora o consolidado |
+| Supervisão ou movimentação já na folha | A marcação de hora já contada bloqueia a linha |
+| Horas acima da jornada de quem ficou | O excedente é cortado na proporção e a tela avisa |
+| Vagas acima do quadro | A folha mensal fica no quadro e a tela avisa |
+| Horas realocadas | Não viram folha. Sem monetização, ou sem evidência no ganho incremental, ficam de fora |
 | Vendas sobrepostas | Sem independência confirmada, só a maior no mês 60 |
-| Caixas | Exigem processo validado. No detalhe, só componentes ligados |
-| Prateleira ainda necessária | Não gera CAPEX evitado, revenda, manutenção nem remoção |
+| Caixas | Exigem processo validado. No detalhe, só os componentes ligados |
+| Prateleira ainda necessária | Não gera investimento evitado, revenda, manutenção nem remoção |
 | Espaço | Ocupação ou margem, nunca os dois. Contrato inalterado bloqueia aluguel. Sem monetização fica só na auditoria |
-| Perdas detalhadas | Substituem histórico − projetado e bloqueiam a linha de avarias |
+| Perdas detalhadas | Substituem histórico menos projetado e bloqueiam a linha de avarias |
 | Capital de giro | Principal ou custo financeiro. Sem redução comprovada, os dois ficam de fora |
-| Disponibilidade zero | Zera folha, estoque, dispensação e vendas. OPEX continua |
+| Disponibilidade zero | Zera folha, estoque, dispensação e vendas. O custo mensal do robô continua |
 | Disponibilidade parcial | Não corta a folha se a reorganização continua. Corta dispensação, logística de volume e vendas |
-| Financiamento | Não muda VPL, TIR, retorno nem payback do projeto |
-| Ganhos potenciais | Ficam de fora até `includePotential` |
+| Financiamento | Não muda valor presente, taxa, retorno nem payback do projeto |
+| Ganhos potenciais | Ficam de fora até a opção de incluí-los ser ligada |
 
-No exemplo, ficam fora: venda consultiva (potencial e sem evidência), caixas (potencial e processo não validado), recrutamento e treinamento (já inclusos), rupturas, atendimento, abandono e capital de giro (desligados) e contratações futuras (desligadas). Perdas e avarias entram juntas, com aviso de possível sobreposição.
+No exemplo, ficam de fora: venda consultiva (potencial e sem evidência), caixas (potencial e processo não validado), recrutamento e treinamento (já inclusos), rupturas, atendimento, abandono e capital de giro (desligados) e contratações futuras (desligadas). Perdas e avarias entram juntas, com aviso de possível sobreposição.
 
-A auditoria de cada linha guarda identificador, nome, fórmula, premissas, unidade, origem, classificação, condição, valor mensal, valor acumulado, mês de início, fator de captura, inclusão ou exclusão com justificativa, dependências e conflitos. Linha excluída não altera o fluxo. O valor mensal pode aparecer mesmo assim, com `includedInCashFlow` falso.
+A auditoria de cada linha guarda nome, fórmula, premissas, unidade, origem, classificação, condição, valor mensal, valor acumulado, mês de início, fator de captura, inclusão ou exclusão com justificativa, dependências e conflitos. Linha excluída não altera o fluxo. O valor mensal pode aparecer mesmo assim, marcado como fora do caixa.
 
 ## 9. Ajuste rápido e sensibilidade
 
-As duas telas chamam o mesmo par `projectDriver` / `applyDriver` (`src/model/drivers.ts`). Quinze por cento é o mesmo percentual nas duas. A sensibilidade faz `evaluate(applyDriver(normalize(inputs), driver, 1 + delta), { scenario, skipNetwork: true })` com `SENSITIVITY_DELTAS = [−0,30; −0,15; 0; +0,15; +0,30]`.
+As duas telas aplicam o mesmo percentual sobre a mesma premissa. Quinze por cento é o mesmo percentual nas duas. A sensibilidade recalcula o exemplo em cinco pontos: −30%, −15%, zero, +15% e +30%.
 
 ### 9.1 Ajuste rápido
 
-O slider vai de −100% a +30% (`ADJUST_MIN = −1`, `ADJUST_MAX = 0,3`, passo 5%). O campo numérico aceita zero e valores acima de +30%. Sem base positiva, slider e botões ficam desativados. A alavanca da tela continua com o id `salarios`; o rótulo é "Mão de obra" e o driver é `maoDeObra`.
+O controle vai de −100% a +30%, em passos de 5%. O campo numérico aceita zero e valores acima de +30%. Sem base positiva, o controle fica desativado. O rótulo da alavanca de salários na tela é "Mão de obra".
 
-| Alavanca | Driver | O que muda |
-|---|---|---|
-| Investimento do robô | investimento | Os 6 itens de CAPEX. Com fator > 0, a aquisição evitada de prateleiras escala junto. Com fator 0, o CAPEX do robô zera e a prateleira evitada permanece |
-| OPEX | opex | Suporte, outros custos e a tarifa de energia. Potência, horas e dias não mudam |
-| Mão de obra | maoDeObra | Custo da vaga, benefícios, custo das futuras, custo de turnover e componentes, horas de supervisão, movimentação e inventário, recrutamento, treinamento e valores monetizados das horas realocadas |
-| Turnover | turnover | Só a taxa anual |
-| Volume | volume | Dispensações, perdas históricas e projetadas, componentes detalhados de perda, avarias, ciclos de caixa e horas de movimentação. Não escala o estoque do capital de giro |
-| Vendas | vendas | Rupturas, atendimento, abandono, margem por hora da consultiva e, se o modo é margem, a margem por m² |
-| Taxa de desconto | desconto | Só `discountRateAnnual`. Não muda o retorno estabilizado nem o payback simples |
-| Disponibilidade | disponibilidade | `availabilityPct`, limitado a 0–1 |
-| Cobertura do estoque | cobertura | `automatedStockShare`, limitado a 0–1 |
+| Alavanca | O que muda |
+|---|---|
+| Investimento do robô | Os seis itens do investimento. Com fator maior que zero, a aquisição evitada de prateleiras escala junto. Com fator zero, o investimento do robô zera e a prateleira evitada permanece |
+| Custo mensal do robô | Suporte, outros custos e a tarifa de energia. Potência, horas e dias não mudam |
+| Mão de obra | Custo da vaga, benefícios, custo das futuras, custo de turnover e componentes, horas de supervisão, movimentação e inventário, recrutamento, treinamento e valores monetizados das horas realocadas |
+| Turnover | Só a taxa anual |
+| Volume | Dispensações, perdas históricas e projetadas, componentes detalhados de perda, avarias, ciclos de caixa e horas de movimentação. Não escala o estoque do capital de giro |
+| Vendas | Rupturas, atendimento, abandono, margem por hora da venda consultiva e, se o modo é margem, a margem por metro |
+| Taxa de desconto | Só a taxa anual. Não muda o retorno estabilizado nem o payback simples |
+| Disponibilidade | O percentual, limitado de 0 a 1 |
+| Cobertura do estoque | A fração automatizada, limitada de 0 a 1 |
 
 ### 9.2 Sensibilidade do exemplo
 
-Cenário base, loja nova. Payback simples. Conferido com `sensitivity(exampleInputs(), 'base')`.
+Cenário base, loja nova. Payback simples. Origem: o exemplo fictício de abertura, variado em cada alavanca.
 
-| Driver | −30% | −15% | 0 | +15% | +30% |
+| Alavanca | −30% | −15% | 0 | +15% | +30% |
 |---|---|---|---|---|---|
 | Investimento | 36,0 m | 43,7 m | 51,4 m | 59,1 m | não recupera |
-| OPEX | 46,0 m | 48,6 m | 51,4 m | 54,5 m | 58,1 m |
+| Custo mensal do robô | 46,0 m | 48,6 m | 51,4 m | 54,5 m | 58,1 m |
 | Mão de obra | não recupera | 58,7 m | 51,4 m | 45,7 m | 41,1 m |
 | Turnover | 51,9 m | 51,6 m | 51,4 m | 51,1 m | 50,9 m |
 | Volume | 58,9 m | 54,9 m | 51,4 m | 48,3 m | 45,6 m |
@@ -516,15 +513,15 @@ Cenário base, loja nova. Payback simples. Conferido com `sensitivity(exampleInp
 | Disponibilidade | 52,0 m | 51,7 m | 51,4 m | 51,4 m | 51,4 m |
 | Cobertura do estoque | 58,4 m | 54,7 m | 51,4 m | 51,4 m | 51,4 m |
 
-Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move VPL e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então +15% e +30% batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas e inventário. Avarias estão desligadas no exemplo, então não entram nessa curva. Investimento +30% e mão de obra −30% passam de 60 meses.
+Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move valor presente e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então +15% e +30% batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas e inventário. Avarias estão desligadas no exemplo, então não entram nessa curva. Investimento +30% e mão de obra −30% passam de 60 meses.
 
 ## 10. Exemplo numérico ilustrativo
 
-Fonte: `src/model/example.ts` e `calculate.test.ts`. Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto sobre o resultado, rede desligada, capturas em 1, encargos e benefícios zero. O benefício líquido é R$ 18.396. Obras, elétrica e rede continuam R$ 50.000. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500, a energia calculada é R$ 1.404 e os outros custos são R$ 200. O crédito recuperável de impostos parte de 25% do equipamento (R$ 250.000) e é premissa a validar com o fiscal. Avarias ficam fora do caixa. O investimento líquido é R$ 945.000. O payback passa de 30 meses: o piso do robô não foi compensado com benefício novo.
+Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto sobre o resultado, rede desligada, capturas em 1, encargos e benefícios zero. O benefício líquido é R$ 18.396. Obras, elétrica e rede continuam R$ 50.000. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500, a energia calculada é R$ 1.404 e os outros custos são R$ 200. O crédito recuperável de impostos parte de 25% do equipamento (R$ 250.000) e é premissa a validar com o fiscal. Avarias ficam fora do caixa. O investimento líquido é R$ 945.000. O payback passa de 30 meses: o piso do robô não foi compensado com benefício novo.
 
-Quadro de 12 pessoas, 3 vagas evitadas, jornada 176 h. Horas reivindicadas no exemplo somam 70 (supervisão 20, movimentação 20, inventário 10 e venda consultiva 20, esta última fora do caixa), abaixo das 1.584 h de quem permanece, então `hourScale = 1`.
+Quadro de 12 pessoas, 3 vagas evitadas, jornada de 176 horas. Horas reivindicadas no exemplo somam 70 (supervisão 20, movimentação 20, inventário 10 e venda consultiva 20, esta última fora do caixa), abaixo das 1.584 horas de quem permanece, então as horas entram inteiras.
 
-| Benefício (mês 1 a 60) | Fórmula | R$/mês |
+| Benefício, do mês 1 ao 60 | Fórmula | R$/mês |
 |---|---|---|
 | Folha e encargos | 3 × 4.200 | 12.600 |
 | Turnover | 3 × 30% × 8.000 / 12 | 600 |
@@ -534,47 +531,47 @@ Quadro de 12 pessoas, 3 vagas evitadas, jornada 176 h. Horas reivindicadas no ex
 | Inventário | 10 h × 40 | 400 |
 | Perdas evitadas | 12.000 − 5.000 | 7.000 |
 | Benefício bruto | soma | 25.500 |
-| OPEX do robô | 5.500 + 1.404 + 200 | −7.104 |
+| Custo mensal do robô | 5.500 + 1.404 + 200 | −7.104 |
 | Benefício líquido | 25.500 − 7.104 | 18.396 |
 
 | Indicador | Cálculo | Resultado |
 |---|---|---|
-| CAPEX bruto | soma dos 6 itens | R$ 1.235.000 |
-| CAPEX evitado (prateleiras, loja nova) | 40.000 | R$ 40.000 |
+| Investimento bruto | soma dos seis itens | R$ 1.235.000 |
+| Investimento evitado (prateleiras, loja nova) | 40.000 | R$ 40.000 |
 | Créditos recuperáveis (25% do equipamento) | 1.000.000 × 25% | R$ 250.000, premissa a validar |
 | Investimento líquido | 1.235.000 − 40.000 − 250.000 | R$ 945.000 |
 | Benefício operacional anual | 25.500 × 12 | R$ 306.000 |
 | Economia acumulada em 60 meses | 25.500 × 60 | R$ 1.530.000 |
 | Operacional líquido anual (mês 60 × 12) | 18.396 × 12 | R$ 220.752 |
 | Retorno anual simples estabilizado | 220.752 / 945.000 | 23,4% |
-| ROI acumulado em 60 meses | (18.396 × 60) / 945.000 | 116,8% |
+| Retorno acumulado em 60 meses | (18.396 × 60) / 945.000 | 116,8% |
 | Caixa acumulado | −945.000 + 18.396 × 60 | R$ 158.760 |
 | Payback simples | 945.000 / 18.396 | 51,4 meses (acumulado positivo no mês 52) |
-| Payback descontado (12% a.a.) | interpolação dos fluxos descontados | Não recupera em 60 meses |
-| VPL (12% a.a.) | Σ fluxos descontados | −R$ 106.366,93 |
+| Payback descontado (12% ao ano) | interpolação dos fluxos descontados | Não recupera em 60 meses |
+| Valor presente (12% ao ano) | soma dos fluxos descontados | −R$ 106.366,93 |
 | Caixa descontado acumulado | mesma soma, neste exemplo plano | −R$ 106.366,93 |
-| TIR | mensal 0,52% | anual 6,5% |
+| Taxa interna de retorno | mensal 0,52% | anual 6,5% |
 
-O retorno de 23,4% é o run-rate estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 116,8% porque sessenta meses de R$ 18.396 cobrem o investimento 1,168 vez. Nenhum dos dois é a TIR. A TIR anual é 6,5% e a mensal é 0,52%. A energia de R$ 1.404 entra no OPEX e acompanha a inflação de OPEX. O crédito de R$ 250.000 entra só no investimento, no mês 0, e continua marcado como premissa a validar.
+O retorno de 23,4% é o ritmo estabilizado. Não é o retorno acumulado. O acumulado do exemplo é 116,8% porque sessenta meses de R$ 18.396 cobrem o investimento 1,168 vez. Nenhum dos dois é a taxa interna. A taxa anual é 6,5% e a mensal é 0,52%. A energia de R$ 1.404 entra no custo mensal e acompanha a inflação desse custo. O crédito de R$ 250.000 entra só no investimento, no mês 0, e continua marcado como premissa a validar.
 
-Fora do fluxo no exemplo (aparecem na auditoria): venda consultiva (R$ 1.600/mês potencial), rupturas (R$ 6.400/mês = 20.000 × 32%) e atendimento (R$ 3.200/mês), caixas, recrutamento, treinamento, capital de giro, horas realocadas e avarias.
+Fora do fluxo no exemplo (aparecem na auditoria): venda consultiva (R$ 1.600 por mês, potencial), rupturas (R$ 6.400 por mês, que são 20.000 × 32%) e atendimento (R$ 3.200 por mês), caixas, recrutamento, treinamento, capital de giro, horas realocadas e avarias.
 
-| Cenário / loja | Inv. líquido | Líquido/mês | Payback | Retorno estabilizado | VPL | TIR a.a. |
+| Cenário e loja | Investimento líquido | Líquido por mês | Payback | Retorno estabilizado | Valor presente | Taxa ao ano |
 |---|---|---|---|---|---|---|
-| Conservador / nova | 1.020.600 | 12.230,4 | não recupera | 14,4% | −463.043 | −11,6% |
-| Base / nova | 945.000 | 18.396 | 51,4 m | 23,4% | −106.367 | 6,5% |
-| Otimista / nova | 916.650 | 22.024,3 | 41,6 m | 28,8% | 87.390 | 16,6% |
-| Conservador / existente | 1.063.800 | 12.550,4 | não recupera | 14,2% | −496.212 | −12,3% |
-| Base / existente | 985.000 | 18.796 | 52,6 m | 22,9% | −132.689 | 5,4% |
-| Otimista / existente | 955.450 | 22.472,3 | 42,7 m | 28,2% | 64.457 | 15,2% |
+| Conservador, nova | 1.020.600 | 12.230,4 | não recupera | 14,4% | −463.043 | −11,6% |
+| Base, nova | 945.000 | 18.396 | 51,4 m | 23,4% | −106.367 | 6,5% |
+| Otimista, nova | 916.650 | 22.024,3 | 41,6 m | 28,8% | 87.390 | 16,6% |
+| Conservador, existente | 1.063.800 | 12.550,4 | não recupera | 14,2% | −496.212 | −12,3% |
+| Base, existente | 985.000 | 18.796 | 52,6 m | 22,9% | −132.689 | 5,4% |
+| Otimista, existente | 955.450 | 22.472,3 | 42,7 m | 28,2% | 64.457 | 15,2% |
 
-Na loja existente base: sem CAPEX evitado de prateleira, com crédito de R$ 250.000 (investimento R$ 985.000), manutenção de prateleiras +R$ 400/mês (líquido R$ 18.796) e, no mês 1, revenda de R$ 8.000 menos rescisão de R$ 12.600 (−R$ 4.600 pontual). O cenário otimista reduz o CAPEX informado em 3% e o custo mensal informado em 8%; o preço digitado do equipamento continua R$ 1.000.000, o crédito continua 25% desse preço e o suporte digitado continua R$ 5.500. A energia calculada entra no fator de OPEX. No conservador o equipamento entra 8% maior, então o crédito em reais sobe junto (R$ 270.000).
+Na loja existente base: sem investimento evitado de prateleira, com crédito de R$ 250.000 (investimento R$ 985.000), manutenção de prateleiras de mais R$ 400 por mês (líquido R$ 18.796) e, no mês 1, revenda de R$ 8.000 menos rescisão de R$ 12.600 (menos R$ 4.600 pontual). O cenário otimista reduz o investimento informado em 3% e o custo mensal informado em 8%; o preço digitado do equipamento continua R$ 1.000.000, o crédito continua 25% desse preço e o suporte digitado continua R$ 5.500. A energia calculada entra no fator do custo mensal. No conservador o equipamento entra 8% maior, então o crédito em reais sobe junto (R$ 270.000).
 
-### 10.1 Lojas-modelo de R$ 1, 2 e 4 milhões
+### 10.1 Lojas de R$ 1, 2 e 4 milhões
 
-Fonte: `src/model/presets.ts`. Loja existente, dados fictícios a validar com o Fabio. Obras, elétrica e rede permanecem R$ 50.000. O equipamento é R$ 1.000.000, R$ 1.350.000 (segundo braço) e R$ 1.850.000 (segundo braço, carregador automático e módulo refrigerado). Frete, instalação, integração e contingência ficam em torno de 6%, 4%, 2,5% e 5% do conjunto. O suporte pago à fornecedora é R$ 5.500 nas três lojas. A energia calculada e os outros custos levam o custo mensal informado a R$ 7.104. A ocupação da área liberada não entra no caixa. Perdas entram uma vez, na taxa de 1,4% para 0,6% do faturamento; avarias ficam desligadas. Contratações futuras começam no mês 13, então o payback simples não é o investimento dividido pelo líquido do mês 60.
+Loja existente, dados fictícios a validar com a operação. Obras, elétrica e rede permanecem R$ 50.000. O equipamento é R$ 1.000.000, R$ 1.350.000 (segundo braço) e R$ 1.850.000 (segundo braço, carregador automático e módulo refrigerado). Frete, instalação, integração e contingência ficam em torno de 6%, 4%, 2,5% e 5% do conjunto. O suporte pago à fornecedora é R$ 5.500 nas três lojas. A energia calculada e os outros custos levam o custo mensal informado a R$ 7.104. A ocupação da área liberada não entra no caixa. Perdas entram uma vez, na taxa de 1,4% para 0,6% do faturamento; avarias ficam desligadas. Contratações futuras começam no mês 13, então o payback simples não é o investimento dividido pelo líquido do mês 60.
 
-| Modelo | Cenário | Inv. líquido | Custo mensal | Líquido/mês | Payback | ROI acumulado | VPL |
+| Modelo | Cenário | Investimento líquido | Custo mensal | Líquido por mês | Payback | Retorno acumulado | Valor presente |
 |---|---|---|---|---|---|---|---|
 | R$ 1 milhão | Conservador | 1.063.800 | 8.169,6 | 14.934,4 | não recupera | 80,3% | −435.201 |
 | R$ 1 milhão | Base | 985.000 | 7.104 | 21.776 | 48,2 m | 127,3% | −54.444 |
@@ -586,30 +583,28 @@ Fonte: `src/model/presets.ts`. Loja existente, dados fictícios a validar com o 
 | R$ 4 milhões | Base | 1.772.500 | 7.104 | 88.016 | 22,4 m | 289% | 2.053.463 |
 | R$ 4 milhões | Otimista | 1.719.325 | 6.535,7 | 99.998,7 | 19,3 m | 338,7% | 2.635.018 |
 
-No base, o payback cai com o porte: 48,2 meses, 29,1 meses e 22,4 meses. A loja de R$ 1 milhão continua acima de 30 meses. As de R$ 2 milhões e R$ 4 milhões fecham em até 30 meses no base, já com o crédito de 25% do equipamento — premissa a validar, não um ajuste para caber no prazo. A folha completa sugerida, que não entra inteira no caixa, continua R$ 63.500, R$ 127.000 e R$ 249.500 por mês (12, 24 e 47 pessoas). As vagas evitadas agora são 3, 6 e 9: uma por turno e uma de pico em cada balcão na loja de um balcão e na de dois; na de três balcões, um posto por turno, inclusive a noite.
+No base, o payback cai com o porte: 48,2 meses, 29,1 meses e 22,4 meses. A loja de R$ 1 milhão continua acima de 30 meses. As de R$ 2 milhões e R$ 4 milhões fecham em até 30 meses no base, já com o crédito de 25% do equipamento — premissa a validar, não um ajuste para caber no prazo. A folha completa sugerida, que não entra inteira no caixa, continua R$ 63.500, R$ 127.000 e R$ 249.500 por mês (12, 24 e 47 pessoas). As vagas evitadas são 3, 6 e 9: uma por turno e uma de pico em cada balcão na loja de um balcão e na de dois; na de três balcões, um posto por turno, inclusive a noite.
 
 A loja de R$ 1 milhão, com equipamento no piso, suporte de R$ 5.500, energia calculada e crédito de 25%, fica em 48,2 meses no base. A de R$ 2 milhões, com seis vagas, fica em 29,1 meses. Essas lojas não ganharam benefício novo para encurtar o prazo.
 
 ## 11. Limitações e pontos de atenção
 
-O que o código ainda faz, e o que deixou de fazer:
-
-- Há curvas por família e cronograma de CAPEX. O exemplo usa degrau de 100% e desembolso inteiro na data zero. Um go-live posterior continua sem benefício e sem OPEX antes dele; o CAPEX segue o cronograma, não o go-live.
-- Há índices de salário, de OPEX e de preço. No exemplo estão em zero. Se a demanda cresce e salários e OPEX ficam parados numa base nominal, o motor avisa. Se a base dos fluxos e a base da taxa de desconto divergem, o motor avisa.
+- Há curvas por família e cronograma de desembolso. O exemplo usa degrau de 100% e desembolso inteiro na data zero. Um início posterior continua sem benefício e sem custo mensal do robô antes dele; o investimento segue o cronograma, não o mês de início da operação.
+- Há índices de salário, de custo mensal e de preço. No exemplo estão em zero. Se a demanda cresce e salários e custo mensal ficam parados numa base nominal, a tela avisa. Se a base dos fluxos e a base da taxa de desconto divergem, a tela avisa.
 - O retorno estabilizado usa o mês 60. Com crescimento, não é a média do período.
-- Continuam fora do cálculo: atendimentos por dia, dias de operação, área total, retaguarda, giro e SKUs. O faturamento só gera aviso. Os cargos entram no teto de vagas e no orçamento de horas.
-- A ocupação usa o R$/m² da logística quando ele é maior que zero (R$ 200 no exemplo). O do perfil (R$ 120) é reserva. O formulário de logística grava os dois com o mesmo número.
+- Continuam fora da conta: atendimentos por dia, dias de operação, área total, retaguarda, giro e quantidade de itens. O faturamento só gera aviso. Os cargos entram no teto de vagas e no orçamento de horas.
+- A ocupação usa o valor por metro da logística quando ele é maior que zero (R$ 200 no exemplo). O do perfil (R$ 120) é reserva. A tela de logística grava os dois com o mesmo número.
 - Fatores de cenário não se aplicam a rescisão, remoção, revenda, recrutamento, treinamento nem ao principal do capital de giro. A liberação de giro também não passa por captura nem por volume.
-- Vendas recebem `benefitFactor` e `salesFactor` ao mesmo tempo.
-- A consultiva não recebe o driver de volume.
+- Vendas recebem o fator de benefício e o fator de vendas ao mesmo tempo.
+- A venda consultiva não recebe a alavanca de volume.
 - Avarias do exemplo ficam desligadas. Perdas entram uma vez, pelo histórico menos o projetado.
 - Imposto: prejuízo não vira crédito sozinho. A política é configurável e pede validação fiscal. 34% não é premissa de regime.
-- A TIR com mais de uma troca de sinal fica marcada como ambígua. A decisão usa o VPL.
-- A coluna descontada da tabela é arredondada mês a mês. VPL e payback descontado usam os fluxos e só arredondam o resultado. Pode haver diferença de centavos. No exemplo plano os dois fecham em −R$ 10.450,21.
+- A taxa interna com mais de uma troca de sinal fica marcada como ambígua. A decisão usa o valor presente.
+- A coluna descontada da tabela é arredondada mês a mês. Valor presente e payback descontado usam os fluxos e só arredondam o resultado. Pode haver diferença de centavos. No exemplo plano os dois fecham em −R$ 106.366,93.
 - A auditoria mostra valor mensal também do que ficou de fora. A marcação de inclusão é que decide o caixa.
 - Rede desligada replica a loja em linha reta. Rede ligada desloca cada unidade para a data dela e pode produzir paybacks diferentes.
-- No assistente, CAPEX além do robô vai para "Implantação e contingência" e o OPEX total vai para "Manutenção". Os totais não mudam; a distribuição que o ajuste rápido escala muda.
-- O assistente valida faixas. O motor não recusa entrada: perdas projetadas acima das históricas zeram a economia de perdas e geram aviso.
-- Simulações salvas na versão 2 da biblioteca são mantidas. Campos novos recebem padrão neutro (curva 100%, imposto como estava), exceto o crédito recuperável de impostos: JSON antigo sem o campo passa a 25% do equipamento. Um percentual gravado fora de 0% a 100% é trazido para essa faixa. Se a simulação antiga não diz se a queda de estoque foi comprovada, o padrão agora é não presumir redução.
-- Há três modelos fictícios de loja (R$ 1, 2 e 4 milhões de faturamento mensal) para carregar com um clique. Não são dados do DPSP.
+- No assistente, investimento além do robô vai para implantação e contingência, e o custo mensal total vai para manutenção. Os totais não mudam; muda a distribuição que o ajuste rápido escala.
+- O assistente valida faixas. A conta não recusa entrada: perdas projetadas acima das históricas zeram a economia de perdas e geram aviso.
+- Simulações salvas na biblioteca atual são mantidas. Campos novos recebem padrão neutro (curva de 100%, imposto como estava), exceto o crédito recuperável de impostos: simulação antiga sem o campo passa a 25% do equipamento. Um percentual gravado fora de 0% a 100% é trazido para essa faixa. Se a simulação antiga não diz se a queda de estoque foi comprovada, o padrão agora é não presumir redução.
+- Há três modelos fictícios de loja (R$ 1, 2 e 4 milhões de faturamento mensal) para carregar com um clique. Não são dados de uma rede real.
 - Cada módulo e o assistente têm um texto recolhível, “O que esta tela calcula”, para quem não vai ler esta página.

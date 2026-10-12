@@ -35,7 +35,8 @@ describe('versão em validação', () => {
     });
     const notice = host.querySelector('[data-testid="rh-validation-notice"]');
     expect(notice?.textContent).toContain('Versão em validação');
-    expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
+    expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('../');
+    expect(host.querySelector('[data-testid="rh-nav-calculos"]')?.getAttribute('href')).toBe('../rh/calculos/');
     expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="roster-strip"]')).toBeNull();
     expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
@@ -319,7 +320,9 @@ describe('página de cálculos desta versão', () => {
     expect(text).toContain('1,2943');
     expect(text).toContain('2,2188');
     expect(text).not.toContain('6,6063');
-    expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('/gCalc/');
+    expect(text).not.toMatch(/\/gCalc\/|alreadyCounted|evaluate/);
+    expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('../../');
+    expect(host.querySelector('[data-testid="rh-nav-app"]')?.getAttribute('href')).toBe('../../rh/');
     expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('Não recupera em 60 meses');
     expect(formatPayback(rhScorecard()[3].cells[1].payback)).not.toBe('14,7 meses');
     expect(host.querySelector('[data-testid="score-loja-4m-base"]')?.textContent).toContain(

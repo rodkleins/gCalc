@@ -6,7 +6,7 @@ import { normalizeWizardStep } from './wizard';
 
 export const STORAGE_VERSION = 2;
 
-/** Chaves da calculadora publicada e da prévia em /gCalc/preview/. A prévia não lê nem apaga as da raiz. */
+/** Chaves da calculadora publicada e da prévia. A prévia não lê nem apaga as da calculadora. */
 export function storageKeys(preview: boolean): { library: string; legacy: string; headtohead: string } {
   if (preview) {
     return {

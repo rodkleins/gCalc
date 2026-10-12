@@ -26,7 +26,7 @@ export function RhCalculosPage() {
         </a>
       </nav>
       <article className="doc-body">
-        <RhValidationNotice />
+        <RhValidationNotice from="rh-calculos" />
         <RhPageNav current="calculos" />
         <div data-testid="doc-content" dangerouslySetInnerHTML={{ __html: html }} />
         <h2 id="resultados-dos-modelos">Resultados dos modelos</h2>

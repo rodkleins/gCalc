@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
-  base: process.env.VITE_BASE || '/gCalc/',
+  base: process.env.VITE_BASE || './',
   plugins: [react()],
   build: {
     rollupOptions: {
@@ -21,7 +21,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.test.mjs'],
     globals: false,
   },
 });

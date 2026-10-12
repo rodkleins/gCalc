@@ -19,10 +19,11 @@ describe('tela de cálculos', () => {
     const text = host.textContent ?? '';
     expect(text).toContain('Como os cálculos são feitos');
     expect(text).toContain('Visão geral');
-    expect(host.querySelector('pre code')?.textContent).toContain('goLive');
+    expect(host.querySelector('pre code')?.textContent).toContain('mês de início');
     expect(host.querySelector('table')).not.toBeNull();
-    expect(host.querySelector('[data-testid="doc-back"]')?.getAttribute('href')).toBe('/gCalc/');
-    expect(host.querySelector('[data-testid="doc-headtohead"]')?.getAttribute('href')).toBe('/gCalc/headtohead/');
+    expect(host.querySelector('[data-testid="doc-back"]')?.getAttribute('href')).toBe('../');
+    expect(host.querySelector('[data-testid="doc-headtohead"]')?.getAttribute('href')).toBe('../headtohead/');
+    expect(text).not.toMatch(/\/gCalc\/|src\/|\bevaluate\b/);
     const index = host.querySelector('.doc-toc a');
     expect(index?.getAttribute('href')).toMatch(/^#/);
     act(() => root.unmount());

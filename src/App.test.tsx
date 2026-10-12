@@ -52,10 +52,10 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="example-check"]')).not.toBeNull();
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-headtohead"]')?.getAttribute('href')).toBe(
-      '/gCalc/headtohead/',
+      'headtohead/',
     );
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-calculos"]')?.getAttribute('href')).toBe(
-      '/gCalc/calculos/',
+      'calculos/',
     );
     expect(host.querySelector('[data-testid="page-nav"] [aria-current="page"]')?.textContent).toBe('Calculadora');
     expect(host.querySelector('.command-bar [data-testid="open-headtohead"]')).toBeNull();

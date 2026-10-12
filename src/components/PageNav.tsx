@@ -1,9 +1,11 @@
+import { siteHref, type SitePage } from '../model/sitePaths';
+
 type PageId = 'calculadora' | 'headtohead' | 'calculos';
 
-const PAGES: Array<{ id: PageId; label: string; path: string }> = [
-  { id: 'calculadora', label: 'Calculadora', path: '' },
-  { id: 'headtohead', label: 'Head-to-head', path: 'headtohead/' },
-  { id: 'calculos', label: 'Cálculos', path: 'calculos/' },
+const PAGES: Array<{ id: PageId; label: string }> = [
+  { id: 'calculadora', label: 'Calculadora' },
+  { id: 'headtohead', label: 'Head-to-head' },
+  { id: 'calculos', label: 'Cálculos' },
 ];
 
 function linkTestId(current: PageId, id: PageId): string | undefined {
@@ -14,7 +16,6 @@ function linkTestId(current: PageId, id: PageId): string | undefined {
 }
 
 export function PageNav({ current }: { current: PageId }) {
-  const base = import.meta.env.BASE_URL;
   return (
     <nav className="page-nav" aria-label="Páginas" data-testid="page-nav">
       {PAGES.map((page) => {
@@ -23,7 +24,7 @@ export function PageNav({ current }: { current: PageId }) {
         return (
           <a
             key={page.id}
-            href={`${base}${page.path}`}
+            href={siteHref(current, page.id satisfies SitePage)}
             aria-current={active ? 'page' : undefined}
             data-testid={testId}
           >
