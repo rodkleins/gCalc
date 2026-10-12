@@ -176,6 +176,8 @@ export interface Inputs {
       spaceEnabled: boolean;
     };
     shelving: BenefitSwitch & {
+      /** Valor único que abate o investimento no mês 0. Ausente em JSON antigo: a migração preenche. */
+      releasedValue?: number;
       avoidedAcquisition: number;
       resaleValue: number;
       avoidedMaintenanceMonthly: number;

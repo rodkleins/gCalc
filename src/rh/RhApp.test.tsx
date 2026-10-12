@@ -298,6 +298,7 @@ describe('ajuda dos campos', () => {
     collect();
     for (const label of ['Perfil', 'Pessoas', 'Logística', 'Estoque', 'Investimento', 'Cenários', 'Sensibilidade', 'Fluxo', 'Auditoria', 'Simulações', 'Resultados']) {
       await openSection(host, label);
+      expect(host.querySelector('[data-testid="quick-dock"]'), label).not.toBeNull();
       if (label === 'Perfil') {
         const addStore = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Adicionar loja');
         await act(async () => {
@@ -362,6 +363,7 @@ describe('página de cálculos desta versão', () => {
     expect(text).not.toMatch(/\/gCalc\/|alreadyCounted|evaluate/);
     expect(host.querySelector('[data-testid="rh-back-to-current"]')?.getAttribute('href')).toBe('../../');
     expect(host.querySelector('[data-testid="rh-nav-app"]')?.getAttribute('href')).toBe('../../rh/');
+    expect(host.querySelector('[data-testid="quick-dock"]')).toBeNull();
     expect(host.querySelector('[data-testid="score-exemplo-base"]')?.textContent).toContain('Não recupera em 60 meses');
     expect(formatPayback(rhScorecard()[3].cells[1].payback)).not.toBe('14,7 meses');
     expect(host.querySelector('[data-testid="score-loja-4m-base"]')?.textContent).toContain(

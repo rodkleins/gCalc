@@ -11,14 +11,14 @@ No cenário **base**, loja **nova**, o exemplo de auditoria (página de cálculo
 | Indicador | Valor |
 | --- | --- |
 | Investimento líquido | R$ 945.000 |
-| Benefício líquido | R$ 18.396 por mês |
-| Benefício anual | R$ 220.752 |
-| Payback simples | 51,4 meses |
-| ROI anual simples | 23,4% |
+| Benefício líquido | R$ 18.796 por mês |
+| Benefício anual | R$ 225.552 |
+| Payback simples | 50,3 meses |
+| ROI anual simples | 23,9% |
 
-O payback de 51,4 meses é a interpolação: `945.000 / 18.396`. O caixa acumulado fica positivo no mês 52. O ROI é `220.752 / 945.000` e não é a TIR.
+O payback de 50,3 meses é a interpolação: `945.000 / 18.796`. O caixa acumulado fica positivo no mês 51. O ROI é `225.552 / 945.000` e não é a TIR.
 
-O investimento bruto do exemplo é R$ 1.235.000, com R$ 50.000 de obras, elétrica e rede e R$ 1.000.000 de equipamento. Em loja nova, R$ 40.000 de prateleiras evitadas e R$ 250.000 de créditos recuperáveis de impostos (25% do equipamento, premissa a validar com o fiscal) reduzem o CAPEX ao líquido de R$ 945.000. O benefício bruto de R$ 25.500 menos o OPEX de R$ 7.104 produz os R$ 18.396. Esse OPEX é suporte de R$ 5.500, energia calculada de R$ 1.404 (2,5 kW × 16 h × 30 dias × R$ 1,17/kWh) e outros custos de R$ 200. Avarias ficam fora do caixa: a perda é uma linha só. Tudo continua fictício, a validar.
+O investimento bruto do exemplo é R$ 1.235.000, com R$ 50.000 de obras, elétrica e rede e R$ 1.000.000 de equipamento. R$ 40.000 de prateleiras evitadas ou liberadas e R$ 250.000 de créditos recuperáveis de impostos (25% do equipamento, premissa a validar com o fiscal) reduzem o CAPEX ao líquido de R$ 945.000. Esse abatimento vale para loja nova e para loja existente. O benefício bruto de R$ 25.900 (inclui R$ 400 de manutenção de prateleira evitada) menos o OPEX de R$ 7.104 produz os R$ 18.796. Esse OPEX é suporte de R$ 5.500, energia calculada de R$ 1.404 (2,5 kW × 16 h × 30 dias × R$ 1,17/kWh) e outros custos de R$ 200. Avarias ficam fora do caixa: a perda é uma linha só. Tudo continua fictício, a validar.
 
 O equipamento dos padrões fica em R$ 1.000.000, R$ 1.350.000 e R$ 1.850.000. O suporte pago à fornecedora fica em R$ 5.500 nas três lojas, na faixa de R$ 5.000 a R$ 6.000. A energia é calculada e o custo mensal informado fica em R$ 7.104. O crédito de impostos parte de 25% do equipamento nas três lojas. No cenário base, o payback das lojas é 48,2, 29,1 e 22,4 meses. A de R$ 1 milhão continua acima de 30 meses. A tela avisa se o equipamento digitado ficar abaixo de R$ 1.000.000 ou se o suporte digitado ficar fora de R$ 5.000 a R$ 6.000.
 
@@ -91,7 +91,7 @@ Regras para não contar o mesmo real duas vezes:
 - A mesma área vale ou custo de ocupação, ou margem comercial.
 - Liberação de capital de giro e custo financeiro do estoque são alternativas. A taxa de desconto do VPL já remunera o capital.
 - Contratação futura só começa no mês em que a vaga existiria sem o robô.
-- Rescisão e revenda de prateleiras só entram em loja existente. CAPEX evitado de prateleira só entra em loja nova.
+- O valor das prateleiras evitadas ou liberadas abate o investimento no mês 0 em loja nova e em loja existente. A manutenção evitada entra todo mês, nos dois tipos. Se as prateleiras ainda são necessárias, valor e manutenção ficam fora. A rescisão só entra em loja existente. Uma simulação antiga sem o campo único usa a aquisição evitada na loja nova e a revenda na loja existente, sem somar os dois.
 - Disponibilidade e capacidade do robô reduzem benefícios. O OPEX não é reduzido.
 - Financiamento (entrada, prazo, juros e balão) aparece à parte e não altera VPL, TIR, ROI nem payback econômico.
 - Ganho marcado como potencial fica de fora até a opção **Incluir ganhos potenciais** ser ligada. As travas de dupla contagem continuam valendo.
@@ -104,7 +104,7 @@ O imposto, quando ligado, aplica a alíquota sobre o resultado operacional menos
 npm test
 ```
 
-A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 / R$ 18.396 / 51,4 meses / 23,4%, as regras de dupla contagem e a presença desses números na tela.
+A suíte cobre VPL, TIR, payback simples e descontado, o exemplo de R$ 945.000 / R$ 18.796 / 50,3 meses / 23,9%, as regras de dupla contagem e a presença desses números na tela.
 
 ## Publicar no GitHub Pages
 

@@ -58,9 +58,9 @@ Custo mensal da tabela é o OPEX do robô já com o fator do cenário. ROI acumu
 
 | Modelo | Cenário | Investimento líquido | Custo mensal | Benefício líquido | Payback | ROI acumulado | VPL |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Exemplo fictício (nova) | Conservador | R$ 1.031.400 | R$ 8.170 | R$ 9.102 | Não recupera em 60 meses | 53% | -R$ 616.439 |
-| Exemplo fictício (nova) | Base | R$ 955.000 | R$ 7.104 | R$ 14.486 | Não recupera em 60 meses | 91% | -R$ 294.612 |
-| Exemplo fictício (nova) | Otimista | R$ 926.350 | R$ 6.536 | R$ 17.645 | 52,5 meses | 114,3% | -R$ 121.944 |
+| Exemplo fictício (nova) | Conservador | R$ 1.031.400 | R$ 8.170 | R$ 9.422 | Não recupera em 60 meses | 54,8% | -R$ 601.851 |
+| Exemplo fictício (nova) | Base | R$ 955.000 | R$ 7.104 | R$ 14.886 | Não recupera em 60 meses | 93,5% | -R$ 276.377 |
+| Exemplo fictício (nova) | Otimista | R$ 926.350 | R$ 6.536 | R$ 18.093 | 51,2 meses | 117,2% | -R$ 101.521 |
 | Loja de R$ 1 milhão | Conservador | R$ 1.074.600 | R$ 8.170 | R$ 12.378 | Não recupera em 60 meses | 64% | -R$ 572.507 |
 | Loja de R$ 1 milhão | Base | R$ 995.000 | R$ 7.104 | R$ 18.581 | 57,8 meses | 105,2% | -R$ 223.004 |
 | Loja de R$ 1 milhão | Otimista | R$ 965.150 | R$ 6.536 | R$ 22.232 | 47,3 meses | 130,3% | -R$ 34.451 |

@@ -43,7 +43,7 @@ describe('modelos com quadro de RH', () => {
     expect(rows[0].avoidedPayroll).toBeCloseTo(2 * factor61 * 4_200, 2);
     expect(rows[3].avoidedPayroll).toBeCloseTo(6 * factor61 * 4_200 + 3 * factor12 * 4_200 * 2, 2);
     expect(rows.map((row) => row.cells.map((cell) => formatPayback(cell.payback)))).toEqual([
-      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '52,5 meses'],
+      ['Não recupera em 60 meses', 'Não recupera em 60 meses', '51,2 meses'],
       ['Não recupera em 60 meses', '57,8 meses', '47,3 meses'],
       ['47,1 meses', '33,3 meses', '28,4 meses'],
       ['20,6 meses', '15,2 meses', '13,2 meses'],

@@ -112,6 +112,7 @@
 }
 
 @media print {
+  .quick-dock { display: none !important; }
   body:has(.print-host) { background: #fff !important; }
   body:has(.print-host) .app { display: block !important; background: #fff !important; min-height: 0 !important; }
   body:has(.print-host) .rail,

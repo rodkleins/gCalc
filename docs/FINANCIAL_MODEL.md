@@ -11,8 +11,11 @@ Este é o fluxo de VPL, TIR, payback e retorno. Não contém dívida.
 ```text
 caixa(0) = -investimento líquido × parcela do cronograma na data zero
 investimento líquido = CAPEX bruto - CAPEX evitado - crédito recuperável de impostos
-CAPEX evitado = prateleiras de loja nova, se ainda não forem necessárias
-              + investimento imobiliário evitado, se essa for a tese da área
+CAPEX evitado = valor das prateleiras evitadas ou liberadas, em loja nova ou existente,
+                se ainda não forem necessárias
+              + investimento imobiliário evitado, se essa for a tese da área e a loja for nova
+              JSON antigo, sem o campo único, usa a aquisição evitada na loja nova
+              ou a revenda na loja existente. Não soma os dois.
 crédito       = preço do equipamento × percentual (padrão 25%, faixa 0% a 100%)
                 × fator de CAPEX. Premissa a validar com o fiscal. Abate o mês 0.
 
@@ -20,7 +23,7 @@ operacional(m) = benefício(m) - OPEX(m) × índice de inflação
 imposto(m)     = política tributária sobre (operacional - depreciação)
 líquido(m)     = operacional - imposto
 pontual(m)     = variação de capital de giro - rescisão - remoção
-               + revenda + residual + recrutamento evitado
+               + residual + recrutamento evitado
                + treinamento evitado + parcela posterior do CAPEX
 incremental(m) = líquido(m) + pontual(m)
 ```

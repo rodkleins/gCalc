@@ -7,7 +7,7 @@ export const WIZARD_STEPS = [
     id: 'inicio',
     title: 'A loja',
     kicker: 'Quem é o caso',
-    help: 'Loja nova ainda não comprou prateleiras: esse gasto pode sair do investimento, e não há rescisão. Loja existente já tem equipe e móveis: a rescisão, a contratação futura e a revenda podem entrar. Em loja nova esses dois benefícios de gente ficam zerados.',
+    help: 'O valor das prateleiras evitadas ou liberadas abate o investimento nos dois tipos de loja. Em loja nova é a compra que deixa de acontecer, e não há rescisão. Em loja existente é a revenda ou o reaproveitamento, e a rescisão e a contratação futura podem entrar. Em loja nova esses dois benefícios de gente ficam zerados.',
   },
   {
     id: 'farmacia',
@@ -25,7 +25,7 @@ export const WIZARD_STEPS = [
     id: 'logistica',
     title: 'Espaço',
     kicker: 'O que a área liberada vale',
-    help: 'O mesmo metro quadrado vale o aluguel que deixa de ser pago ou a margem de uma área de venda. Não os dois. Caixa do fornecedor só entra se o processo foi validado, no modo completo.',
+    help: 'O mesmo metro quadrado vale o aluguel que deixa de ser pago ou a margem de uma área de venda. Não os dois. O valor das prateleiras evitadas ou liberadas abate o investimento no mês 0, em loja nova ou existente. A manutenção evitada entra todo mês. Caixa do fornecedor só entra se o processo foi validado, no modo completo.',
   },
   {
     id: 'estoque',

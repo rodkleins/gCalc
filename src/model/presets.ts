@@ -210,6 +210,7 @@ function fromShape(shape: Shape): Inputs {
   inputs.logistics.boxes.enabled = false;
   inputs.logistics.boxes.processValidated = false;
   inputs.logistics.shelving.enabled = true;
+  inputs.logistics.shelving.releasedValue = 0;
   inputs.logistics.shelving.avoidedAcquisition = 0;
   inputs.logistics.shelving.resaleValue = 0;
   inputs.logistics.shelving.avoidedMaintenanceMonthly = shape.shelfMaintenance;

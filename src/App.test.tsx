@@ -34,9 +34,9 @@ describe('aplicação', () => {
     });
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 945.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.396');
-    expect(text('[data-testid="kpi-payback"]')).toContain('51,4');
-    expect(text('[data-testid="kpi-roi"]')).toBe('23,4%');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.796');
+    expect(text('[data-testid="kpi-payback"]')).toContain('50,3');
+    expect(text('[data-testid="kpi-roi"]')).toBe('23,9%');
     const charts = host.querySelector('.chart-grid');
     const summary = host.querySelector('[data-testid="executive-summary"]');
     const comparison = host.querySelector('table');
@@ -48,7 +48,7 @@ describe('aplicação', () => {
     const navLabels = [...host.querySelectorAll('nav button')].map((button) => button.textContent);
     expect(navLabels[0]).toBe('Perfil');
     expect(navLabels.at(-1)).toBe('Resultados');
-    expect(summary?.querySelectorAll('li')).toHaveLength(5);
+    expect(summary?.querySelector('ol')?.children).toHaveLength(5);
     expect(summary?.textContent).toMatch(/payback/i);
     expect(summary?.textContent).toMatch(/ROI/);
     expect(summary?.textContent).toMatch(/não repete o valor do equipamento/i);
@@ -291,7 +291,7 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 992.250');
-    expect(text('[data-testid="quick-kpi-payback"]')).toContain('53,9 meses');
+    expect(text('[data-testid="quick-kpi-payback"]')).toContain('52,8 meses');
     expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-irr"]')).toContain('vs original');
@@ -300,7 +300,7 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 945.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.396');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.796');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('igual ao original');
     act(() => root.unmount());
   });
@@ -503,9 +503,27 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(true);
     expect(host.querySelector('[data-testid="quick-dock-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('Payback');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('51,4');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('50,3');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('ROI');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('23,4%');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('23,9%');
+
+    const logistica = [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Logística') as HTMLButtonElement;
+    await act(async () => {
+      logistica.click();
+    });
+    expect(host.querySelector('nav .is-active')?.textContent).toBe('Logística');
+    expect(host.querySelector('[data-testid="quick-dock"]')).not.toBeNull();
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('50,3');
+    expect(host.textContent).toContain('Valor das prateleiras evitadas ou liberadas');
+
+    const resultados = [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Resultados') as HTMLButtonElement;
+    await act(async () => {
+      resultados.click();
+    });
+    const memory = host.querySelector('[data-testid="calc-memory-investimento-indicadores"]');
+    expect(memory?.querySelector('summary')?.textContent).toBe('Ver cálculo');
+    expect(memory?.textContent?.replace(/\u00a0/g, ' ')).toContain('945.000');
+    expect(host.querySelector('[data-testid="calc-memory-fora"]')?.textContent).toMatch(/não considerado/i);
 
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-dock-toggle"]')?.click();

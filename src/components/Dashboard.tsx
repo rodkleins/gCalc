@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { evaluate } from '../model/calculate';
+import { CalcMemory } from './CalcMemory';
 import { matchesIllustrativeExample } from '../model/example';
 import { formatBRL, formatCompactBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { fieldForAudit, type LeverId } from '../model/premises';
@@ -30,7 +31,6 @@ export function Dashboard({
   onScenario,
   onInputs,
   onAdjust,
-  onUndo,
   onOpenPremise,
   uiKeys,
   hiddenLevers,
@@ -42,7 +42,6 @@ export function Dashboard({
   onScenario: (scenario: ScenarioId) => void;
   onInputs: (inputs: Inputs) => void;
   onAdjust: (inputs: Inputs) => void;
-  onUndo: () => void;
   onOpenPremise: (fieldId: string) => void;
   uiKeys?: { dock: string; adjust: string };
   hiddenLevers?: LeverId[];
@@ -79,11 +78,11 @@ export function Dashboard({
       {illustrative ? (
         <div className="banner ok" data-testid="example-check">
           Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 945.000, benefício líquido de R$
-          18.396 por mês, payback de 51,4 meses e ROI de 23,4%.
+          18.796 por mês, payback de 50,3 meses e ROI de 23,9%.
         </div>
       ) : (
         <div className="banner">
-          Os números do documento (R$ 945.000, R$ 18.396 por mês, payback de 51,4 meses, ROI de 23,4%) aparecem no
+          Os números do documento (R$ 945.000, R$ 18.796 por mês, payback de 50,3 meses, ROI de 23,9%) aparecem no
           exemplo fictício, cenário base e loja nova.
         </div>
       )}
@@ -106,6 +105,7 @@ export function Dashboard({
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <CalcMemory inputs={inputs} result={result} ids={['beneficios', 'fora']} />
         </section>
         <section className="card chart-card">
           <h2>Caixa incremental em 60 meses</h2>
@@ -131,6 +131,7 @@ export function Dashboard({
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <CalcMemory inputs={inputs} result={result} ids={['fluxo']} />
         </section>
       </div>
 
@@ -151,20 +152,19 @@ export function Dashboard({
               <Area type="monotone" dataKey="sem" name="Sem robô" stroke="#8e3030" fill="#8e3030" fillOpacity={0.12} />
               <Area type="monotone" dataKey="com" name="Com robô" stroke="#1e4c43" fill="#1e4c43" fillOpacity={0.18} />
             </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+            </ResponsiveContainer>
+          </div>
+          <CalcMemory inputs={inputs} result={result} ids={['custo']} />
+        </section>
       <StageNote>
         O gráfico da esquerda mostra de onde vem a sobra mensal. O da direita mostra quando o caixa acumulado devolve o
         investimento: é o payback.
       </StageNote>
 
-      <QuickAdjust
+        <QuickAdjust
         inputs={inputs}
         anchor={anchor}
-        scenario={scenario}
         onAdjust={onAdjust}
-        onUndo={onUndo}
         onOpen={onOpenPremise}
         storageKeys={uiKeys}
         hiddenLevers={hiddenLevers}
@@ -186,7 +186,7 @@ export function Dashboard({
               {formatBRL(result.grossCapex)}
             </PremiseValue>{' '}
             − prateleiras{' '}
-            <PremiseValue fieldId="logistics.shelving.avoidedAcquisition" onOpen={onOpenPremise}>
+            <PremiseValue fieldId="logistics.shelving.releasedValue" onOpen={onOpenPremise}>
               {formatBRL(result.avoidedCapex)}
             </PremiseValue>{' '}
             − créditos de impostos{' '}
@@ -248,6 +248,7 @@ export function Dashboard({
           </em>
         </article>
       </section>
+      <CalcMemory inputs={inputs} result={result} ids={['investimento', 'indicadores']} />
 
       <section className="kpis" data-testid="indicator-set">
         <article className="kpi">
@@ -276,6 +277,7 @@ export function Dashboard({
           <em>Descontado {formatBRL(result.indicators.cumulativeDiscountedCash)}</em>
         </article>
       </section>
+      <CalcMemory inputs={inputs} result={result} ids={['indicadores']} />
 
       <section className="card executive" data-testid="executive-summary">
         <h2>Como chegamos no payback e no ROI</h2>
@@ -299,9 +301,11 @@ export function Dashboard({
           </li>
           <li>O preço do robô entra só uma vez. O custo mensal é manutenção e suporte, e não repete o valor do equipamento.</li>
         </ol>
+        <CalcMemory inputs={inputs} result={result} ids={['investimento', 'fluxo', 'indicadores']} />
       </section>
 
       <BenefitClasses result={result} />
+      <CalcMemory inputs={inputs} result={result} ids={['fora']} />
 
       <section className="card memory">
         <h2>Memória do cenário {scenarioLabel(scenario).toLowerCase()}</h2>
@@ -405,9 +409,10 @@ export function Dashboard({
       <section className="card">
         <h2>Loja nova e loja existente</h2>
         <StageNote testId="stage-note-store">
-          A mesma premissa muda de significado conforme a loja. Em loja nova, prateleira evitada reduz o investimento e
-          não há rescisão. Em loja existente, a rescisão e a contratação futura podem entrar, e a prateleira vira revenda
-          ou manutenção. Se um benefício está zerado, o motivo aparece abaixo.
+          A mesma premissa muda de significado conforme a loja. O valor das prateleiras evitadas ou liberadas abate o
+          investimento no mês 0 nos dois tipos. A manutenção evitada entra todo mês, também nos dois. Em loja nova não
+          há rescisão. Em loja existente, a rescisão e a contratação futura podem entrar. Se um benefício está zerado, o
+          motivo aparece abaixo.
         </StageNote>
         <p className="lede">
           A coluna ativa é {storeLabel(result.storeType).toLowerCase()}.

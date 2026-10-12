@@ -17,13 +17,15 @@ export function LogisticsForm({
     <div className="stack">
       <StageNote>
         Esta tela pergunta o que a loja deixa de gastar com espaço, prateleira e movimento. O mesmo metro não vale
-        aluguel e venda ao mesmo tempo. Em loja nova, prateleira evitada reduz o investimento. Em loja existente, vira
-        revenda ou manutenção, e só se a prateleira realmente sair.
+        aluguel e venda ao mesmo tempo. O valor das prateleiras evitadas ou liberadas abate o investimento no mês 0, em
+        loja nova ou existente. A manutenção evitada entra todo mês. Se a prateleira ainda é necessária, os dois ficam
+        de fora.
       </StageNote>
       <ModuleImpact result={result} module="Logística" />
       <Callout>
         O robô não elimina sozinho a caixa do fornecedor. Ocupação e margem comercial da mesma área não entram juntas.
-        Em loja nova, prateleira reduz CAPEX. Em loja existente, vira revenda e manutenção evitada.
+        O valor das prateleiras abate o investimento no mês 0. A manutenção evitada é benefício mensal. Os dois valem
+        para loja nova e para loja existente, desde que a prateleira deixe de ser necessária.
       </Callout>
 
       <BenefitCard
@@ -63,43 +65,37 @@ export function LogisticsForm({
 
       <BenefitCard
         title="Prateleiras e gaveteiros"
-        description="CAPEX evitado na loja nova, ou revenda e manutenção na loja existente."
+        description="Valor que abate o investimento no mês 0, mais a manutenção mensal que deixa de existir."
         enabled={logistics.shelving.enabled}
         confidence={logistics.shelving.confidence}
         onEnabled={(enabled) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, enabled } })}
         onConfidence={(confidence) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, confidence } })}
       >
         <NumberField
-          fieldId="logistics.shelving.avoidedAcquisition"
-          label="Aquisição evitada"
-          value={logistics.shelving.avoidedAcquisition}
+          fieldId="logistics.shelving.releasedValue"
+          label="Valor das prateleiras evitadas ou liberadas"
+          value={logistics.shelving.releasedValue ?? 0}
           suffix="R$"
-          hint="Só reduz o investimento em loja nova."
-          onChange={(avoidedAcquisition) =>
-            setLogistics({ ...logistics, shelving: { ...logistics.shelving, avoidedAcquisition } })
+          hint="Abate o investimento líquido no mês 0, em loja nova ou existente."
+          help="Valor das prateleiras evitadas ou liberadas, em R$. Abate o investimento líquido no mês 0. Em loja nova é a compra que deixa de acontecer. Em loja existente é a revenda ou o reaproveitamento. Não entra de novo como benefício mensal."
+          onChange={(releasedValue) =>
+            setLogistics({ ...logistics, shelving: { ...logistics.shelving, releasedValue } })
           }
         />
         <CheckField
           className="field check span-2"
           checked={logistics.shelving.stillRequired}
           onChange={(stillRequired) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, stillRequired } })}
-          label="Estas prateleiras ainda são necessárias e não podem ser evitadas nem revendidas"
-          help="Ligado, a aquisição evitada e a revenda desta prateleira ficam fora do caixa. O robô não abate um móvel que a loja continua precisando."
-        />
-        <NumberField
-          fieldId="logistics.shelving.resaleValue"
-          label="Revenda ou reaproveitamento"
-          value={logistics.shelving.resaleValue}
-          suffix="R$"
-          hint="Caixa único, só em loja existente."
-          onChange={(resaleValue) => setLogistics({ ...logistics, shelving: { ...logistics.shelving, resaleValue } })}
+          label="Estas prateleiras ainda são necessárias e não podem ser evitadas nem liberadas"
+          help="Ligado, o valor das prateleiras e a manutenção evitada ficam fora da conta. O robô não abate um móvel que a loja continua precisando."
         />
         <NumberField
           fieldId="logistics.shelving.avoidedMaintenanceMonthly"
           label="Manutenção evitada"
           value={logistics.shelving.avoidedMaintenanceMonthly}
           suffix="R$/mês"
-          hint="OPEX recorrente, só em loja existente."
+          hint="Benefício mensal, em loja nova ou existente."
+          help="Manutenção de prateleira que deixa de existir, em R$ por mês. Entra no benefício recorrente em loja nova e em loja existente, se as prateleiras saem da operação."
           onChange={(avoidedMaintenanceMonthly) =>
             setLogistics({ ...logistics, shelving: { ...logistics.shelving, avoidedMaintenanceMonthly } })
           }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuditPanel } from '../components/AuditPanel';
 import { CashflowTable } from '../components/CashflowTable';
 import { Dashboard } from '../components/Dashboard';
+import { FloatingPayback } from '../components/FloatingPayback';
 import { FieldHelpProvider, PremiseFocus } from '../components/Fields';
 import { MoreActions } from '../components/MoreActions';
 import { PrintReport } from '../components/PrintReport';
@@ -560,6 +561,14 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           {status ? ` ${status}` : ''}
         </p>
 
+        <FloatingPayback
+          inputs={inputs}
+          anchor={adjustAnchor}
+          scenario={scenario}
+          result={result}
+          onUndo={() => setInputs(structuredClone(adjustAnchor))}
+          storageKey={RH_UI_KEYS.quickDockOpen}
+        />
         <PremiseFocus field={focusField}>
           {section === 'dashboard' || section === 'simulacoes' ? (
             <PrintReport
@@ -594,7 +603,6 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
               onScenario={setScenario}
               onInputs={commitInputs}
               onAdjust={setInputs}
-              onUndo={() => setInputs(structuredClone(adjustAnchor))}
               onOpenPremise={openPremise}
               uiKeys={{ dock: RH_UI_KEYS.quickDockOpen, adjust: RH_UI_KEYS.quickAdjustOpen }}
               hiddenLevers={['salarios']}

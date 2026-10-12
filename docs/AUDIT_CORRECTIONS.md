@@ -26,7 +26,7 @@ O motor continua em `evaluate` (`src/model/calculate.ts`), com a aritmética de 
 | P1.5 Drivers | `drivers.ts`, `premises.ts` | 15% é o mesmo número nas duas telas. | `reference.test.ts` equivalência |
 | P1.6 Financiamento | `calculate.ts`, `InvestmentForm.tsx` | Fluxo do projeto intacto. Fluxo do investidor, TIR do capital próprio, serviço da dívida, saldo e custo financeiro. Financiamento não é benefício. | `calculate.test.ts`, `reference.test.ts` |
 | P2.1 Caixas | `calculate.ts` | Componentes habilitáveis. Sem processo validado, fica fora e não é comprovável. | `calculate.test.ts`, `reference.test.ts` |
-| P2.2 Prateleiras | `calculate.ts` | Nova: aquisição evitada. Existente: revenda, manutenção e remoção. Prateleira ainda necessária não entra. | `calculate.test.ts`, `reference.test.ts` |
+| P2.2 Prateleiras | `calculate.ts` | Um campo, valor das prateleiras evitadas ou liberadas, abate o mês 0 nos dois tipos de loja. Manutenção mensal nos dois. Remoção só em loja existente. Ainda necessárias zera valor, manutenção e remoção. JSON antigo migra o número que já contava, sem somar aquisição e revenda. | `calculate.test.ts`, `reference.test.ts` |
 | P2.3 Perdas e vendas | `calculate.ts` | Detalhe separa vencimento, avaria, extravio e erro e desliga a linha duplicada. Vendas só por margem. Sobreposição continua bloqueada. | `calculate.test.ts`, `reference.test.ts` |
 | P2.4 Rede | `calculate.ts`, `ProfileForm.tsx` | Lojas com data, fator de investimento e volume. Paybacks individuais e VPL consolidado. Réplica linear permanece quando a rede escalonada está desligada. | `reference.test.ts` |
 | Rastreio | `types.ts`, `AuditPanel.tsx` | Cada linha tem fórmula, origem, condição, acumulado e inclusão. | `premises.test.ts`, auditoria |

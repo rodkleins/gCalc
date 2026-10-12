@@ -1,5 +1,6 @@
 import { flushSync } from 'react-dom';
 import { useState, type ReactNode } from 'react';
+import { CalcMemoryPrint } from './CalcMemory';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { energyConsumptionKwh, energyMonthlyCost, informedMonthlyRobotCost } from '../model/robotCost';
 import type { AuditLine, Inputs, ModelResult, ScenarioId } from '../model/types';
@@ -71,8 +72,8 @@ function parameterGroups(inputs: Inputs, scenario: ScenarioId): Array<{ title: s
     {
       title: 'Logística',
       rows: [
-        ['Prateleira evitada', money(inputs.logistics.shelving.avoidedAcquisition)],
-        ['Revenda de prateleira', money(inputs.logistics.shelving.resaleValue)],
+        ['Prateleiras evitadas ou liberadas', money(inputs.logistics.shelving.releasedValue ?? 0)],
+        ['Manutenção de prateleira evitada', `${money(inputs.logistics.shelving.avoidedMaintenanceMonthly)}/mês`],
         ['Área liberada', `${formatNumber(inputs.logistics.space.m2Freed)} m²`],
         ['Horas de movimentação', `${formatNumber(inputs.logistics.movement.hoursSavedPerMonth)}/mês`],
         ['Horas de inventário', `${formatNumber(inputs.logistics.inventoryCount.hoursSavedPerMonth)}/mês`],
@@ -484,6 +485,7 @@ function ReportBody({
         <>
           <Modules result={result} />
           <Parameters inputs={inputs} scenario={scenario} />
+          <CalcMemoryPrint inputs={inputs} result={result} />
           {completeExtra}
           <Cashflow result={result} />
         </>

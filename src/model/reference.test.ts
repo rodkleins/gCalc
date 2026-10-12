@@ -41,7 +41,7 @@ describe('casos de referência independentes do exemplo', () => {
     const inputs = bare();
     inputs.profile.storeType = 'nova';
     inputs.logistics.shelving.enabled = true;
-    inputs.logistics.shelving.avoidedAcquisition = 5_000;
+    inputs.logistics.shelving.releasedValue = 5_000;
     const result = evaluate(inputs);
     expect(result.netInvestment).toBe(-5_000);
     expect(result.cashFlows[0]).toBe(5_000);
@@ -241,7 +241,7 @@ describe('casos de referência independentes do exemplo', () => {
     const inputs = bare();
     inputs.robot.capex.equipment = 10_000;
     inputs.logistics.shelving.enabled = true;
-    inputs.logistics.shelving.avoidedAcquisition = 1_000;
+    inputs.logistics.shelving.releasedValue = 1_000;
     inputs.logistics.shelving.resaleValue = 400;
     inputs.people.payroll.enabled = true;
     inputs.people.payroll.positionsReduced = 1;
@@ -253,8 +253,10 @@ describe('casos de referência independentes do exemplo', () => {
     expect(fresh.months[0].severance).toBe(0);
     inputs.profile.storeType = 'existente';
     const current = evaluate(inputs);
-    expect(current.netInvestment).toBe(10_000);
-    expect(current.months[0].incremental).toBe(100 - 250 + 400);
+    expect(current.netInvestment).toBe(9_000);
+    expect(current.months[0].resale).toBe(0);
+    expect(current.months[0].severance).toBe(-250);
+    expect(current.months[0].incremental).toBe(100 - 250);
   });
 
   it('financiamento não muda o VPL do projeto, com ou sem juros', () => {

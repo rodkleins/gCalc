@@ -58,6 +58,10 @@ export function projectDriver(
         ...next.logistics.shelving,
         avoidedAcquisition:
           factor > 0 ? round2(anchor.logistics.shelving.avoidedAcquisition * factor) : anchor.logistics.shelving.avoidedAcquisition,
+        releasedValue:
+          factor > 0
+            ? round2((anchor.logistics.shelving.releasedValue ?? 0) * factor)
+            : anchor.logistics.shelving.releasedValue,
       },
     };
     return next;

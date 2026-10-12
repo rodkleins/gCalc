@@ -1,73 +1,41 @@
-import { useEffect, useRef, useState } from 'react';
-import { evaluate } from '../model/calculate';
-import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent } from '../model/format';
+import { useEffect, useState } from 'react';
+import { formatNumber } from '../model/format';
 import {
   ADJUST_MAX,
   ADJUST_MIN,
   QUICK_LEVERS,
   leverDelta,
-  leversDiffer,
   leverValue,
   nudgeLever,
   withLeverValue,
   type LeverId,
 } from '../model/premises';
-import type { Inputs, ScenarioId } from '../model/types';
-import { QUICK_ADJUST_OPEN_KEY, QUICK_DOCK_OPEN_KEY, readUiFlag, writeUiFlag } from '../model/uiChrome';
+import type { Inputs } from '../model/types';
+import { QUICK_ADJUST_OPEN_KEY, readUiFlag, writeUiFlag } from '../model/uiChrome';
 import { FieldTip, NumberField, PercentField, useFieldHelpEnabled } from './Fields';
 
 export function QuickAdjust({
   inputs,
   anchor,
-  scenario,
   onAdjust,
-  onUndo,
   onOpen,
   storageKeys,
   hiddenLevers = [],
 }: {
   inputs: Inputs;
   anchor: Inputs;
-  scenario: ScenarioId;
   onAdjust: (inputs: Inputs) => void;
-  onUndo: () => void;
   onOpen: (fieldId: string) => void;
   storageKeys?: { dock: string; adjust: string };
   hiddenLevers?: LeverId[];
 }) {
   const helpOn = useFieldHelpEnabled();
-  const dockKey = storageKeys?.dock ?? QUICK_DOCK_OPEN_KEY;
   const adjustKey = storageKeys?.adjust ?? QUICK_ADJUST_OPEN_KEY;
-  const current = evaluate(inputs, { scenario });
-  const base = evaluate(anchor, { scenario });
-  const changed = leversDiffer(inputs, anchor);
-  const dockRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(() => readUiFlag(localStorage, dockKey) === true);
   const [expanded, setExpanded] = useState(() => readUiFlag(localStorage, adjustKey) !== false);
-
-  useEffect(() => {
-    writeUiFlag(localStorage, dockKey, open);
-  }, [open, dockKey]);
 
   useEffect(() => {
     writeUiFlag(localStorage, adjustKey, expanded);
   }, [expanded, adjustKey]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      if (!dockRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
 
   function setAbsolute(id: LeverId, absolute: number) {
     onAdjust(withLeverValue(inputs, anchor, id, absolute));
@@ -101,71 +69,6 @@ export function QuickAdjust({
         O slider e os botões vão de −100% a +30% do valor original. O número aceita zero e qualquer valor acima disso. O
         resultado muda na hora.
       </p>
-      <div
-        className={open ? 'quick-dock is-open' : 'quick-dock'}
-        data-testid="quick-dock"
-        ref={dockRef}
-      >
-        <button
-          type="button"
-          className="quick-dock-chip"
-          data-testid="quick-dock-toggle"
-          aria-expanded={open}
-          aria-controls="quick-dock-panel"
-          onClick={() => setOpen((value) => !value)}
-        >
-          <span>
-            <small>Payback</small>
-            <strong>{formatPayback(current.payback)}</strong>
-          </span>
-          <span>
-            <small>ROI</small>
-            <strong>{formatPercent(current.roi)}</strong>
-          </span>
-          <span className="chip-extra">
-            <small>VPL</small>
-            <strong>{formatBRL(current.npv)}</strong>
-          </span>
-          <span className="chip-extra">
-            <small>TIR</small>
-            <strong>{formatIrr(current.irrAnnual)}</strong>
-          </span>
-        </button>
-        <div
-          className="quick-dock-panel"
-          id="quick-dock-panel"
-          data-testid="quick-dock-panel"
-          hidden={!open}
-        >
-          <article data-testid="quick-kpi-payback">
-            <span>Payback</span>
-            <strong>{formatPayback(current.payback)}</strong>
-            <em>{signedMonths(current.payback, base.payback)}</em>
-          </article>
-          <article data-testid="quick-kpi-roi">
-            <span>ROI</span>
-            <strong>{formatPercent(current.roi)}</strong>
-            <em>{signedPercent(current.roi !== null && base.roi !== null ? current.roi - base.roi : null)}</em>
-          </article>
-          <article data-testid="quick-kpi-npv">
-            <span>VPL</span>
-            <strong>{formatBRL(current.npv)}</strong>
-            <em>{signedMoney(current.npv - base.npv)}</em>
-          </article>
-          <article data-testid="quick-kpi-irr">
-            <span>TIR</span>
-            <strong>{formatIrr(current.irrAnnual)}</strong>
-            <em>
-              {current.irrAnnual === null
-                ? 'Sem troca de sinal'
-                : signedPercent(base.irrAnnual === null ? null : current.irrAnnual - base.irrAnnual)}
-            </em>
-          </article>
-          <button type="button" className="btn" data-testid="quick-undo" disabled={!changed} onClick={onUndo}>
-            Desfazer ajuste
-          </button>
-        </div>
-      </div>
       <div className="quick-levers" id="quick-adjust-body" hidden={!expanded}>
         {QUICK_LEVERS.filter((lever) => !hiddenLevers.includes(lever.id)).map((lever) => {
           const delta = leverDelta(inputs, anchor, lever.id);
@@ -263,22 +166,4 @@ function formatDelta(delta: number | null): string {
   const percent = Math.round(delta * 1000) / 10;
   if (Math.abs(percent) < 0.05) return '0%';
   return `${percent > 0 ? '+' : '−'}${formatNumber(Math.abs(percent), 1)}%`;
-}
-
-function signedMonths(current: number | null, base: number | null): string {
-  if (current === null || base === null) return '—';
-  const delta = current - base;
-  if (Math.abs(delta) < 0.05) return 'igual ao original';
-  return `${delta > 0 ? '+' : '−'}${formatNumber(Math.abs(delta), 1)} meses vs original`;
-}
-
-function signedPercent(delta: number | null): string {
-  if (delta === null) return '—';
-  if (Math.abs(delta) < 0.0005) return 'igual ao original';
-  return `${delta > 0 ? '+' : '−'}${formatPercent(Math.abs(delta))} vs original`;
-}
-
-function signedMoney(delta: number): string {
-  if (Math.abs(delta) < 0.5) return 'igual ao original';
-  return `${delta > 0 ? '+' : '−'}${formatBRL(Math.abs(delta))} vs original`;
 }

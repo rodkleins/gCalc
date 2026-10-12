@@ -191,7 +191,7 @@ function StartStep({
           <Choice
             checked={inputs.profile.storeType === 'existente'}
             title="Loja existente"
-            detail="Rescisão e revenda de prateleira entram no caixa."
+            detail="A rescisão pode entrar. O valor das prateleiras abate o investimento."
             onClick={() => onInputs({ ...inputs, profile: { ...inputs.profile, storeType: 'existente' } })}
           />
         </div>
@@ -396,30 +396,24 @@ function LogisticsStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (inputs
           <Switch
             checked={shelving.enabled}
             label={shelving.enabled ? 'Prateleiras ligadas' : 'Prateleiras desligadas'}
-            help="Liga o efeito das prateleiras. Em loja nova reduz o investimento. Em loja existente pode entrar como revenda e manutenção evitada."
+            help="Liga o efeito das prateleiras. O valor abate o investimento no mês 0, em loja nova ou existente. A manutenção evitada entra todo mês."
             onChange={(enabled) => patchShelving({ enabled })}
           />
           <div className="form-grid">
-            {inputs.profile.storeType === 'nova' ? (
-              <NumberField
-                label="Prateleira que deixa de ser comprada"
-                suffix="R$"
-                help="Valor da prateleira que a loja nova deixa de comprar, em R$. Reduz o investimento líquido uma vez. Não entra como benefício mensal."
-                value={shelving.avoidedAcquisition}
-                onChange={(avoidedAcquisition) => patchShelving({ avoidedAcquisition })}
-              />
-            ) : (
-              <>
-                <NumberField label="Revenda das prateleiras" suffix="R$" help="Caixa único da revenda, em R$, só em loja existente. Entra uma vez e não se repete no benefício mensal." value={shelving.resaleValue} onChange={(resaleValue) => patchShelving({ resaleValue })} />
-                <NumberField
-                  label="Manutenção mensal evitada"
-                  suffix="R$"
-                  help="Manutenção de prateleira que deixa de existir, em R$ por mês. Entra no benefício recorrente só em loja existente."
-                  value={shelving.avoidedMaintenanceMonthly}
-                  onChange={(avoidedMaintenanceMonthly) => patchShelving({ avoidedMaintenanceMonthly })}
-                />
-              </>
-            )}
+            <NumberField
+              label="Valor das prateleiras evitadas ou liberadas"
+              suffix="R$"
+              help="Abate o investimento líquido no mês 0. Em loja nova é a compra evitada. Em loja existente é a revenda ou o reaproveitamento. Não entra de novo no benefício mensal."
+              value={shelving.releasedValue ?? 0}
+              onChange={(releasedValue) => patchShelving({ releasedValue })}
+            />
+            <NumberField
+              label="Manutenção mensal evitada"
+              suffix="R$"
+              help="Manutenção de prateleira que deixa de existir, em R$ por mês. Entra no benefício recorrente em loja nova e em loja existente."
+              value={shelving.avoidedMaintenanceMonthly}
+              onChange={(avoidedMaintenanceMonthly) => patchShelving({ avoidedMaintenanceMonthly })}
+            />
           </div>
         </div>
       </details>

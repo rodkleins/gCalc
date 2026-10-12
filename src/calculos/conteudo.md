@@ -18,7 +18,7 @@ resultado do mês = benefício do mês − custo mensal do robô × índice de i
 imposto do mês = política tributária sobre (resultado − depreciação)
 líquido do mês = resultado − imposto
 caixa pontual = variação de capital de giro − rescisão − remoção
-              + revenda + valor residual + recrutamento evitado
+              + valor residual + recrutamento evitado
               + treinamento evitado + parcela posterior do investimento
 fluxo do mês = líquido + caixa pontual
 ```
@@ -27,7 +27,7 @@ A sequência é esta:
 
 - Lê o cenário (padrão: base) e os fatores de benefício, de custo mensal, de investimento e de vendas, o tipo de loja e a taxa de desconto.
 - Separa quatro capturas: dispensação (cobertura × disponibilidade), folha (reorganização; zero se a disponibilidade é zero), estoque (fração automatizada; zero se a disponibilidade é zero) e vendas (cobertura × disponibilidade × atendimento × conversão).
-- Calcula o investimento bruto, o investimento evitado (prateleiras de loja nova, se ainda forem necessárias, mais investimento imobiliário evitado quando essa é a tese da área) e o cronograma de desembolso.
+- Calcula o investimento bruto, o investimento evitado (valor das prateleiras evitadas ou liberadas, em qualquer tipo de loja, se ainda forem necessárias, mais investimento imobiliário evitado em loja nova quando essa é a tese da área) e o cronograma de desembolso.
 - Passa cada benefício por uma trava: ligado ou desligado, bloqueio para não contar o mesmo real duas vezes, e confiança comprovável ou potencial.
 - Aplica a curva da família (pessoas, logística, estoque, vendas) e o índice de salário, de custo mensal ou de preço.
 - Para cada mês de 1 a 60, forma o resultado, a base tributável, o imposto de caixa, o fluxo, o acumulado e o acumulado descontado.
@@ -87,7 +87,7 @@ Cada benefício pode estar ligado ou desligado e ser comprovável ou potencial. 
 | Bloco | O que se informa | Padrão do exemplo |
 |---|---|---|
 | Caixas retornáveis | ciclos evitados no mês; custo por ciclo; se o processo foi validado; modo detalhado e componentes (ciclos, transporte reverso, higienização, manuseio, perdas e reposição, espaço), cada um com valor e interruptor | ligado, potencial; 400 ciclos; R$ 8; processo não validado; detalhe desligado |
-| Prateleiras | aquisição evitada; revenda; manutenção mensal evitada; se ainda são necessárias; custo de remoção | ligado, comprovável; R$ 40.000; R$ 8.000; R$ 400; ainda necessárias = não; remoção R$ 0 |
+| Prateleiras | valor das prateleiras evitadas ou liberadas; manutenção mensal evitada; se ainda são necessárias; custo de remoção | ligado, comprovável; R$ 40.000; R$ 400; ainda necessárias = não; remoção R$ 0 |
 | Espaço | metros liberados; ocupação ou margem; tratamento (ocupação evitável, expansão comercial, sem monetização, investimento imobiliário); se o contrato muda; custo por metro; margem por metro; investimento imobiliário evitado; evidência comercial | ligado, comprovável; 16 m²; ocupação; ocupação evitável; contrato muda; R$ 200; R$ 150; imobiliário 0; sem evidência comercial |
 | Movimentação | horas poupadas; custo da hora; se a hora já está na folha | ligado, comprovável; 20 h; R$ 40; não |
 | Inventário | horas poupadas; custo da hora | ligado, comprovável; 10 h; R$ 40 |
@@ -214,7 +214,7 @@ Caixas, modo detalhado = só os componentes ligados
                          a linha consolidada não entra junto
 
 Manutenção de prateleiras = manutenção mensal × rampa de logística × índice do custo mensal × fator de benefício
-                            só loja existente, e só se a prateleira deixa de ser necessária
+                            em loja nova ou existente, e só se a prateleira deixa de ser necessária
 
 Ocupação = metros × taxa × rampa de logística × fator de benefício
            taxa = custo por metro da logística, se for maior que zero; senão o do perfil
@@ -233,7 +233,11 @@ Inventário = horas × corte de horas × custo da hora × fator de mão de obra
 
 Ocupação e margem da mesma área não se somam. Tratar a área como margem, ou escolher expansão comercial, usa a margem. Contrato inalterado bloqueia aluguel e ocupação. Sem monetização, e investimento imobiliário, não geram caixa mensal. O investimento imobiliário evitado, em loja nova, abate o investimento.
 
-Prateleira ainda necessária bloqueia aquisição evitada, revenda, manutenção e remoção. Remoção é saída de caixa no início da operação da loja existente. Aquisição evitada só em loja nova. Revenda e manutenção só em loja existente.
+O valor das prateleiras evitadas ou liberadas abate o investimento líquido no mês 0, em loja nova e em loja existente. Em loja nova é a compra que deixa de acontecer. Em loja existente é a revenda ou o reaproveitamento. Não entra de novo como benefício mensal. A manutenção evitada entra todo mês nos dois tipos de loja.
+
+Prateleira ainda necessária zera esse valor, a manutenção e a remoção. Remoção continua sendo saída de caixa no início da operação, só em loja existente.
+
+Uma simulação gravada antes desta conta traz dois números, aquisição evitada e revenda. A calculadora guarda o que já entrava naquele tipo de loja. Loja nova fica com a aquisição evitada. Loja existente fica com a revenda. O outro número não soma. A partir daí os dois tipos usam o mesmo campo.
 
 Caixas exigem processo validado. Sem isso o benefício fica de fora, mesmo ligado: o robô não elimina a caixa do fornecedor sozinho.
 
@@ -302,7 +306,8 @@ Margem de área já está dentro de vendas. Ocupação mensal não entra quando 
 ```
 multiplicador do investimento = fator da sensibilidade × fator do cenário
 investimento bruto = soma dos seis itens × multiplicador, arredondada em centavos
-investimento evitado = prateleiras, em loja nova, se entram e ainda não são necessárias
+investimento evitado = valor das prateleiras evitadas ou liberadas, em qualquer tipo de loja,
+                       se entram e ainda não são necessárias, vezes o multiplicador do investimento
                      + investimento imobiliário, em loja nova, se essa for a tese e o valor entrar
 crédito de impostos = equipamento × percentual × multiplicador, arredondado em centavos
                       percentual padrão de 25%, editável de 0% a 100%, sobre o preço de compra do equipamento
@@ -374,7 +379,7 @@ custo do robô = custo mensal daquele mês
 antes do imposto = benefício − custo do robô
 imposto = política da seção anterior
 operacional = antes do imposto − imposto
-caixa pontual = capital de giro − rescisão − remoção + revenda
+caixa pontual = capital de giro − rescisão − remoção
               + residual + recrutamento + treinamento + parcela do investimento
 fluxo = operacional + caixa pontual
 acumulado = acumulado anterior + fluxo
@@ -433,9 +438,8 @@ Casos extremos:
 
 | Item | Loja nova | Loja existente |
 |---|---|---|
-| Prateleiras — aquisição evitada | Abate o investimento, se ainda não forem necessárias | Não entra |
-| Prateleiras — revenda | Não entra | Entrada no início da operação |
-| Prateleiras — manutenção evitada | Não entra | Benefício recorrente |
+| Prateleiras — valor evitado ou liberado | Abate o investimento no mês 0, se ainda não forem necessárias | Abate o investimento no mês 0, se ainda não forem necessárias |
+| Prateleiras — manutenção evitada | Benefício mensal | Benefício mensal |
 | Prateleiras — remoção | Não entra | Saída no início da operação |
 | Rescisão | Não entra | Saída no maior entre o início da operação e o mês da folha |
 | Recrutamento e treinamento das vagas da folha | Entram, se não bloqueados | Não entram |
@@ -445,7 +449,7 @@ Casos extremos:
 
 O fator de benefício multiplica os benefícios recorrentes. O fator de vendas multiplica só as alavancas de venda, além do fator de benefício. No conservador a venda fica com 0,80 × 0,60 = 0,48 do valor base. O fator do custo mensal multiplica suporte, outros custos e a energia calculada. O fator do investimento multiplica o bruto, o evitado, o crédito sobre o equipamento e o valor residual. O percentual do crédito não muda com o cenário; o valor em reais acompanha o equipamento.
 
-Não recebem fator de cenário: rescisão, remoção, revenda, recrutamento, treinamento e o principal do capital de giro.
+Não recebem fator de cenário: rescisão, remoção, recrutamento, treinamento e o principal do capital de giro. O valor das prateleiras acompanha o fator do investimento.
 
 Rede desligada: a quantidade de lojas replica investimento, líquido mensal e valor presente. Payback e retorno ficam os da loja. Rede ligada, com ao menos uma unidade: cada loja é avaliada com o próprio tipo, data, fator de investimento, volume e mão de obra. O custo compartilhado sai uma vez por mês, nos meses 1 a 60. O payback de cada loja é o dela, então unidades com investimentos diferentes podem ter paybacks diferentes. O painel principal continua mostrando a loja corrente; o cartão de rede mostra a visão escalonada.
 
@@ -464,7 +468,7 @@ A trava segue esta ordem: desligado; bloqueio específico; potencial com a opç�
 | Horas realocadas | Não viram folha. Sem monetização, ou sem evidência no ganho incremental, ficam de fora |
 | Vendas sobrepostas | Sem independência confirmada, só a maior no mês 60 |
 | Caixas | Exigem processo validado. No detalhe, só os componentes ligados |
-| Prateleira ainda necessária | Não gera investimento evitado, revenda, manutenção nem remoção |
+| Prateleira ainda necessária | Não gera abatimento de investimento, manutenção nem remoção |
 | Espaço | Ocupação ou margem, nunca os dois. Contrato inalterado bloqueia aluguel. Sem monetização fica só na auditoria |
 | Perdas detalhadas | Substituem histórico menos projetado e bloqueiam a linha de avarias |
 | Capital de giro | Principal ou custo financeiro. Sem redução comprovada, os dois ficam de fora |
@@ -487,7 +491,7 @@ O controle vai de −100% a +30%, em passos de 5%. O campo numérico aceita zero
 
 | Alavanca | O que muda |
 |---|---|
-| Investimento do robô | Os seis itens do investimento. Com fator maior que zero, a aquisição evitada de prateleiras escala junto. Com fator zero, o investimento do robô zera e a prateleira evitada permanece |
+| Investimento do robô | Os seis itens do investimento. Com fator maior que zero, o valor das prateleiras evitadas ou liberadas escala junto. Com fator zero, o investimento do robô zera e esse valor permanece |
 | Custo mensal do robô | Suporte, outros custos e a tarifa de energia. Potência, horas e dias não mudam |
 | Mão de obra | Custo da vaga, benefícios, custo das futuras, custo de turnover e componentes, horas de supervisão, movimentação e inventário, recrutamento, treinamento e valores monetizados das horas realocadas |
 | Turnover | Só a taxa anual |
@@ -511,7 +515,7 @@ Quadro de 12 pessoas, 3 vagas evitadas, jornada de 176 horas. Horas reivindicada
 
 O retorno estabilizado é o ritmo do mês 60. Não é o retorno acumulado e não é a taxa interna. A energia entra no custo mensal e acompanha a inflação desse custo. O crédito entra só no investimento, no mês 0.
 
-Na loja existente do mesmo exemplo não há investimento evitado de prateleira. Entram a manutenção evitada das prateleiras e, no mês 1, a revenda menos a rescisão. O cenário otimista reduz o investimento informado em 3% e o custo mensal informado em 8%. O preço digitado do equipamento não muda, o percentual do crédito não muda e o suporte digitado não muda. A energia calculada entra no fator do custo mensal. No conservador o equipamento entra 8% maior, então o crédito em reais sobe junto.
+Na loja existente do mesmo exemplo o valor das prateleiras continua abatendo o investimento, e a manutenção evitada continua no benefício mensal. A rescisão entra no mês 1. O cenário otimista reduz o investimento informado em 3% e o custo mensal informado em 8%. O preço digitado do equipamento não muda, o percentual do crédito não muda e o suporte digitado não muda. A energia calculada entra no fator do custo mensal. No conservador o equipamento entra 8% maior, então o crédito em reais sobe junto.
 
 ### 10.1 Lojas de R$ 1, 2 e 4 milhões
 
@@ -526,7 +530,7 @@ O quadro do fim da página mostra investimento, custo mensal, líquido, payback,
 - O retorno estabilizado usa o mês 60. Com crescimento, não é a média do período.
 - Continuam fora da conta: atendimentos por dia, dias de operação, área total, retaguarda, giro e quantidade de itens. O faturamento só gera aviso. Os cargos entram no teto de vagas e no orçamento de horas.
 - A ocupação usa o valor por metro da logística quando ele é maior que zero (R$ 200 no exemplo). O do perfil (R$ 120) é reserva. A tela de logística grava os dois com o mesmo número.
-- Fatores de cenário não se aplicam a rescisão, remoção, revenda, recrutamento, treinamento nem ao principal do capital de giro. A liberação de giro também não passa por captura nem por volume.
+- Fatores de cenário não se aplicam a rescisão, remoção, recrutamento, treinamento nem ao principal do capital de giro. O valor das prateleiras acompanha o fator do investimento. A liberação de giro também não passa por captura nem por volume.
 - Vendas recebem o fator de benefício e o fator de vendas ao mesmo tempo.
 - A venda consultiva não recebe a alavanca de volume.
 - Avarias do exemplo ficam desligadas. Perdas entram uma vez, pelo histórico menos o projetado.

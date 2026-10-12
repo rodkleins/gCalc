@@ -107,7 +107,7 @@ describe('premissas e ajuste rápido', () => {
     const undone = exampleInputs();
     expect(leversDiffer(current, undone)).toBe(true);
     expect(evaluate(undone).netInvestment).toBe(945_000);
-    expect(evaluate(undone).steadyNet).toBe(18_396);
+    expect(evaluate(undone).steadyNet).toBe(18_796);
   });
 
   it('grava edição direta no âncora e preserva o ajuste das outras alavancas', () => {

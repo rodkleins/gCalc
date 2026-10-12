@@ -197,8 +197,9 @@ const EXAMPLE: Inputs = {
     shelving: {
       enabled: true,
       confidence: 'comprovavel',
+      releasedValue: 40_000,
       avoidedAcquisition: 40_000,
-      resaleValue: 8_000,
+      resaleValue: 0,
       avoidedMaintenanceMonthly: 400,
       stillRequired: false,
       removalCost: 0,
@@ -384,6 +385,7 @@ export function blankInputs(): Inputs {
   inputs.logistics.boxes.enabled = false;
   inputs.logistics.boxes.processValidated = false;
   inputs.logistics.shelving.enabled = false;
+  inputs.logistics.shelving.releasedValue = 0;
   inputs.logistics.shelving.avoidedAcquisition = 0;
   inputs.logistics.shelving.resaleValue = 0;
   inputs.logistics.shelving.avoidedMaintenanceMonthly = 0;
@@ -423,7 +425,7 @@ export function blankInputs(): Inputs {
 }
 
 const EXAMPLE_NET_INVESTMENT = 945_000;
-const EXAMPLE_STEADY_NET = 18_396;
+const EXAMPLE_STEADY_NET = 18_796;
 const EXAMPLE_ANNUAL_NET = EXAMPLE_STEADY_NET * 12;
 
 export function matchesIllustrativeExample(result: ModelResult): boolean {

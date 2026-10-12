@@ -150,7 +150,7 @@ p { margin: 0; }
   pointer-events: none;
   box-shadow: var(--shadow);
 }
-.main { width: 100%; max-width: 2100px; padding: 24px 28px 108px; overflow-x: clip; }
+.main { width: 100%; max-width: 2100px; padding: 24px 28px 32px; overflow-x: clip; }
 .lede, .executive ol, .stage-note-body { max-width: 78ch; }
 .top { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 16px; }
 .top-controls, .toolbar, .inline-controls, .seg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -694,6 +694,12 @@ th.num { white-space: normal; }
 .audit-item footer { color: var(--muted); font-size: 0.85rem; flex-wrap: wrap; }
 
 .stage-note { border: 1px solid var(--line); border-radius: 14px; background: #f7f3ea; padding: 0 12px; }
+.calc-memory { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 4px; }
+.calc-memory summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 650; color: var(--forest); }
+.calc-memory-body { display: grid; gap: 12px; padding: 0 0 12px; }
+.calc-memory-body h3 { font-size: 1rem; }
+.calc-memory-body ul { margin: 6px 0 0; padding-left: 1.1rem; display: grid; gap: 6px; }
+.calc-memory-body li.is-out { color: var(--muted); }
 .stage-note summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 650; color: var(--forest); }
 .stage-note-body { padding: 0 0 12px; color: var(--muted); }
 .executive ol { margin: 8px 0 0; padding-left: 1.2rem; display: grid; gap: 6px; }
@@ -726,8 +732,20 @@ th.num { white-space: normal; }
   .main { padding: 28px 32px 120px; }
 }
 @media (max-width: 1439px) {
+  .quick-dock {
+    position: static;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    max-width: 100%;
+    align-items: stretch;
+    margin: 0 0 12px;
+    z-index: auto;
+  }
+  .quick-dock-chip,
+  .quick-dock-panel { width: 100%; max-width: 100%; }
   .quick-dock-chip .chip-extra { display: none; }
-  .quick-dock, .quick-dock-chip { max-width: min(220px, calc(100vw - 24px)); }
 }
 @media (max-width: 1099px) {
   .app, .app.is-rail-collapsed { grid-template-columns: minmax(0, 1fr); }
@@ -768,12 +786,8 @@ th.num { white-space: normal; }
     top: calc(100% + 6px);
     transform: translateX(-50%);
   }
-  .main { padding: 18px 16px 96px; }
+  .main { padding: 18px 16px 28px; }
   .top { flex-direction: column; align-items: stretch; }
-  .quick-dock { right: 12px; bottom: 12px; }
-}
-@media (max-width: 1099px) and (max-height: 820px) {
-  .executive { padding-right: 176px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }

@@ -129,14 +129,14 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     inputs.logistics.shelving.enabled,
     inputs.logistics.shelving.confidence,
     includePotential,
-    null,
+    inputs.logistics.shelving.stillRequired
+      ? 'Estas prateleiras ainda são necessárias. O valor e a manutenção ficam fora da conta.'
+      : null,
   );
 
-  const shelvingStillNeeded = inputs.logistics.shelving.stillRequired;
-  const avoidedShelving =
-    storeType === 'nova' && shelvingGate.included && !shelvingStillNeeded
-      ? round2(inputs.logistics.shelving.avoidedAcquisition * capexMultiplier)
-      : 0;
+  const avoidedShelving = shelvingGate.included
+    ? round2(Math.max(0, inputs.logistics.shelving.releasedValue ?? 0) * capexMultiplier)
+    : 0;
   const realEstateGate = gateBenefit(
     inputs.logistics.space.enabled && inputs.logistics.space.treatment === 'investimento_imobiliario',
     inputs.logistics.space.confidence,
@@ -368,7 +368,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
   };
 
   const maintenanceAmount = (month: number) => {
-    if (!shelvingGate.included || shelvingStillNeeded || storeType !== 'existente' || month < goLive) return 0;
+    if (!shelvingGate.included || month < goLive) return 0;
     return round2(
       inputs.logistics.shelving.avoidedMaintenanceMonthly *
         logisticsRamp(month) *
@@ -669,14 +669,8 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     return round2(inputs.people.payroll.severanceCost);
   };
 
-  const resaleAt = (month: number) => {
-    if (storeType !== 'existente' || !shelvingGate.included || shelvingStillNeeded) return 0;
-    if (month !== goLive) return 0;
-    return round2(inputs.logistics.shelving.resaleValue);
-  };
-
   const removalAt = (month: number) => {
-    if (storeType !== 'existente' || !shelvingGate.included || shelvingStillNeeded) return 0;
+    if (storeType !== 'existente' || !shelvingGate.included) return 0;
     if (month !== goLive) return 0;
     return round2(inputs.logistics.shelving.removalCost);
   };
@@ -773,7 +767,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     bump('opex', opex);
     const workingCapital = workingCapitalAt(month);
     const severance = severanceAt(month);
-    const resale = resaleAt(month);
+    const resale = 0;
     const residual = residualAt(month);
     const oneTimeExtras = round2(eventTotal(recruitment, month) + eventTotal(training, month));
     const removal = removalAt(month);
@@ -873,6 +867,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     usePrincipal,
     releaseMonth,
     avoidedCapex,
+    avoidedShelving,
     grossCapex,
     taxCredit,
     monthlyOpex,
@@ -961,7 +956,9 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     warnings.push('Ganhos marcados como potenciais estão entrando no fluxo.');
   }
   if (storeType === 'existente') {
-    warnings.push('Loja existente: rescisão entra no caixa, e prateleiras viram revenda e manutenção, sem reduzir o CAPEX.');
+    warnings.push(
+      'Loja existente: a rescisão entra no caixa. O valor das prateleiras evitadas ou liberadas abate o investimento no mês 0, e a manutenção evitada entra todo mês.',
+    );
   }
   if (inputs.profile.demandGrowthPctPerYear !== 0) {
     warnings.push('Há crescimento de demanda. O ROI usa o benefício do mês 60, não a média do período.');
@@ -1184,6 +1181,7 @@ function buildNetwork(
       shelving: {
         ...clone.logistics.shelving,
         avoidedAcquisition: round2(clone.logistics.shelving.avoidedAcquisition * store.investmentFactor),
+        releasedValue: round2((clone.logistics.shelving.releasedValue ?? 0) * store.investmentFactor),
       },
     };
     clone.people = {
@@ -1290,6 +1288,7 @@ function buildAudit(ctx: {
   usePrincipal: boolean;
   releaseMonth: number;
   avoidedCapex: number;
+  avoidedShelving: number;
   grossCapex: number;
   taxCredit: number;
   monthlyOpex: number;
@@ -1426,55 +1425,42 @@ function buildAudit(ctx: {
     line({
       id: 'shelvingCapex',
       module: 'Logística',
-      label: 'Prateleiras evitadas (CAPEX)',
+      label: 'Prateleiras evitadas ou liberadas',
       kind: 'pontual',
-      gate:
-        ctx.storeType === 'nova'
-          ? ctx.shelvingGate
-          : {
-              included: false,
-              confidence: ctx.inputs.logistics.shelving.confidence,
-              reason: 'Em loja existente a prateleira não reduz o CAPEX. Use revenda ou manutenção evitada.',
-            },
+      gate: ctx.shelvingGate,
       monthlyValue: 0,
-      oneTimeValue: ctx.storeType === 'nova' && ctx.shelvingGate.included ? ctx.avoidedCapex : 0,
+      oneTimeValue: ctx.shelvingGate.included ? ctx.avoidedShelving : 0,
       oneTimeMonth: 0,
-      formula: 'Aquisição e instalação evitadas em loja nova, abatidas do investimento.',
+      formula:
+        'Valor das prateleiras evitadas ou liberadas, abatido do investimento líquido no mês 0. Em loja nova é a compra que deixa de acontecer. Em loja existente é a revenda ou o reaproveitamento.',
     }),
     line({
       id: 'shelvingResale',
       module: 'Logística',
-      label: 'Revenda de prateleiras',
+      label: 'Revenda de prateleiras (campo antigo)',
       kind: 'pontual',
-      gate:
-        ctx.storeType === 'existente'
-          ? ctx.shelvingGate
-          : {
-              included: false,
-              confidence: ctx.inputs.logistics.shelving.confidence,
-              reason: 'Revenda só se aplica a loja existente. Em loja nova o efeito é CAPEX evitado.',
-            },
+      gate: {
+        included: false,
+        confidence: ctx.inputs.logistics.shelving.confidence,
+        reason:
+          ctx.inputs.logistics.shelving.resaleValue > 0 &&
+          ctx.inputs.logistics.shelving.resaleValue !== (ctx.inputs.logistics.shelving.releasedValue ?? 0)
+            ? 'A revenda antiga não soma de novo. O valor único das prateleiras é o que abate o investimento no mês 0.'
+            : 'A revenda deixou de ser um caixa separado. Ela entra no valor das prateleiras evitadas ou liberadas.',
+      },
       monthlyValue: 0,
-      oneTimeValue:
-        ctx.storeType === 'existente' && ctx.shelvingGate.included ? ctx.inputs.logistics.shelving.resaleValue : 0,
-      oneTimeMonth: ctx.goLive,
-      formula: 'Caixa único da venda ou do reaproveitamento do mobiliário atual.',
+      oneTimeValue: 0,
+      oneTimeMonth: 0,
+      formula: 'Campo antigo. Não entra como caixa à parte.',
     }),
     line({
       id: 'shelvingMaintenance',
       module: 'Logística',
       label: 'Manutenção de prateleiras evitada',
       kind: 'recorrente',
-      gate:
-        ctx.storeType === 'existente'
-          ? ctx.shelvingGate
-          : {
-              included: false,
-              confidence: ctx.inputs.logistics.shelving.confidence,
-              reason: 'Manutenção evitada só entra em loja existente.',
-            },
+      gate: ctx.shelvingGate,
       monthlyValue: ctx.maintenanceAmount(steady),
-      formula: 'OPEX recorrente de prateleiras que deixa de existir.',
+      formula: 'Manutenção mensal que deixa de existir, em loja nova ou existente, se as prateleiras saem da operação.',
     }),
     line({
       id: 'spaceOccupancy',

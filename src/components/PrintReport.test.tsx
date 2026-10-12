@@ -35,6 +35,10 @@ describe('relatório de impressão', () => {
     expect(css).toContain('Premissas a validar');
     expect(css).toContain('.main > *:not(.print-host)');
     expect(css).toContain('.print-toolbar');
+    expect(css).toContain('.quick-dock { display: none !important; }');
+    const screen = readFileSync('src/styles.css', 'utf8');
+    expect(screen).toContain('@media (max-width: 1439px)');
+    expect(screen).toMatch(/@media \(max-width: 1439px\) \{[\s\S]*\.quick-dock \{[\s\S]*position: static;/);
   });
 
   it('abre o diálogo e monta o resumo sem fluxo de 60 meses nem quadro de RH', async () => {
@@ -60,7 +64,8 @@ describe('relatório de impressão', () => {
     expect(sheet?.textContent).toContain('Farmácia Aurora — Unidade Centro');
     expect(sheet?.textContent).toContain('Base');
     expect(sheet?.textContent).toContain('Payback');
-    expect(sheet?.textContent).toContain('51,4 meses');
+    expect(sheet?.textContent).toContain('50,3 meses');
+    expect(host.querySelector('[data-testid="print-calc-memory"]')).toBeNull();
     expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('Premissa a validar');
     expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('250.000');
     expect(host.querySelector('[data-testid="print-main-premises"]')?.textContent).toContain('Créditos recuperáveis');
@@ -95,6 +100,8 @@ describe('relatório de impressão', () => {
     expect(host.querySelector('[data-testid="print-month-60"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="print-month-1"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="print-roster"]')).toBeNull();
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toMatch(/não considerado/i);
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Investimento líquido');
     expect(host.querySelector('[data-testid="print-sheet"] img')).toBeNull();
   });
 

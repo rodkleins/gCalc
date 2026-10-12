@@ -261,8 +261,8 @@ describe('serialização da sessão', () => {
     expect(loaded.simulations[0].inputs.robot.recoverableTaxCreditPct).toBe(0.25);
     expect(result.recoverableTaxCredit).toBe(250_000);
     expect(result.netInvestment).toBe(945_000);
-    expect(result.steadyNet).toBe(18_396);
-    expect(result.roi).toBeCloseTo(220_752 / 945_000);
+    expect(result.steadyNet).toBe(18_796);
+    expect(result.roi).toBeCloseTo(225_552 / 945_000);
     expect(store.getItem('gcalc.preview.library.v2')).toContain('Só prévia');
 
     writeSession(store, {
@@ -398,8 +398,8 @@ describe('biblioteca de simulações', () => {
     const left = evaluate(loaded.simulations[0].inputs, { scenario: loaded.simulations[0].scenario });
     const right = evaluate(loaded.simulations[1].inputs, { scenario: loaded.simulations[1].scenario });
     expect(left.netInvestment).toBe(945_000);
-    expect(left.steadyNet).toBe(18_396);
-    expect(right.netInvestment).toBe(985_000);
+    expect(left.steadyNet).toBe(18_796);
+    expect(right.netInvestment).toBe(945_000);
     expect(right.steadyNet).toBe(18_796);
   });
 });

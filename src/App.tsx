@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuditPanel } from './components/AuditPanel';
 import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
+import { FloatingPayback } from './components/FloatingPayback';
 import { PremiseFocus } from './components/Fields';
 import { MoreActions } from './components/MoreActions';
 import { PrintReport } from './components/PrintReport';
@@ -529,6 +530,13 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           {status ? ` ${status}` : ''}
         </p>
 
+        <FloatingPayback
+          inputs={inputs}
+          anchor={adjustAnchor}
+          scenario={scenario}
+          result={result}
+          onUndo={() => setInputs(structuredClone(adjustAnchor))}
+        />
         <PremiseFocus field={focusField}>
         {section === 'dashboard' || section === 'simulacoes' ? (
           <PrintReport inputs={inputs} result={result} scenario={scenario} edition="raiz" />
@@ -557,7 +565,6 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onScenario={setScenario}
             onInputs={commitInputs}
             onAdjust={setInputs}
-            onUndo={() => setInputs(structuredClone(adjustAnchor))}
             onOpenPremise={openPremise}
           />
         ) : null}

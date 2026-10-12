@@ -27,6 +27,7 @@ describe('tela de cálculos', () => {
     expect(text).toContain('A calculadora abre na loja de R$ 2 milhões');
     expect(text.replace(/\u00a0/g, ' ')).toContain(formatPayback(evaluate(exampleInputs()).payback));
     expect(host.querySelector('table')).not.toBeNull();
+    expect(host.querySelector('[data-testid="quick-dock"]')).toBeNull();
     expect(host.querySelector('[data-testid="doc-back"]')?.getAttribute('href')).toBe('../');
     expect(host.querySelector('[data-testid="doc-headtohead"]')?.getAttribute('href')).toBe('../headtohead/');
     expect(text).not.toMatch(/\/gCalc\/|src\/|\bevaluate\b/);

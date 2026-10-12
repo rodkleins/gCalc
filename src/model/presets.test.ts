@@ -67,7 +67,7 @@ describe('modelos de loja', () => {
     expect(severance?.reason).toMatch(/loja nova/i);
     const payrollOnly = 3 * 4_200;
     const turnoverNew = (3 * 0.3 * 8_000) / 12;
-    const benefitNew = payrollOnly + turnoverNew + supervision + movement + count + losses;
+    const benefitNew = payrollOnly + turnoverNew + supervision + movement + count + losses + maintenance;
     expect(asNew.steadyBenefit).toBe(benefitNew);
   });
 

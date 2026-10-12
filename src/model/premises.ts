@@ -85,7 +85,7 @@ const AUDIT_FIELDS: Record<string, string> = {
   supervision: 'people.supervision.hoursSavedPerMonth',
   consultative: 'people.consultativeSales.marginPerHour',
   boxes: 'logistics.boxes.cyclesAvoidedPerMonth',
-  shelvingCapex: 'logistics.shelving.avoidedAcquisition',
+  shelvingCapex: 'logistics.shelving.releasedValue',
   shelvingResale: 'logistics.shelving.resaleValue',
   shelvingMaintenance: 'logistics.shelving.avoidedMaintenanceMonthly',
   spaceOccupancy: 'logistics.space.occupancyCostPerM2',
@@ -244,7 +244,7 @@ function sameLever(left: Inputs, right: Inputs, id: LeverId): boolean {
 
 function leverSlice(inputs: Inputs, id: LeverId): number[] {
   if (id === 'investimento') {
-    return [...Object.values(inputs.robot.capex), inputs.logistics.shelving.avoidedAcquisition];
+    return [...Object.values(inputs.robot.capex), inputs.logistics.shelving.releasedValue ?? 0];
   }
   if (id === 'opex') {
     const energy = inputs.robot.energy;

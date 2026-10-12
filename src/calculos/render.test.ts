@@ -25,19 +25,19 @@ describe('página de cálculos', () => {
   it('repete os números que o motor produz no exemplo', () => {
     const result = evaluate(exampleInputs());
     expect(result.netInvestment).toBe(945_000);
-    expect(result.steadyNet).toBe(18_396);
-    expect(result.npv).toBeCloseTo(-106_366.93, 2);
-    expect(formatPayback(result.payback)).toBe('51,4 meses');
-    expect(result.firstPositiveMonth).toBe(52);
+    expect(result.steadyNet).toBe(18_796);
+    expect(result.npv).toBeCloseTo(-88_131.81, 2);
+    expect(formatPayback(result.payback)).toBe('50,3 meses');
+    expect(result.firstPositiveMonth).toBe(51);
     expect(formatPayback(result.discountedPayback)).toBe('Não recupera em 60 meses');
     expect(result.firstPositiveDiscountedMonth).toBeNull();
     const examples = plain(engineExamplesHtml());
     expect(examples).toContain(plain(formatBRL(result.npv, 2)));
     expect(examples).toContain(formatPayback(result.payback));
     expect(examples).toContain(formatPayback(result.discountedPayback));
-    expect(examples).toContain('23,4%');
+    expect(examples).toContain('23,9%');
     const paybacks = sensitivity(exampleInputs(), 'base').investimento.map((point) => formatPayback(point.payback));
-    expect(paybacks).toEqual(['36,0 meses', '43,7 meses', '51,4 meses', '59,1 meses', 'Não recupera em 60 meses']);
+    expect(paybacks).toEqual(['35,2 meses', '42,7 meses', '50,3 meses', '57,8 meses', 'Não recupera em 60 meses']);
     for (const payback of paybacks) expect(examples).toContain(payback);
     const store = evaluate(storePresets()[0].inputs, { scenario: 'base' });
     expect(examples).toContain(formatPayback(store.payback));

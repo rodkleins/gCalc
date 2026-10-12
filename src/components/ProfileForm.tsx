@@ -62,7 +62,7 @@ export function ProfileForm({
               { value: 'nova', label: 'Loja nova' },
               { value: 'existente', label: 'Loja existente' },
             ]}
-            hint="Loja nova pode abater prateleiras do CAPEX. Loja existente usa revenda, manutenção e rescisão."
+            hint="O valor das prateleiras abate o investimento nos dois tipos. A rescisão só entra em loja existente."
           />
           <NumberField
             label="Lojas na projeção"

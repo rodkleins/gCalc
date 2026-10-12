@@ -11,7 +11,7 @@ export function CashflowTable({ result }: { result: ModelResult }) {
       </StageNote>
       <p className="lede">
         Mês 0 é o investimento líquido de {formatBRL(result.netInvestment)}. Do mês 1 ao 60, o fluxo é o benefício
-        operacional menos o OPEX, mais liberações de capital, revenda, rescisão e residual. A visão sem robô e com robô
+        operacional menos o OPEX, mais liberações de capital, rescisão e residual. O valor das prateleiras já está no investimento do mês 0. A visão sem robô e com robô
         compara os custos que o projeto endereça.
       </p>
       <div className="table-wrap tall">

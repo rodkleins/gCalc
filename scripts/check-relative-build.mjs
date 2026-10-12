@@ -73,7 +73,7 @@ function staticCalculosProblems(distDir) {
   if (calculos.includes('<div id="root"></div>')) problems.push('calculos/index.html depende de JavaScript para o texto');
   if (!calculos.includes('mês de início da operação')) problems.push('calculos/index.html não traz a fórmula no HTML');
   if (!calculos.includes('data-testid="engine-examples"')) problems.push('calculos/index.html não traz os exemplos calculados');
-  if (!calculos.includes('51,4 meses') || !calculos.includes('Não recupera em 60 meses')) {
+  if (!calculos.includes('50,3 meses') || !calculos.includes('Não recupera em 60 meses')) {
     problems.push('calculos/index.html não traz o exemplo numérico no HTML');
   }
   if ((calculos.match(/<pre>/g) ?? []).length < 8) problems.push('calculos/index.html não traz as fórmulas em texto');

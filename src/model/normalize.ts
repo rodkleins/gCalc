@@ -53,8 +53,16 @@ export function normalizeInputs(inputs: Inputs): Inputs {
   boxes.spaceMonthly = boxes.spaceMonthly ?? 0;
   boxes.spaceEnabled = boxes.spaceEnabled ?? false;
 
-  next.logistics.shelving.stillRequired = next.logistics.shelving.stillRequired ?? false;
-  next.logistics.shelving.removalCost = next.logistics.shelving.removalCost ?? 0;
+  const shelving = next.logistics.shelving;
+  shelving.stillRequired = shelving.stillRequired ?? false;
+  shelving.removalCost = shelving.removalCost ?? 0;
+  shelving.avoidedAcquisition = shelving.avoidedAcquisition ?? 0;
+  shelving.resaleValue = shelving.resaleValue ?? 0;
+  shelving.avoidedMaintenanceMonthly = shelving.avoidedMaintenanceMonthly ?? 0;
+  if (typeof shelving.releasedValue !== 'number' || !Number.isFinite(shelving.releasedValue)) {
+    const legacy = next.profile.storeType === 'existente' ? shelving.resaleValue : shelving.avoidedAcquisition;
+    shelving.releasedValue = typeof legacy === 'number' && Number.isFinite(legacy) ? legacy : 0;
+  }
 
   const space = next.logistics.space;
   space.treatment = space.treatment ?? treatmentFromMode(space.mode);
