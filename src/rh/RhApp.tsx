@@ -9,6 +9,7 @@ import { PrintReport } from '../components/PrintReport';
 import { InvestmentForm } from '../components/InvestmentForm';
 import { LibraryPanel, downloadJson } from '../components/LibraryPanel';
 import { LogisticsForm } from '../components/LogisticsForm';
+import { TurnoverPanel } from '../components/PeopleForm';
 import { ProfileForm } from '../components/ProfileForm';
 import { ScenarioPanel } from '../components/ScenarioPanel';
 import { SensitivityPanel } from '../components/SensitivityPanel';
@@ -608,9 +609,18 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
               hiddenLevers={['salarios']}
             />
           ) : null}
-          {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
-          {section === 'pessoas' ? <RosterForm roster={roster} storeType={inputs.profile.storeType} onChange={commitRoster} /> : null}
-          {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+          {section === 'perfil' ? (
+            <ProfileForm inputs={inputs} result={result} onChange={commitInputs} rolesLocked />
+          ) : null}
+          {section === 'pessoas' ? (
+            <div className="stack">
+              <RosterForm roster={roster} storeType={inputs.profile.storeType} onChange={commitRoster} />
+              <TurnoverPanel inputs={inputs} result={result} onChange={commitInputs} />
+            </div>
+          ) : null}
+          {section === 'logistica' ? (
+            <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} rosterLocked />
+          ) : null}
           {section === 'estoque' ? <StockForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
           {section === 'investimento' ? <InvestmentForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
           {section === 'cenarios' ? (

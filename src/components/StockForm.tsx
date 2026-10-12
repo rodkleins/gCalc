@@ -1,4 +1,4 @@
-import { BenefitCard, Callout, CheckField, ModuleImpact, NumberField, PercentField, SelectField, StageNote } from './Fields';
+import { BenefitCard, Callout, CheckField, ModuleImpact, NumberField, PercentField, SelectField, StageNote, editCard } from './Fields';
 import { formatBRL } from '../model/format';
 import type { Inputs, ModelResult, WorkingCapitalTreatment } from '../model/types';
 
@@ -14,6 +14,11 @@ export function StockForm({
   const stock = inputs.stock;
   const setStock = (next: Inputs['stock']) => onChange({ ...inputs, stock: next });
   const release = Math.max(0, inputs.profile.averageInventory - stock.workingCapital.inventoryAfter);
+  const salesOn = result.audit.filter(
+    (line) =>
+      line.includedInCashFlow &&
+      ['ruptures', 'service', 'abandonment', 'consultative', 'spaceMargin'].includes(line.id),
+  ).length;
 
   return (
     <div className="stack">
@@ -33,6 +38,8 @@ export function StockForm({
         description="Vencimento e quebra que a automação reduz de fato."
         enabled={stock.losses.enabled}
         confidence={stock.losses.confidence}
+        result={result}
+        auditIds={['losses']}
         onEnabled={(enabled) => setStock({ ...stock, losses: { ...stock.losses, enabled } })}
         onConfidence={(confidence) => setStock({ ...stock, losses: { ...stock.losses, confidence } })}
       >
@@ -43,7 +50,11 @@ export function StockForm({
           suffix="R$/mês"
           hint="O valor mora no perfil da loja e é repetido aqui."
           onChange={(historicalLossesMonthly) =>
-            onChange({ ...inputs, profile: { ...inputs.profile, historicalLossesMonthly } })
+            onChange({
+              ...inputs,
+              profile: { ...inputs.profile, historicalLossesMonthly },
+              stock: { ...stock, losses: editCard(stock.losses, {}) },
+            })
           }
         />
         <NumberField
@@ -53,7 +64,7 @@ export function StockForm({
           suffix="R$/mês"
           help="Perdas que ainda acontecem com o robô, em R$ por mês. O benefício é perdas históricas menos este valor. Tem de ser menor ou igual às perdas atuais."
           onChange={(projectedLossesMonthly) =>
-            setStock({ ...stock, losses: { ...stock.losses, projectedLossesMonthly } })
+            setStock({ ...stock, losses: editCard(stock.losses, { projectedLossesMonthly }) })
           }
         />
       </BenefitCard>
@@ -63,6 +74,8 @@ export function StockForm({
         description="Valor mensal que deixa de se perder na separação e na guarda."
         enabled={stock.shrinkage.enabled}
         confidence={stock.shrinkage.confidence}
+        result={result}
+        auditIds={['shrinkage']}
         onEnabled={(enabled) => setStock({ ...stock, shrinkage: { ...stock.shrinkage, enabled } })}
         onConfidence={(confidence) => setStock({ ...stock, shrinkage: { ...stock.shrinkage, confidence } })}
       >
@@ -72,7 +85,7 @@ export function StockForm({
           value={stock.shrinkage.avoidedMonthly}
           suffix="R$/mês"
           help="Avarias, extravios e erros que deixam de acontecer, em R$ por mês. Entra direto como benefício mensal quando o cartão está ligado."
-          onChange={(avoidedMonthly) => setStock({ ...stock, shrinkage: { ...stock.shrinkage, avoidedMonthly } })}
+          onChange={(avoidedMonthly) => setStock({ ...stock, shrinkage: editCard(stock.shrinkage, { avoidedMonthly }) })}
         />
       </BenefitCard>
 
@@ -81,6 +94,8 @@ export function StockForm({
         description="Venda recuperada por estoque mais acurado. Precisa de evidência própria."
         enabled={stock.ruptures.enabled}
         confidence={stock.ruptures.confidence}
+        result={result}
+        auditIds={['ruptures']}
         onEnabled={(enabled) => setStock({ ...stock, ruptures: { ...stock.ruptures, enabled } })}
         onConfidence={(confidence) => setStock({ ...stock, ruptures: { ...stock.ruptures, confidence } })}
       >
@@ -90,14 +105,21 @@ export function StockForm({
           value={stock.ruptures.additionalMonthlySales}
           suffix="R$/mês"
           hint={`Margem de ${formatBRL(stock.ruptures.additionalMonthlySales * inputs.profile.contributionMarginPct)} por mês antes dos filtros.`}
+          noEffect={
+            stock.ruptures.independentEvidence
+              ? undefined
+              : 'Sem evidência de venda, este valor fica registrado e não entra no caixa.'
+          }
           onChange={(additionalMonthlySales) =>
-            setStock({ ...stock, ruptures: { ...stock.ruptures, additionalMonthlySales } })
+            setStock({ ...stock, ruptures: editCard(stock.ruptures, { additionalMonthlySales }) })
           }
         />
         <CheckField
           className="field check span-2"
           checked={stock.ruptures.independentEvidence}
-          onChange={(independentEvidence) => setStock({ ...stock, ruptures: { ...stock.ruptures, independentEvidence } })}
+          onChange={(independentEvidence) =>
+            setStock({ ...stock, ruptures: editCard(stock.ruptures, { independentEvidence }) })
+          }
           label="A redução de ruptura tem evidência independente de venda"
           help="Sem evidência, a venda recuperada de ruptura fica fora do fluxo. Ligado, o valor vira margem pela margem de contribuição e pode entrar no benefício mensal."
         />
@@ -108,6 +130,8 @@ export function StockForm({
         description="Capacidade extra e menor fila. Também exige evidência própria."
         enabled={stock.serviceSpeed.enabled}
         confidence={stock.serviceSpeed.confidence}
+        result={result}
+        auditIds={['service']}
         onEnabled={(enabled) => setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, enabled } })}
         onConfidence={(confidence) => setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, confidence } })}
       >
@@ -117,15 +141,20 @@ export function StockForm({
           value={stock.serviceSpeed.additionalMonthlySales}
           suffix="R$/mês"
           help="Venda extra por atendimento mais rápido, em R$ por mês. Vira margem pela margem de contribuição. Só entra no fluxo com evidência própria e sem repetir outra alavanca de venda."
+          noEffect={
+            stock.serviceSpeed.independentEvidence
+              ? undefined
+              : 'Sem evidência de venda, este valor fica registrado e não entra no caixa.'
+          }
           onChange={(additionalMonthlySales) =>
-            setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, additionalMonthlySales } })
+            setStock({ ...stock, serviceSpeed: editCard(stock.serviceSpeed, { additionalMonthlySales }) })
           }
         />
         <CheckField
           className="field check span-2"
           checked={stock.serviceSpeed.independentEvidence}
           onChange={(independentEvidence) =>
-            setStock({ ...stock, serviceSpeed: { ...stock.serviceSpeed, independentEvidence } })
+            setStock({ ...stock, serviceSpeed: editCard(stock.serviceSpeed, { independentEvidence }) })
           }
           label="A velocidade de atendimento tem evidência independente de venda"
           help="Sem evidência, esta venda extra fica fora do fluxo. Ligado, o valor pode entrar como margem mensal, se não repetir outra alavanca de venda."
@@ -135,6 +164,11 @@ export function StockForm({
       <section className="card">
         <CheckField
           checked={stock.salesIndependenceConfirmed}
+          noEffect={
+            salesOn < 2
+              ? 'Esta confirmação só muda o caixa quando há duas ou mais vendas extras ativas.'
+              : undefined
+          }
           onChange={(salesIndependenceConfirmed) => setStock({ ...stock, salesIndependenceConfirmed })}
           label="As alavancas de venda (consultiva, ruptura e atendimento) são efeitos diferentes e podem ser somadas"
           help="Ligado, as vendas extras ativas somam no benefício. Desligado, o fluxo fica só com a maior alavanca de venda. As outras aparecem na auditoria."
@@ -149,6 +183,8 @@ export function StockForm({
         description={`Estoque atual ${formatBRL(inputs.profile.averageInventory)}. Liberação bruta ${formatBRL(release)}.`}
         enabled={stock.workingCapital.enabled}
         confidence={stock.workingCapital.confidence}
+        result={result}
+        auditIds={['workingCapital', 'financialCost']}
         onEnabled={(enabled) => setStock({ ...stock, workingCapital: { ...stock.workingCapital, enabled } })}
         onConfidence={(confidence) => setStock({ ...stock, workingCapital: { ...stock.workingCapital, confidence } })}
       >
@@ -158,14 +194,21 @@ export function StockForm({
           value={stock.workingCapital.inventoryAfter}
           suffix="R$"
           help="Estoque médio depois do robô, em R$. A liberação de caixa é o estoque atual menos este valor. Sem comprovação, o caixa não muda."
+          noEffect={
+            stock.workingCapital.reductionProven
+              ? undefined
+              : 'Sem a comprovação de redução, este estoque fica registrado e o caixa não muda.'
+          }
           onChange={(inventoryAfter) =>
-            setStock({ ...stock, workingCapital: { ...stock.workingCapital, inventoryAfter } })
+            setStock({ ...stock, workingCapital: editCard(stock.workingCapital, { inventoryAfter }) })
           }
         />
         <CheckField
           className="field check span-2"
           checked={stock.workingCapital.reductionProven}
-          onChange={(reductionProven) => setStock({ ...stock, workingCapital: { ...stock.workingCapital, reductionProven } })}
+          onChange={(reductionProven) =>
+            setStock({ ...stock, workingCapital: editCard(stock.workingCapital, { reductionProven }) })
+          }
           label="A redução de estoque está comprovada. Sem esta marca o caixa não muda, mesmo que o estoque “depois” seja menor. O robô pode aumentar o estoque."
           help="Ligado, a diferença de estoque pode entrar no caixa uma vez, no mês da liberação. Desligado, o capital de giro fica zerado mesmo se o estoque depois for menor."
         />
@@ -174,8 +217,13 @@ export function StockForm({
           help="Mês em que o dinheiro do estoque menor volta ao caixa, contado a partir do início. É caixa uma vez, não benefício todo mês."
           value={stock.workingCapital.releaseMonth}
           min={1}
+          noEffect={
+            stock.workingCapital.reductionProven
+              ? undefined
+              : 'Sem a comprovação de redução, o mês da liberação não entra no caixa.'
+          }
           onChange={(releaseMonth) =>
-            setStock({ ...stock, workingCapital: { ...stock.workingCapital, releaseMonth } })
+            setStock({ ...stock, workingCapital: editCard(stock.workingCapital, { releaseMonth }) })
           }
         />
         <SelectField
@@ -185,7 +233,7 @@ export function StockForm({
           onChange={(treatment) =>
             setStock({
               ...stock,
-              workingCapital: { ...stock.workingCapital, treatment: treatment as WorkingCapitalTreatment },
+              workingCapital: editCard(stock.workingCapital, { treatment: treatment as WorkingCapitalTreatment }),
             })
           }
           options={[
@@ -198,15 +246,25 @@ export function StockForm({
           label="Custo de capital"
           value={stock.workingCapital.costOfCapitalAnnual}
           hint="Usado na leitura do custo financeiro. Não substitui a taxa de desconto do VPL."
+          noEffect={
+            stock.workingCapital.reductionProven && stock.workingCapital.treatment === 'custo_financeiro'
+              ? undefined
+              : 'O custo de capital só muda o caixa no tratamento de custo financeiro, com redução comprovada.'
+          }
           onChange={(costOfCapitalAnnual) =>
-            setStock({ ...stock, workingCapital: { ...stock.workingCapital, costOfCapitalAnnual } })
+            setStock({ ...stock, workingCapital: editCard(stock.workingCapital, { costOfCapitalAnnual }) })
           }
         />
         <CheckField
           className="field check span-2"
           checked={stock.workingCapital.reverseAtHorizon}
+          noEffect={
+            stock.workingCapital.reductionProven && stock.workingCapital.treatment === 'liberacao_caixa'
+              ? undefined
+              : 'A devolução no mês 60 só muda o caixa quando a liberação de principal está comprovada.'
+          }
           onChange={(reverseAtHorizon) =>
-            setStock({ ...stock, workingCapital: { ...stock.workingCapital, reverseAtHorizon } })
+            setStock({ ...stock, workingCapital: editCard(stock.workingCapital, { reverseAtHorizon }) })
           }
           label="Devolver o capital no mês 60 (projetos com fim definido). Desligado trata a loja como contínua."
           help="Ligado, o caixa liberado do estoque volta a sair no mês 60. Desligado, a loja segue e esse principal não é devolvido no horizonte."

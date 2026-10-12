@@ -196,10 +196,13 @@ export interface Inputs {
     };
     movement: BenefitSwitch & {
       alreadyCountedInPayroll: boolean;
+      /** A versão de RH trava o cartão: a hora já está no quadro. */
+      rosterSuppressed?: boolean;
       hoursSavedPerMonth: number;
       costPerHour: number;
     };
     inventoryCount: BenefitSwitch & {
+      rosterSuppressed?: boolean;
       hoursSavedPerMonth: number;
       costPerHour: number;
     };

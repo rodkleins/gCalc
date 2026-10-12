@@ -206,9 +206,14 @@ function fromShape(shape: Shape): Inputs {
   inputs.people.supervision.alreadyCountedInPayroll = false;
   inputs.people.consultativeSales.enabled = false;
   inputs.people.consultativeSales.independentEvidence = false;
+  inputs.people.consultativeSales.hoursFreedPerMonth = 0;
+  inputs.people.consultativeSales.marginPerHour = 0;
   inputs.people.reallocatedHours.enabled = false;
   inputs.logistics.boxes.enabled = false;
   inputs.logistics.boxes.processValidated = false;
+  inputs.logistics.boxes.cyclesAvoidedPerMonth = 0;
+  inputs.logistics.boxes.costPerCycle = 0;
+  inputs.logistics.boxes.useDetailed = false;
   inputs.logistics.shelving.enabled = true;
   inputs.logistics.shelving.releasedValue = 0;
   inputs.logistics.shelving.avoidedAcquisition = 0;
@@ -219,7 +224,7 @@ function fromShape(shape: Shape): Inputs {
   inputs.logistics.space.enabled = true;
   inputs.logistics.space.m2Freed = shape.m2Freed;
   inputs.logistics.space.mode = 'ocupacao';
-  inputs.logistics.space.treatment = 'sem_monetizacao';
+  inputs.logistics.space.treatment = 'ocupacao_evitavel';
   inputs.logistics.space.contractUnchanged = true;
   inputs.logistics.space.commercialEvidence = false;
   inputs.logistics.movement.enabled = true;
@@ -235,7 +240,9 @@ function fromShape(shape: Shape): Inputs {
   inputs.stock.shrinkage.enabled = false;
   inputs.stock.shrinkage.avoidedMonthly = 0;
   inputs.stock.ruptures.enabled = false;
+  inputs.stock.ruptures.additionalMonthlySales = 0;
   inputs.stock.serviceSpeed.enabled = false;
+  inputs.stock.serviceSpeed.additionalMonthlySales = 0;
   inputs.stock.abandonment.enabled = false;
   inputs.stock.workingCapital.enabled = false;
   inputs.stock.workingCapital.reductionProven = false;

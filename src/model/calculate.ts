@@ -239,15 +239,19 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     inputs.logistics.movement.enabled,
     inputs.logistics.movement.confidence,
     includePotential,
-    inputs.logistics.movement.alreadyCountedInPayroll
-      ? 'Horas de movimentação já foram retiradas na redução de folha. Não são monetizadas de novo.'
-      : null,
+    inputs.logistics.movement.rosterSuppressed
+      ? 'Vem do quadro de RH. A hora já está na folha do quadro e não entra de novo.'
+      : inputs.logistics.movement.alreadyCountedInPayroll
+        ? 'Horas de movimentação já foram retiradas na redução de folha. Não são monetizadas de novo.'
+        : null,
   );
   const countGate = gateBenefit(
     inputs.logistics.inventoryCount.enabled,
     inputs.logistics.inventoryCount.confidence,
     includePotential,
-    null,
+    inputs.logistics.inventoryCount.rosterSuppressed
+      ? 'Vem do quadro de RH. A hora de inventário já está na folha do quadro e não entra de novo.'
+      : null,
   );
   const lossesGate = gateBenefit(
     inputs.stock.losses.enabled,
@@ -882,8 +886,25 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
       `A capacidade do robô cobre ${Math.round(coverage * 100)}% das dispensações. Os benefícios foram reduzidos nessa proporção.`,
     );
   }
-  if (availability < 1) {
-    warnings.push('A disponibilidade operacional reduz os benefícios na mesma proporção.');
+  const availabilityScalesVolume =
+    boxesGate.included ||
+    movementGate.included ||
+    (salesCapture > 0 &&
+      (inputs.stock.ruptures.enabled ||
+        inputs.stock.serviceSpeed.enabled ||
+        inputs.stock.abandonment.enabled ||
+        inputs.people.consultativeSales.enabled ||
+        inputs.logistics.space.mode === 'margem'));
+  if (availability <= 0) {
+    warnings.push('Disponibilidade zero. Folha, estoque, dispensação e vendas ficam de fora. O custo mensal do robô continua.');
+  } else if (availability < 1 && availabilityScalesVolume) {
+    warnings.push(
+      'A disponibilidade reduz caixas, movimentação e vendas. A folha não cai enquanto a disponibilidade for maior que zero.',
+    );
+  } else if (availability < 1) {
+    warnings.push(
+      'A disponibilidade parcial não altera este modelo. A folha não cai acima de zero, e não há caixas, movimentação nem vendas no fluxo.',
+    );
   }
   if (inputs.profile.historicalLossesMonthly < inputs.stock.losses.projectedLossesMonthly && lossesGate.included) {
     warnings.push('As perdas projetadas superam as históricas. A economia de perdas ficou zerada.');
@@ -1063,7 +1084,7 @@ function gateBenefit(
   blockedReason: string | null,
 ): Gate {
   if (!enabled) {
-    return { included: false, reason: 'Benefício desativado.', confidence };
+    return { included: false, reason: blockedReason ?? 'Benefício desativado.', confidence };
   }
   if (blockedReason) {
     return { included: false, reason: blockedReason, confidence };
@@ -1408,7 +1429,10 @@ function buildAudit(ctx: {
         reason:
           ctx.inputs.people.reallocatedHours.monetization === 'nenhuma'
             ? 'Horas realocadas não são economia de folha. Só entram com redução de custo ou ganho incremental demonstrável.'
-            : 'Horas realocadas monetizadas por premissa explícita, sem duplicar a folha.',
+            : ctx.inputs.people.reallocatedHours.monetization === 'ganho_incremental' &&
+                !ctx.inputs.people.reallocatedHours.evidence
+              ? 'Ganho incremental sem evidência. A hora realocada não entra no caixa.'
+              : 'Horas realocadas monetizadas por premissa explícita, sem duplicar a folha.',
       },
       monthlyValue: ctx.reallocatedAmount(steady),
       formula: 'Não usa vagas × custo. Exige monetização própria e evidência quando o ganho é incremental.',

@@ -587,7 +587,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
             <PercentField
               label="Disponibilidade do robô"
               value={robot.availabilityPct}
-              hint="Reduz os benefícios, não o custo mensal."
+              hint="Abaixo de 100% reduz caixas, movimentação e vendas. A folha só cai se a disponibilidade for zero."
               onChange={(availabilityPct) =>
                 onInputs({ ...inputs, robot: { ...robot, availabilityPct: Math.min(1, Math.max(0, availabilityPct)) } })
               }

@@ -64,6 +64,9 @@ export function normalizeInputs(inputs: Inputs): Inputs {
     shelving.releasedValue = typeof legacy === 'number' && Number.isFinite(legacy) ? legacy : 0;
   }
 
+  next.logistics.movement.rosterSuppressed = next.logistics.movement.rosterSuppressed ?? false;
+  next.logistics.inventoryCount.rosterSuppressed = next.logistics.inventoryCount.rosterSuppressed ?? false;
+
   const space = next.logistics.space;
   space.treatment = space.treatment ?? treatmentFromMode(space.mode);
   space.contractUnchanged = space.contractUnchanged ?? false;

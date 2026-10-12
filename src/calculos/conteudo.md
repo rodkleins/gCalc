@@ -233,6 +233,8 @@ Inventário = horas × corte de horas × custo da hora × fator de mão de obra
 
 Ocupação e margem da mesma área não se somam. Tratar a área como margem, ou escolher expansão comercial, usa a margem. Contrato inalterado bloqueia aluguel e ocupação. Sem monetização, e investimento imobiliário, não geram caixa mensal. O investimento imobiliário evitado, em loja nova, abate o investimento.
 
+A monetização fica na tela, com uma ajuda ao lado: aluguel evitado, ocupação evitável, expansão comercial, sem monetização ou investimento imobiliário evitado. Sem monetização, o cartão pode estar ligado e comprovável e mesmo assim não entra no caixa. Nos modelos de loja de R$ 1, 2 e 4 milhões a monetização padrão é ocupação evitável, coerente com comprovável. O contrato de ocupação continua marcado como inalterado, então o aluguel não entra. Desmarcar o contrato faz os metros vezes o custo de ocupação entrarem todo mês. O exemplo desta página é outro caso: o contrato muda e a ocupação entra.
+
 O valor das prateleiras evitadas ou liberadas abate o investimento líquido no mês 0, em loja nova e em loja existente. Em loja nova é a compra que deixa de acontecer. Em loja existente é a revenda ou o reaproveitamento. Não entra de novo como benefício mensal. A manutenção evitada entra todo mês nos dois tipos de loja.
 
 Prateleira ainda necessária zera esse valor, a manutenção e a remoção. Remoção continua sendo saída de caixa no início da operação, só em loja existente.
@@ -455,6 +457,8 @@ Rede desligada: a quantidade de lojas replica investimento, líquido mensal e va
 
 ## 8. Regras para não contar o mesmo real duas vezes
 
+Cada cartão de benefício diz se entra, com o valor do mês ou do caixa pontual, ou se não entra, com o motivo desta tabela. Campo de cartão desligado fica cinza e o número permanece. Digitar nesse campo liga o cartão. Cartão travado pelo quadro de RH não aceita número.
+
 A trava segue esta ordem: desligado; bloqueio específico; potencial com a opção de incluir ganhos potenciais desligada; entra.
 
 | Regra | O que acontece |
@@ -473,7 +477,7 @@ A trava segue esta ordem: desligado; bloqueio específico; potencial com a opç�
 | Perdas detalhadas | Substituem histórico menos projetado e bloqueiam a linha de avarias |
 | Capital de giro | Principal ou custo financeiro. Sem redução comprovada, os dois ficam de fora |
 | Disponibilidade zero | Zera folha, estoque, dispensação e vendas. O custo mensal do robô continua |
-| Disponibilidade parcial | Não corta a folha se a reorganização continua. Corta dispensação, logística de volume e vendas |
+| Disponibilidade parcial | Não corta a folha se a reorganização continua. Corta caixas, movimentação e vendas. Se não houver nenhuma dessas linhas no fluxo, a tela avisa que a disponibilidade parcial não altera o modelo. Zero ainda tira a folha |
 | Financiamento | Não muda valor presente, taxa, retorno nem payback do projeto |
 | Ganhos potenciais | Ficam de fora até a opção de incluí-los ser ligada |
 

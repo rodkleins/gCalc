@@ -66,13 +66,15 @@ A rescisão é um mês dessa folha evitada, já com folguista e adicional. Ela s
 
 A contratação futura usa a mesma conta, com a quantidade futura de cada turno, e começa no mês 13. Também só entra em loja existente.
 
-O turnover continua 30% ao ano e R$ 8.000 por substituição, em cima das vagas evitadas mais as contratações futuras. As duas já incluem o folguista proporcional. Recrutamento e treinamento seguem marcados como inclusos nesse custo, então não entram de novo.
+O turnover fica na aba Pessoas, debaixo do quadro, e pode ser editado. O padrão é 30% ao ano e R$ 8.000 por substituição, em cima das vagas evitadas mais as contratações futuras. As duas já incluem o folguista proporcional. Recrutamento e treinamento também ficam nessa aba, com a marca de já incluso nesse custo. Enquanto a marca estiver ligada, esses valores não entram de novo. Desligar a marca faz o custo entrar à parte.
 
 ## 6. O que não entra de novo
 
-Supervisão, movimentação, inventário e horas realocadas ficam desligados nesta versão. A hora dessas pessoas já está na folha do quadro. Supervisão e movimentação também ficam marcadas como já contadas na folha, para o caso de alguém religar o módulo no assistente: a vaga do quadro continua mandando na folha.
+Supervisão, movimentação, inventário e horas realocadas ficam desligados nesta versão. A hora dessas pessoas já está na folha do quadro. Na aba Logística, movimentação e inventário ficam travados, com o aviso de que vêm do quadro de RH. O número não é aceito e não volta atrás depois de digitado, porque o quadro reescreve a linha. Supervisão e movimentação também ficam marcadas como já contadas na folha.
 
-Perdas, área, prateleiras e o custo do robô seguem as premissas do modelo. Não foram inventados para encurtar o payback.
+Disponibilidade parcial não move o payback desta versão quando não há caixas, movimentação nem venda no fluxo. A folha não cai enquanto a disponibilidade for maior que zero. A tela diz isso ao lado do campo. Disponibilidade zero ainda tira a folha e o estoque. Na calculadora principal, a movimentação da loja de R$ 2 milhões está ligada, então a mesma disponibilidade parcial mexe no payback.
+
+Caixas, venda consultiva e vendas extras que não entram no modelo de loja ficam zeradas, para um cartão desligado não parecer dinheiro. Perdas, área, prateleiras e o custo do robô seguem as premissas do modelo. Não foram inventados para encurtar o payback. A área usa ocupação evitável e o contrato inalterado, então o aluguel não entra até alguém desmarcar o contrato.
 
 ## 7. Pisos e modelos
 

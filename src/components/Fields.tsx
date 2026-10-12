@@ -1,11 +1,23 @@
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
-import type { Confidence } from '../model/types';
-import { caretAfterFormat, formatMoneyDraft, formatNumber, parseLocaleNumber } from '../model/format';
-import type { ModelResult } from '../model/types';
-import { formatBRL } from '../model/format';
+import { benefitStatus } from '../model/benefitStatus';
+import type { Confidence, ModelResult } from '../model/types';
+import { caretAfterFormat, formatBRL, formatMoneyDraft, formatNumber, parseLocaleNumber } from '../model/format';
 
 const PremiseFocusContext = createContext<string | null>(null);
 const FieldHelpContext = createContext(false);
+const BenefitEditContext = createContext<{ off: boolean; locked: boolean } | null>(null);
+
+/** Editar um valor de cartão desligado liga o cartão na mesma atualização. */
+export function editCard<T extends { enabled: boolean }>(card: T, patch: Partial<T>): T {
+  return { ...card, ...patch, enabled: true };
+}
+
+function useFieldState(disabledProp?: boolean) {
+  const edit = useContext(BenefitEditContext);
+  const locked = Boolean(edit?.locked || disabledProp);
+  const dormant = Boolean(edit && (edit.off || edit.locked));
+  return { locked, dormant };
+}
 
 /** Liga a ajuda no rótulo. A calculadora da raiz não usa este provedor. */
 export function FieldHelpProvider({ children }: { children: React.ReactNode }) {
@@ -123,6 +135,8 @@ export function NumberField({
   min,
   fieldId,
   testId,
+  disabled,
+  noEffect,
 }: {
   label: string;
   value: number;
@@ -134,8 +148,12 @@ export function NumberField({
   min?: number;
   fieldId?: string;
   testId?: string;
+  disabled?: boolean;
+  /** Motivo visível quando o campo não muda o resultado. */
+  noEffect?: string;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const { locked, dormant } = useFieldState(disabled);
   const focused = useContext(PremiseFocusContext);
   const helpOn = useFieldHelpEnabled();
   const description = helpText(help, hint);
@@ -158,7 +176,12 @@ export function NumberField({
     input.setSelectionRange(pos, pos);
   }, [draft]);
   return (
-    <label className={`field${active ? ' is-target' : ''}`} ref={root} data-field={fieldId}>
+    <label
+      className={`field${active ? ' is-target' : ''}${dormant ? ' is-dormant' : ''}`}
+      ref={root}
+      data-field={fieldId}
+      data-no-effect={noEffect || undefined}
+    >
       <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
         <input
@@ -166,6 +189,7 @@ export function NumberField({
           data-testid={testId}
           {...fieldHelpAttr(helpOn, description)}
           inputMode="decimal"
+          disabled={locked}
           value={shown}
           onFocus={(event) => {
             const plain = Number.isInteger(value) ? String(value) : String(value).replace('.', ',');
@@ -189,6 +213,7 @@ export function NumberField({
         {suffix ? <i>{suffix}</i> : null}
       </span>
       {hint ? <small>{hint}</small> : null}
+      {noEffect ? <small className="no-effect">{noEffect}</small> : null}
     </label>
   );
 }
@@ -201,6 +226,8 @@ export function PercentField({
   help,
   fieldId,
   testId,
+  disabled,
+  noEffect,
 }: {
   label: string;
   value: number;
@@ -209,6 +236,8 @@ export function PercentField({
   help?: string;
   fieldId?: string;
   testId?: string;
+  disabled?: boolean;
+  noEffect?: string;
 }) {
   return (
     <NumberField
@@ -219,6 +248,8 @@ export function PercentField({
       help={help}
       fieldId={fieldId}
       testId={testId}
+      disabled={disabled}
+      noEffect={noEffect}
       onChange={(next) => onChange(next / 100)}
     />
   );
@@ -231,6 +262,8 @@ export function TextField({
   hint,
   help,
   testId,
+  disabled,
+  noEffect,
 }: {
   label: string;
   value: string;
@@ -238,21 +271,26 @@ export function TextField({
   hint?: string;
   help?: string;
   testId?: string;
+  disabled?: boolean;
+  noEffect?: string;
 }) {
   const helpOn = useFieldHelpEnabled();
   const description = helpText(help, hint);
+  const { locked, dormant } = useFieldState(disabled);
   return (
-    <label className="field">
+    <label className={`field${dormant ? ' is-dormant' : ''}`} data-no-effect={noEffect || undefined}>
       <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
         <input
           data-testid={testId}
           {...fieldHelpAttr(helpOn, description)}
+          disabled={locked}
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
       </span>
       {hint ? <small>{hint}</small> : null}
+      {noEffect ? <small className="no-effect">{noEffect}</small> : null}
     </label>
   );
 }
@@ -264,6 +302,8 @@ export function SelectField({
   options,
   hint,
   help,
+  disabled,
+  noEffect,
 }: {
   label: string;
   value: string;
@@ -271,14 +311,22 @@ export function SelectField({
   options: Array<{ value: string; label: string }>;
   hint?: string;
   help?: string;
+  disabled?: boolean;
+  noEffect?: string;
 }) {
   const helpOn = useFieldHelpEnabled();
   const description = helpText(help, hint);
+  const { locked, dormant } = useFieldState(disabled);
   return (
-    <label className="field">
+    <label className={`field${dormant ? ' is-dormant' : ''}`} data-no-effect={noEffect || undefined}>
       <FieldLabel label={label} help={helpOn ? description : undefined} />
       <span className="control">
-        <select {...fieldHelpAttr(helpOn, description)} value={value} onChange={(event) => onChange(event.target.value)}>
+        <select
+          {...fieldHelpAttr(helpOn, description)}
+          disabled={locked}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -287,6 +335,7 @@ export function SelectField({
         </select>
       </span>
       {hint ? <small>{hint}</small> : null}
+      {noEffect ? <small className="no-effect">{noEffect}</small> : null}
     </label>
   );
 }
@@ -296,11 +345,13 @@ export function Switch({
   onChange,
   label,
   help,
+  disabled,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
   help?: string;
+  disabled?: boolean;
 }) {
   const helpOn = useFieldHelpEnabled();
   const description = help?.trim();
@@ -310,8 +361,11 @@ export function Switch({
       className={`switch ${checked ? 'is-on' : ''}`}
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       {...fieldHelpAttr(helpOn, description)}
-      onClick={() => onChange(!checked)}
+      onClick={() => {
+        if (!disabled) onChange(!checked);
+      }}
     >
       <i />
       {label}
@@ -332,24 +386,31 @@ export function CheckField({
   label,
   help,
   className = 'field check',
+  disabled,
+  noEffect,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
   help: string;
   className?: string;
+  disabled?: boolean;
+  noEffect?: string;
 }) {
   const helpOn = useFieldHelpEnabled();
   const description = help.trim();
+  const { locked, dormant } = useFieldState(disabled);
   return (
-    <label className={className}>
+    <label className={`${className}${dormant ? ' is-dormant' : ''}`} data-no-effect={noEffect || undefined}>
       <input
         type="checkbox"
         checked={checked}
+        disabled={locked}
         {...fieldHelpAttr(helpOn, description)}
         onChange={(event) => onChange(event.target.checked)}
       />
       <FieldLabel label={label} help={helpOn ? description : undefined} />
+      {noEffect ? <small className="no-effect">{noEffect}</small> : null}
     </label>
   );
 }
@@ -361,6 +422,10 @@ export function BenefitCard({
   confidence,
   onEnabled,
   onConfidence,
+  result,
+  auditIds,
+  locked,
+  layout = 'grid',
   children,
 }: {
   title: string;
@@ -369,25 +434,45 @@ export function BenefitCard({
   confidence: Confidence;
   onEnabled: (value: boolean) => void;
   onConfidence: (value: Confidence) => void;
+  result: ModelResult;
+  auditIds: string[];
+  /** Cartão travado: os campos ficam cinza e não aceitam edição. */
+  locked?: boolean;
+  /** `plain` não força a grade de duas colunas. */
+  layout?: 'grid' | 'plain';
   children?: React.ReactNode;
 }) {
+  const status = benefitStatus(result, auditIds);
+  const confidenceNote = locked
+    ? undefined
+    : !enabled
+      ? 'A confiança só muda o caixa com o cartão ligado.'
+      : !status.enters
+        ? 'A confiança não muda o caixa enquanto o motivo acima impedir a entrada.'
+        : undefined;
   return (
-    <section className={`card benefit ${enabled ? '' : 'is-off'}`}>
+    <section className={`card benefit ${enabled ? '' : 'is-off'}${locked ? ' is-locked' : ''}`}>
       <header className="benefit-head">
         <div>
           <h3>{title}</h3>
           <p>{description}</p>
+          <p className={`benefit-status ${status.enters ? 'is-in' : 'is-out'}`} data-testid="benefit-status">
+            {status.text}
+          </p>
         </div>
         <Switch
           checked={enabled}
+          disabled={locked}
           onChange={onEnabled}
           label={enabled ? 'Ativo' : 'Inativo'}
-          help="Liga ou desliga este benefício. Desligado, os valores deste cartão ficam fora do fluxo de caixa, do payback e do VPL."
+          help="Liga ou desliga este benefício. Desligado, os valores deste cartão ficam fora do fluxo de caixa, do payback e do VPL. Digitar um valor liga o cartão de novo, sem apagar o que já estava escrito."
         />
       </header>
       <SelectField
         label="Confiança"
         value={confidence}
+        disabled={locked}
+        noEffect={confidenceNote}
         onChange={(value) => onConfidence(value as Confidence)}
         options={[
           { value: 'comprovavel', label: 'Comprovável' },
@@ -395,7 +480,13 @@ export function BenefitCard({
         ]}
         hint="Potencial só entra no fluxo se a opção global estiver ligada."
       />
-      {children ? <div className="form-grid">{children}</div> : null}
+      {!enabled && !locked ? <p className="hint-block">Digitar um valor liga este cartão. O número digitado antes continua lá.</p> : null}
+      {locked ? <p className="hint-block">Estes campos ficam travados. O motivo está na linha de status.</p> : null}
+      {children ? (
+        <BenefitEditContext.Provider value={{ off: !enabled, locked: Boolean(locked) }}>
+          {layout === 'grid' ? <div className="form-grid">{children}</div> : children}
+        </BenefitEditContext.Provider>
+      ) : null}
     </section>
   );
 }

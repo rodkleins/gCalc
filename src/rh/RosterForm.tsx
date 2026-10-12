@@ -281,6 +281,9 @@ export function RosterForm({
               {roster.posts.map((item) => {
                 const coverage = postCoverage(item, roster);
                 const sentence = coverageSentence(item, roster);
+                const freedOnLine = item.freed.slice(0, roster.shiftCount).reduce((sum, value) => sum + Math.max(0, value), 0);
+                const lineIdle =
+                  freedOnLine <= 0 ? 'Não entra no caixa: o robô não libera ninguém nesta linha.' : undefined;
                 let present = 0;
                 let hired = 0;
                 let payroll = 0;
@@ -294,7 +297,7 @@ export function RosterForm({
                 const folguista = hired - present;
                 return (
                   <tr key={item.id} data-testid={`roster-post-${item.id}`}>
-                    <td className="sticky-col">
+                    <td className="sticky-col" data-no-effect="O nome do cargo organiza a linha. A folha usa o custo e as quantidades.">
                       <input
                         className="roster-text"
                         data-testid={`post-role-${item.id}`}
@@ -303,8 +306,9 @@ export function RosterForm({
                         value={item.role}
                         onChange={(event) => updatePost(item.id, { role: event.target.value })}
                       />
+                      <small className="no-effect">Não entra no payback: a folha usa o custo e as quantidades.</small>
                     </td>
-                    <td>
+                    <td data-no-effect="O balcão organiza a linha e não entra no payback.">
                       <input
                         className="roster-text"
                         data-testid={`post-counter-${item.id}`}
@@ -313,8 +317,9 @@ export function RosterForm({
                         value={item.counter}
                         onChange={(event) => updatePost(item.id, { counter: event.target.value })}
                       />
+                      <small className="no-effect">Não entra no payback.</small>
                     </td>
-                    <td>
+                    <td data-no-effect={lineIdle}>
                       <select
                         data-testid={`post-scale-${item.id}`}
                         aria-label="Escala"
@@ -328,25 +333,34 @@ export function RosterForm({
                           </option>
                         ))}
                       </select>
+                      {lineIdle ? <small className="no-effect">{lineIdle}</small> : null}
                     </td>
-                    <td className="num">
+                    <td className="num" data-no-effect={lineIdle}>
                       <MoneyCell
                         value={item.monthlyCost}
                         testId={`post-cost-${item.id}`}
                         onChange={(monthlyCost) => updatePost(item.id, { monthlyCost })}
                       />
+                      {lineIdle ? <small className="no-effect">{lineIdle}</small> : null}
                     </td>
-                    {Array.from({ length: roster.shiftCount }, (_, index) => (
-                      <td key={`on-${index}`} className="num">
-                        <CountCell
-                          value={item.onDuty[index]}
-                          testId={`onDuty-${item.id}-${index}`}
-                          help={HELP.onDuty}
-                          label={`Pessoas no ${shiftName(index, roster.shiftCount)}`}
-                          onChange={(value) => setSlot(item.id, 'onDuty', index, value)}
-                        />
-                      </td>
-                    ))}
+                    {Array.from({ length: roster.shiftCount }, (_, index) => {
+                      const shiftIdle =
+                        Math.max(0, item.freed[index] ?? 0) <= 0
+                          ? 'Não entra no caixa: o robô não libera ninguém neste turno.'
+                          : undefined;
+                      return (
+                        <td key={`on-${index}`} className="num" data-no-effect={shiftIdle}>
+                          <CountCell
+                            value={item.onDuty[index]}
+                            testId={`onDuty-${item.id}-${index}`}
+                            help={HELP.onDuty}
+                            label={`Pessoas no ${shiftName(index, roster.shiftCount)}`}
+                            onChange={(value) => setSlot(item.id, 'onDuty', index, value)}
+                          />
+                          {shiftIdle ? <small className="no-effect">{shiftIdle}</small> : null}
+                        </td>
+                      );
+                    })}
                     <td className="num">
                       <span className="field-label">
                         <output data-testid={`post-factor-${item.id}`}>{formatNumber(coverage.suggested, 4)}</output>
@@ -359,17 +373,24 @@ export function RosterForm({
                     <td className="num">{peopleLabel(Math.max(0, folguista))}</td>
                     <td className="num">{peopleLabel(hired)}</td>
                     <td className="num">{formatBRL(payroll)}</td>
-                    {Array.from({ length: roster.shiftCount }, (_, index) => (
-                      <td key={`free-${index}`} className="num is-freed">
-                        <CountCell
-                          value={item.freed[index]}
-                          testId={`freed-${item.id}-${index}`}
-                          help={HELP.freed}
-                          label={`Robô evita no ${shiftName(index, roster.shiftCount)}`}
-                          onChange={(value) => setSlot(item.id, 'freed', index, value)}
-                        />
-                      </td>
-                    ))}
+                    {Array.from({ length: roster.shiftCount }, (_, index) => {
+                      const shiftIdle =
+                        Math.max(0, item.onDuty[index] ?? 0) <= 0
+                          ? 'Não entra no caixa: não há ninguém neste turno para o robô liberar.'
+                          : undefined;
+                      return (
+                        <td key={`free-${index}`} className="num is-freed" data-no-effect={shiftIdle}>
+                          <CountCell
+                            value={item.freed[index]}
+                            testId={`freed-${item.id}-${index}`}
+                            help={HELP.freed}
+                            label={`Robô evita no ${shiftName(index, roster.shiftCount)}`}
+                            onChange={(value) => setSlot(item.id, 'freed', index, value)}
+                          />
+                          {shiftIdle ? <small className="no-effect">{shiftIdle}</small> : null}
+                        </td>
+                      );
+                    })}
                     <td>
                       <RemoveButton
                         confirm="Tirar esta linha do quadro?"
@@ -468,6 +489,11 @@ export function RosterForm({
               testId="night-premium"
               hint="Unidade: 100% = 1,0 no JSON. Nunca abaixo de 100%. Só vale no turno da noite, com 3 turnos."
               help={HELP.night}
+              noEffect={
+                roster.shiftCount === 3
+                  ? undefined
+                  : 'Com 2 turnos o adicional noturno fica guardado e não entra na conta.'
+              }
               onChange={(nightPremiumPct) => onChange({ ...roster, nightPremiumPct: Math.max(1, nightPremiumPct) })}
             />
             <NumberField

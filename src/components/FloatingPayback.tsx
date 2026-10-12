@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { resultStamp } from '../model/benefitStatus';
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent } from '../model/format';
 import { leversDiffer } from '../model/premises';
@@ -46,7 +47,12 @@ export function FloatingPayback({
   }, [open]);
 
   return (
-    <div className={open ? 'quick-dock is-open' : 'quick-dock'} data-testid="quick-dock" ref={dockRef}>
+    <div
+      className={open ? 'quick-dock is-open' : 'quick-dock'}
+      data-testid="quick-dock"
+      data-result-stamp={resultStamp(result)}
+      ref={dockRef}
+    >
       <button
         type="button"
         className="quick-dock-chip"

@@ -327,11 +327,13 @@ export function applyRoster(inputs: Inputs, roster: Roster): Inputs {
     ...next.logistics.movement,
     enabled: false,
     alreadyCountedInPayroll: true,
+    rosterSuppressed: true,
     hoursSavedPerMonth: 0,
   };
   next.logistics.inventoryCount = {
     ...next.logistics.inventoryCount,
     enabled: false,
+    rosterSuppressed: true,
     hoursSavedPerMonth: 0,
   };
   return next;

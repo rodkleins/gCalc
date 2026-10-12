@@ -1,4 +1,5 @@
 import { Callout, CheckField, ModuleImpact, NumberField, PercentField, ReadOnlyField, SelectField, StageNote, Switch } from './Fields';
+import { PARTIAL_AVAILABILITY_IDLE, partialAvailabilityMatters } from '../model/benefitStatus';
 import { opexLooksLikeEquipmentPrice } from '../model/calculate';
 import { equipmentFloorWarning, monthlyRobotCostWarning, RECOVERABLE_TAX_CREDIT_HELP } from '../model/example';
 import { formatBRL, formatIrr, formatNumber, formatPercent } from '../model/format';
@@ -40,6 +41,11 @@ export function InvestmentForm({
 }) {
   const robot = inputs.robot;
   const setRobot = (next: Inputs['robot']) => onChange({ ...inputs, robot: next });
+  const volumeMoves = partialAvailabilityMatters(result);
+  const financeOff = !robot.financing.enabled;
+  const financeNote = financeOff
+    ? 'Não altera o payback econômico enquanto o financiamento estiver desligado.'
+    : undefined;
 
   return (
     <div className="stack">
@@ -199,14 +205,28 @@ export function InvestmentForm({
           <PercentField
             label="Disponibilidade operacional"
             value={robot.availabilityPct}
-            hint="Reduz os benefícios na mesma proporção. O OPEX continua integral."
+            hint={
+              volumeMoves
+                ? 'Reduz caixas, movimentação e vendas. A folha não cai enquanto a disponibilidade for maior que zero. O custo mensal do robô continua integral. Zero tira folha, estoque e vendas.'
+                : PARTIAL_AVAILABILITY_IDLE
+            }
+            help={
+              volumeMoves
+                ? 'Reduz caixas, movimentação e vendas. A folha não cai enquanto a disponibilidade for maior que zero. Zero tira folha, estoque e vendas. O custo mensal do robô continua.'
+                : PARTIAL_AVAILABILITY_IDLE
+            }
             onChange={(availabilityPct) => setRobot({ ...robot, availabilityPct })}
           />
           <NumberField
             label="Capacidade de dispensação"
             value={robot.capacityDispensationsPerDay}
             suffix="/dia"
-            help="Dispensações por dia que o robô comporta. Se a loja passa disso, os benefícios operacionais são reduzidos na mesma proporção. O OPEX não muda."
+            help="Dispensações por dia que o robô comporta. Se a loja passa disso, caixas, movimentação e vendas caem na mesma proporção. A folha não usa esta cobertura. O custo mensal não muda."
+            noEffect={
+              volumeMoves
+                ? undefined
+                : 'Não altera este modelo: não há caixas, movimentação nem vendas no fluxo para a cobertura reduzir.'
+            }
             onChange={(capacityDispensationsPerDay) => setRobot({ ...robot, capacityDispensationsPerDay })}
           />
           <NumberField
@@ -227,13 +247,19 @@ export function InvestmentForm({
             label="Vida para depreciação"
             value={robot.depreciationYears}
             suffix="anos"
-            help="Vida útil em anos, usada só na leitura de depreciação. Não muda o payback, o ROI nem o VPL do caixa."
+            help="Vida útil em anos, usada na leitura de depreciação e no imposto sobre o valor residual. Com o imposto fora do caixa, este prazo não muda payback, ROI nem VPL."
+            noEffect={
+              robot.includeTax
+                ? undefined
+                : 'Com o imposto fora do caixa, este prazo não muda payback, ROI nem VPL.'
+            }
             onChange={(depreciationYears) => setRobot({ ...robot, depreciationYears })}
           />
           <PercentField
             label="Alíquota"
             value={robot.taxRate}
             hint="Não é uma recomendação. 34% não serve a qualquer regime."
+            noEffect={robot.includeTax ? undefined : 'A alíquota só muda o caixa quando o imposto está ligado.'}
             onChange={(taxRate) => setRobot({ ...robot, taxRate })}
           />
           <SelectField
@@ -288,6 +314,8 @@ export function InvestmentForm({
             label="Entrada"
             value={robot.financing.downPaymentPct}
             help="Percentual do investimento pago à vista. O restante é o valor financiado. Não entra no payback econômico."
+            disabled={financeOff}
+            noEffect={financeNote}
             onChange={(downPaymentPct) => setRobot({ ...robot, financing: { ...robot.financing, downPaymentPct } })}
           />
           <NumberField
@@ -296,12 +324,16 @@ export function InvestmentForm({
             suffix="meses"
             min={1}
             help="Prazo do financiamento, em meses. Define por quanto tempo a parcela Price é estimada. Não muda o payback do projeto."
+            disabled={financeOff}
+            noEffect={financeNote}
             onChange={(termMonths) => setRobot({ ...robot, financing: { ...robot.financing, termMonths } })}
           />
           <PercentField
             label="Juros anuais efetivos"
             value={robot.financing.annualInterest}
             help="Juros efetivos ao ano do financiamento, em percentual. Entram na parcela estimada e no custo financeiro da dívida, fora do ROI operacional."
+            disabled={financeOff}
+            noEffect={financeNote}
             onChange={(annualInterest) => setRobot({ ...robot, financing: { ...robot.financing, annualInterest } })}
           />
           <NumberField
@@ -309,6 +341,8 @@ export function InvestmentForm({
             value={robot.financing.balloon}
             suffix="R$"
             help="Parcela extra no fim do prazo, em R$. Soma o serviço da dívida. Não entra no benefício operacional nem no payback."
+            disabled={financeOff}
+            noEffect={financeNote}
             onChange={(balloon) => setRobot({ ...robot, financing: { ...robot.financing, balloon } })}
           />
         </div>

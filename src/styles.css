@@ -544,7 +544,16 @@ p { margin: 0; }
 .field.check { flex-direction: row; align-items: flex-start; gap: 10px; min-height: 44px; }
 .field.check input { width: 18px; height: 18px; margin-top: 3px; }
 .span-2 { grid-column: 1 / -1; }
-.benefit.is-off { opacity: 0.78; }
+.benefit.is-off { opacity: 0.92; }
+.benefit.is-locked { background: #f7f4ee; }
+.benefit-status { margin: 8px 0 0; font-weight: 650; font-size: 0.92rem; }
+.benefit-status.is-in { color: var(--forest-2); }
+.benefit-status.is-out { color: #8a5a12; }
+.field.is-dormant input,
+.field.is-dormant select,
+.field.is-dormant textarea { background: #f3f0ea; color: #8d867c; }
+.field .no-effect, .no-effect { color: #8a5a12; display: block; }
+.switch:disabled { opacity: 0.55; cursor: not-allowed; }
 .benefit-head, .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .switch {
   border: 0;
