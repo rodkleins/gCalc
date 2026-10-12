@@ -2,6 +2,8 @@
 
 Esta página vale só para a versão com quadro de RH por turno. A calculadora principal, a comparação entre a loja de hoje e a loja com robô, e a página de cálculos da calculadora principal não usam este quadro.
 
+Quem entra nesta versão pela primeira vez, sem simulação salva, abre na loja de R$ 2 milhões (2 turnos e 2 balcões). O exemplo ilustrativo desta página continua sendo o quadro de 2 turnos e 1 balcão.
+
 O caixa usa as mesmas regras da calculadora principal. O quadro não cria um valor presente paralelo. Ele preenche vagas evitadas, custo por pessoa, rescisão, turnover e contratação futura, e desliga o que contaria a mesma hora de novo.
 
 ## 1. Turnos

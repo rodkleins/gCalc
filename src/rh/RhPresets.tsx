@@ -69,15 +69,33 @@ export function RhPresetPanel({ presets, onLoad }: { presets: RhPreset[]; onLoad
   );
 }
 
-export function RhStorePicker({ presets, onLoad }: { presets: RhPreset[]; onLoad: (preset: RhPreset) => void }) {
+export function RhStorePicker({
+  presets,
+  onLoad,
+  selectedName,
+}: {
+  presets: RhPreset[];
+  onLoad: (preset: RhPreset) => void;
+  selectedName?: string;
+}) {
   return (
     <div className="store-size" data-testid="store-presets" role="group" aria-label="Porte da loja">
       <span className="store-size-label">Porte da loja</span>
-      {presets.map((preset) => (
-        <button key={preset.id} type="button" className="btn" data-testid={`preset-${preset.id}`} onClick={() => onLoad(preset)}>
-          {preset.name.replace('Loja de ', '')}
-        </button>
-      ))}
+      {presets.map((preset) => {
+        const selected = preset.name === selectedName;
+        return (
+          <button
+            key={preset.id}
+            type="button"
+            className={selected ? 'btn is-active' : 'btn'}
+            aria-pressed={selected}
+            data-testid={`preset-${preset.id}`}
+            onClick={() => onLoad(preset)}
+          >
+            {preset.name.replace('Loja de ', '')}
+          </button>
+        );
+      })}
     </div>
   );
 }

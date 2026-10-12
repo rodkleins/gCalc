@@ -2,7 +2,7 @@
 
 Documento da calculadora de ROI do robô de armazenagem e dispensação para farmácias. Serve para auditar a lógica e para o cliente conferir premissa, fórmula e número.
 
-A conta roda inteira no navegador. Os valores de abertura são um exemplo fictício, não parâmetro oficial nem resultado de uma loja real. A comparação entre a loja de hoje e a loja com robô fica de fora desta página: ela monta um demonstrativo próprio e só reaproveita valor presente, taxa interna de retorno, payback e retorno.
+A conta roda inteira no navegador. A calculadora abre na loja de R$ 2 milhões quando não há simulação salva neste navegador. Os números desta página continuam no exemplo fictício de auditoria, não parâmetro oficial nem resultado de uma loja real. A comparação entre a loja de hoje e a loja com robô fica de fora desta página: ela monta um demonstrativo próprio e só reaproveita valor presente, taxa interna de retorno, payback e retorno.
 
 ## 1. Visão geral e fluxo de cálculo
 
@@ -499,7 +499,7 @@ O controle vai de −100% a +30%, em passos de 5%. O campo numérico aceita zero
 
 ### 9.2 Sensibilidade do exemplo
 
-Cenário base, loja nova. Payback simples. A tabela numérica no fim desta página é recalculada na publicação, com o exemplo fictício de abertura, nos cinco pontos −30%, −15%, zero, +15% e +30%.
+Cenário base, loja nova. Payback simples. A tabela numérica no fim desta página é recalculada na publicação, com o exemplo fictício de auditoria, nos cinco pontos −30%, −15%, zero, +15% e +30%. A calculadora em si abre na loja de R$ 2 milhões.
 
 Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desconto não move o payback simples; move valor presente e payback descontado. Disponibilidade e cobertura já estão em 100% no exemplo, então os aumentos batem no teto e o payback fica no centro. A queda de disponibilidade quase não muda o payback porque a folha não é cortada enquanto a disponibilidade é maior que zero. A cobertura corta perdas e inventário. Avarias estão desligadas no exemplo, então não entram nessa curva.
 

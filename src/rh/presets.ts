@@ -204,6 +204,13 @@ export function rhModels(): RhPreset[] {
   return [rhExample(), ...rhStorePresets()];
 }
 
+/** Porte que esta versão abre quando não há simulação salva neste navegador. */
+export function rhDefaultPreset(): RhPreset {
+  const preset = rhStorePresets().find((item) => item.id === 'loja-2m');
+  if (!preset) throw new Error('Loja de R$ 2 milhões ausente.');
+  return preset;
+}
+
 export interface RhScoreCell {
   scenario: ScenarioId;
   netInvestment: number;

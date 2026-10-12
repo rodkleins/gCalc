@@ -3,7 +3,10 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
 import App from './App';
+import { evaluate } from './model/calculate';
 import { exampleInputs } from './model/example';
+import { formatBRL, formatPayback, formatPercent } from './model/format';
+import { defaultStorePreset } from './model/presets';
 import { STORAGE_KEY, STORAGE_VERSION, writeSession } from './model/storage';
 import { QUICK_ADJUST_OPEN_KEY, QUICK_DOCK_OPEN_KEY, RAIL_COLLAPSED_KEY } from './model/uiChrome';
 import { WIZARD_STEPS } from './model/wizard';
@@ -69,6 +72,29 @@ describe('aplicação', () => {
     act(() => root.unmount());
   });
 
+  it('abre na loja de R$ 2 milhões quando não há sessão salva', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<App />);
+    });
+    const opening = evaluate(defaultStorePreset().inputs);
+    const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 2 milhões/mês');
+    expect(text('[data-testid="kpi-payback"]')).toContain(formatPayback(opening.payback));
+    expect(text('[data-testid="kpi-investment"]')).toContain(plainMoney(opening.netInvestment));
+    expect(host.querySelector('[data-testid="preset-loja-2m"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('[data-testid="preset-loja-1m"]')?.getAttribute('aria-pressed')).toBe('false');
+    expect(host.querySelector('[data-testid="example-check"]')).toBeNull();
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('[data-testid="more-actions"]')?.click();
+    });
+    expect(host.querySelector('[data-testid="restore-example"]')?.textContent).toBe('Restaurar loja de R$ 2 milhões');
+    act(() => root.unmount());
+  });
+
   it('carrega a sessão salva e os botões restauram ou apagam os dados', async () => {
     globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
     const inputs = exampleInputs();
@@ -113,7 +139,8 @@ describe('aplicação', () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="restore-example"]')?.click();
     });
-    expect(host.textContent).toContain('Farmácia Aurora — Unidade Centro');
+    expect(host.textContent).toContain('Loja de R$ 2 milhões/mês');
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 2 milhões/mês');
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').simulations).toHaveLength(1);
 
     await act(async () => {
@@ -129,7 +156,9 @@ describe('aplicação', () => {
     const cleared = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     expect(cleared.simulations).toEqual([]);
     expect(cleared.draft.scenario).toBe('base');
-    expect(cleared.draft.inputs.profile.storeType).toBe('nova');
+    expect(cleared.draft.inputs.profile.storeType).toBe('existente');
+    expect(cleared.draft.inputs.profile.monthlyRevenue).toBe(2_000_000);
+    expect(cleared.draft.inputs.meta.storeName).toBe('Loja de R$ 2 milhões/mês');
     act(() => root.unmount());
   });
 
@@ -146,6 +175,9 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="new-simulation"]')?.click();
     });
     expect(host.querySelector('[data-testid="wizard"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="wizard-suggested-size"]')?.textContent).toContain('loja de R$ 2 milhões');
+    const existente = [...host.querySelectorAll('[role="radio"]')].find((node) => node.textContent?.includes('Loja existente'));
+    expect(existente?.getAttribute('aria-checked')).toBe('true');
     expect(host.querySelector('#wizard-title')?.textContent).toBe('A loja');
     expect(host.textContent).toContain(`Passo 1 de ${WIZARD_STEPS.length}`);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').draft.section).toBe('wizard');
@@ -183,10 +215,11 @@ describe('aplicação', () => {
     });
     expect(host.querySelector('[data-testid="wizard"]')).toBeNull();
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 945.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.396');
-    expect(text('[data-testid="kpi-payback"]')).toContain('51,4');
-    expect(text('[data-testid="kpi-roi"]')).toBe('23,4%');
+    const opening = evaluate(defaultStorePreset().inputs);
+    expect(text('[data-testid="kpi-investment"]')).toContain(plainMoney(opening.netInvestment));
+    expect(text('[data-testid="kpi-net"]')).toContain(plainMoney(opening.steadyNet));
+    expect(text('[data-testid="kpi-payback"]')).toContain(formatPayback(opening.payback));
+    expect(text('[data-testid="kpi-roi"]')).toBe(formatPercent(opening.roi));
     act(() => root.unmount());
   });
 
@@ -284,8 +317,9 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    expect(saved.draft.adjustAnchor.robot.capex.equipment).toBe(1_000_000);
-    expect(saved.draft.inputs.robot.capex.equipment).toBe(1_050_000);
+    const equipment = defaultStorePreset().inputs.robot.capex.equipment;
+    expect(saved.draft.adjustAnchor.robot.capex.equipment).toBe(equipment);
+    expect(saved.draft.inputs.robot.capex.equipment).toBe(equipment * 1.05);
     act(() => root.unmount());
 
     const next = document.createElement('div');
@@ -295,11 +329,12 @@ describe('aplicação', () => {
       restored.render(<App />);
     });
     const text = (selector: string) => next.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 992.250');
+    const opening = evaluate(defaultStorePreset().inputs);
+    expect(text('[data-testid="kpi-investment"]')).toContain(plainMoney(opening.netInvestment * 1.05));
     await act(async () => {
       next.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
-    expect(text('[data-testid="kpi-investment"]')).toContain('R$ 945.000');
+    expect(text('[data-testid="kpi-investment"]')).toContain(plainMoney(opening.netInvestment));
     act(() => restored.unmount());
   });
 
@@ -381,13 +416,13 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-1m"]')?.click();
     });
     expect(host.querySelector('[data-testid="preset-confirm"]')).not.toBeNull();
-    expect(host.querySelector('h1')?.textContent).toBe('Farmácia Aurora — Unidade Centro');
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 2 milhões/mês');
 
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="preset-cancel"]')?.click();
     });
     expect(host.querySelector('[data-testid="preset-confirm"]')).toBeNull();
-    expect(host.querySelector('h1')?.textContent).toBe('Farmácia Aurora — Unidade Centro');
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 2 milhões/mês');
 
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[data-testid="preset-loja-1m"]')?.click();
@@ -399,7 +434,7 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="store-zero-futureHires"]')).toBeNull();
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     expect(saved.simulations).toHaveLength(1);
-    expect(saved.simulations[0].inputs.meta.storeName).toBe('Farmácia Aurora — Unidade Centro');
+    expect(saved.simulations[0].inputs.meta.storeName).toBe('Loja de R$ 2 milhões/mês');
 
     const pessoas = [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Pessoas') as HTMLButtonElement;
     await act(async () => {
@@ -596,7 +631,7 @@ describe('aplicação', () => {
     const rolesBefore = host.querySelectorAll('[data-testid^="remove-role-"]').length;
     expect(rolesBefore).toBeGreaterThan(1);
     await act(async () => {
-      host.querySelector<HTMLButtonElement>('[data-testid="remove-role-auxiliar"]')?.click();
+      host.querySelector<HTMLButtonElement>('[data-testid="remove-role-aux"]')?.click();
     });
     expect(host.querySelectorAll('[data-testid^="remove-role-"]')).toHaveLength(rolesBefore - 1);
     expect(host.textContent).not.toContain('Auxiliar de farmácia');
@@ -652,6 +687,10 @@ describe('aplicação', () => {
     act(() => root.unmount());
   });
 });
+
+function plainMoney(value: number) {
+  return formatBRL(value).replace(/\u00a0/g, ' ');
+}
 
 function setViewport(width: number, height = 800) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({

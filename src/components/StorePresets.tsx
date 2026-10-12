@@ -2,22 +2,32 @@ import { evaluate } from '../model/calculate';
 import { formatBRL, formatPayback, formatPercent } from '../model/format';
 import { storePresets, type StorePreset } from '../model/presets';
 
-export function StoreSizePicker({ onLoad }: { onLoad: (preset: StorePreset) => void }) {
+export function StoreSizePicker({
+  onLoad,
+  selectedName,
+}: {
+  onLoad: (preset: StorePreset) => void;
+  selectedName?: string;
+}) {
   const presets = storePresets();
   return (
     <div className="store-size" data-testid="store-presets" role="group" aria-label="Porte da loja">
       <span className="store-size-label">Porte da loja</span>
-      {presets.map((preset) => (
-        <button
-          key={preset.id}
-          type="button"
-          className="btn"
-          data-testid={`preset-${preset.id}`}
-          onClick={() => onLoad(preset)}
-        >
-          {preset.name.replace('Loja de ', '')}
-        </button>
-      ))}
+      {presets.map((preset) => {
+        const selected = preset.name === selectedName;
+        return (
+          <button
+            key={preset.id}
+            type="button"
+            className={selected ? 'btn is-active' : 'btn'}
+            aria-pressed={selected}
+            data-testid={`preset-${preset.id}`}
+            onClick={() => onLoad(preset)}
+          >
+            {preset.name.replace('Loja de ', '')}
+          </button>
+        );
+      })}
     </div>
   );
 }

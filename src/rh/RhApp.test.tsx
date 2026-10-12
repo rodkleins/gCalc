@@ -2,11 +2,12 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
+import { evaluate } from '../model/calculate';
 import { formatPayback } from '../model/format';
-import { rhExample, rhScorecard } from './presets';
+import { rhDefaultPreset, rhExample, rhScorecard } from './presets';
 import RhApp from './RhApp';
 import { RhCalculosPage } from './calculos/RhCalculosPage';
-import { RH_STORAGE_KEY } from './storage';
+import { RH_KIND, RH_STORAGE_KEY, RH_STORAGE_VERSION, writeRhSession } from './storage';
 import { STORAGE_KEY } from '../model/storage';
 
 class ResizeObserverStub {
@@ -41,8 +42,11 @@ describe('versão em validação', () => {
     expect(host.querySelector('[data-testid="roster-strip"]')).toBeNull();
     expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
     expect(host.querySelector('[data-testid="shift-count"]')).toBeNull();
+    const opening = rhScorecard().find((row) => row.id === 'loja-2m');
+    expect(host.querySelector('h1')?.textContent).toBe('Loja de R$ 2 milhões/mês');
+    expect(host.querySelector('[data-testid="preset-loja-2m"]')?.getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toContain(
-      formatPayback(rhScorecard()[0].cells[1].payback),
+      formatPayback(opening?.cells[1].payback ?? null),
     );
     expect(localStorage.getItem(RH_STORAGE_KEY)).toContain('gcalc-rh');
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
@@ -51,7 +55,7 @@ describe('versão em validação', () => {
     await act(async () => {
       pessoas?.closest('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(host.querySelector('[data-testid="roster-avoided"]')?.textContent).toContain('1 no turno 1');
+    expect(host.querySelector('[data-testid="roster-avoided"]')?.textContent).toContain('2 no turno 1');
     expect(host.querySelector('[data-testid="roster-summary"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="shift-count-2"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="night-premium"]')).not.toBeNull();
@@ -68,6 +72,40 @@ describe('versão em validação', () => {
     expect(host.querySelector('[data-testid="roster-summary"]')).toBeNull();
     expect(host.querySelector('[data-testid="shift-count"]')).toBeNull();
     expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('não substitui uma sessão de RH já salva pela loja de R$ 2 milhões', async () => {
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+    const saved = rhExample();
+    saved.inputs.meta.storeName = 'Quadro Salvo';
+    writeRhSession(localStorage, {
+      kind: RH_KIND,
+      version: RH_STORAGE_VERSION,
+      draft: {
+        inputs: saved.inputs,
+        roster: saved.roster,
+        scenario: 'otimista',
+        section: 'dashboard',
+        wizardStep: 0,
+        adjustAnchor: saved.inputs,
+      },
+      simulations: [],
+    });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => {
+      root?.render(<RhApp />);
+    });
+    expect(host.querySelector('h1')?.textContent).toBe('Quadro Salvo');
+    expect(host.querySelector('[aria-label="Cenário"] .is-active')?.textContent).toBe('Otimista');
+    expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toContain(
+      formatPayback(evaluate(saved.inputs, { scenario: 'otimista' }).payback),
+    );
+    expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).not.toContain(
+      formatPayback(rhDefaultPreset() ? rhScorecard().find((row) => row.id === 'loja-2m')?.cells[1].payback ?? null : null),
+    );
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
@@ -317,6 +355,7 @@ describe('página de cálculos desta versão', () => {
     });
     const text = host.textContent ?? '';
     expect(text).toContain('Versão em validação');
+    expect(text).toContain('abre na loja de R$ 2 milhões');
     expect(text).toContain('1,2943');
     expect(text).toContain('2,2188');
     expect(text).not.toContain('6,6063');

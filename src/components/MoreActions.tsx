@@ -126,7 +126,7 @@ export function MoreActions({
                   close();
                 }}
               >
-                Restaurar exemplo
+                Restaurar loja de R$ 2 milhões
               </button>
               <button
                 type="button"

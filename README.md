@@ -2,11 +2,11 @@
 
 Aplicação web para estimar a viabilidade de um robô Gollmann de armazenagem e dispensação em farmácias. Compara a operação **sem robô** e **com robô** ao longo de 60 meses, no navegador, sem backend.
 
-Os valores iniciais são um **exemplo fictício**. Não são parâmetros oficiais da Gollmann nem resultado de uma loja real.
+Quem abre a calculadora pela primeira vez, sem simulação salva neste navegador, cai na **loja fictícia de R$ 2 milhões por mês**. Quem já tem simulação salva continua nela. Esses números não são parâmetros oficiais da Gollmann nem resultado de uma loja real.
 
-## Exemplo que a ferramenta reproduz
+## Exemplo que a página de cálculos audita
 
-No cenário **base**, loja **nova**, com as premissas ilustrativas carregadas ao abrir:
+No cenário **base**, loja **nova**, o exemplo de auditoria (página de cálculos) — não o modelo que abre a calculadora:
 
 | Indicador | Valor |
 | --- | --- |
@@ -47,13 +47,13 @@ O preview local também abre na raiz do servidor.
 
 ## Como usar numa visita
 
-1. A aplicação abre no exemplo fictício. O aviso âmbar deixa isso explícito.
+1. Sem simulação salva, a aplicação abre na loja fictícia de R$ 2 milhões por mês, cenário base. O aviso âmbar deixa claro que os números são fictícios. Quem já salvou uma simulação neste navegador continua nela.
 2. Percorra os módulos: perfil, pessoas, logística, estoque e investimento. Cada benefício pode ser ligado ou desligado.
 3. Troque o cenário (conservador, base, otimista) e o tipo de loja (nova ou existente) no topo. O dashboard recalcula na hora.
 4. Use **Resultados**, o último item do menu, para payback, ROI, VPL, TIR, gráficos e a comparação entre os dois tipos de loja. Os gráficos abrem a página, antes das tabelas e do texto. Cada premissa exibida — investimento, OPEX, taxa de desconto e cada benefício que entrou no caixa — abre o campo correspondente, já focado. O painel **Ajuste rápido** varia investimento do robô, OPEX, salários, turnover, volume, vendas e taxa de desconto. O cabeçalho recolhe e expande as premissas, e o navegador lembra essa escolha. O slider e os botões vão de −100% a +30% do valor original; o número aceita zero e qualquer valor acima disso. O chip verde mostra a variação de payback, ROI, VPL e TIR, e **Desfazer ajuste** volta ao original. Investimento zero deixa a TIR indefinida e o payback imediato. O ajuste fica neste navegador.
 5. Use **Sensibilidade** para variar investimento, mão de obra, turnover, vendas e volume.
 6. Use **Fluxo** para os 60 meses e **Auditoria** para ver o que entrou no caixa e o que ficou de fora.
-7. **Nova simulação** abre o assistente: tipo de loja e cenário, depois uma tela curta por tema, com valores sugeridos, validação e resumo antes do dashboard. **Pular** segue sem validar. **Ir para o modo completo** abre os módulos. **Assistente** volta ao preenchimento guiado. **Restaurar exemplo** volta ao caso do escopo. **Limpar dados salvos** apaga o rascunho e as simulações nomeadas deste navegador.
+7. **Nova simulação** abre o assistente: tipo de loja e cenário, depois uma tela curta por tema, com a loja de R$ 2 milhões já sugerida, validação e resumo antes do dashboard. **Pular** segue sem validar. **Ir para o modo completo** abre os módulos. **Assistente** volta ao preenchimento guiado. **Restaurar loja de R$ 2 milhões** volta a esse modelo. **Limpar dados salvos** apaga o rascunho e as simulações nomeadas deste navegador e reabre a mesma loja.
 8. Tudo que você edita — premissas, cenário, tipo de loja, benefícios ligados ou desligados, o módulo aberto e o passo do assistente — é gravado automaticamente. Os dados ficam só neste navegador.
 9. Em **Simulações**, dê um nome para guardar cliente, loja e cenário. Dá para listar, carregar, duplicar, renomear, excluir e comparar duas simulações pelos indicadores principais. A mesma tela exporta e importa JSON. O seletor de porte (R$ 1, 2 e 4 milhões) fica no topo em qualquer tela. Carregar um modelo pede confirmação e oferece salvar a simulação atual antes de substituir.
 
@@ -127,7 +127,7 @@ Vite, React e TypeScript. Gráficos com Recharts. Testes com Vitest. Não há se
 
 [https://gcalc.t2software.co/rh/](https://gcalc.t2software.co/rh/) é uma cópia da calculadora com quadro de gente por turno. A raiz, `/headtohead/` e `/calculos/` seguem iguais até essa versão ser promovida.
 
-A sessão fica em `gcalc.rh.library.v1`. Ela não lê nem grava `gcalc.library.v2`. A tela avisa “Versão em validação” e aponta de volta para a calculadora atual. O detalhe das fórmulas e a tabela dos modelos estão em [docs/RH_QUADRO.md](docs/RH_QUADRO.md) e em [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/).
+A sessão fica em `gcalc.rh.library.v1`. Ela não lê nem grava `gcalc.library.v2`. Sem simulação salva, essa versão também abre na loja de R$ 2 milhões, com o quadro de 2 turnos e 2 balcões. A tela avisa “Versão em validação” e aponta de volta para a calculadora atual. O detalhe das fórmulas e a tabela dos modelos estão em [docs/RH_QUADRO.md](docs/RH_QUADRO.md) e em [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/).
 
 ## Rascunho head-to-head
 

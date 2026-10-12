@@ -4,7 +4,7 @@ Endereço: [https://gcalc.t2software.co/rh/](https://gcalc.t2software.co/rh/).
 
 Os cálculos desta versão: [https://gcalc.t2software.co/rh/calculos/](https://gcalc.t2software.co/rh/calculos/).
 
-A calculadora em [https://gcalc.t2software.co/](https://gcalc.t2software.co/), a comparação em [/headtohead/](https://gcalc.t2software.co/headtohead/) e a página [/calculos/](https://gcalc.t2software.co/calculos/) não usam este quadro. A sessão fica em `gcalc.rh.library.v1` e não mexe em `gcalc.library.v2`, `gcalc.inputs.v1` nem `gcalc.headtohead.v1`.
+A calculadora em [https://gcalc.t2software.co/](https://gcalc.t2software.co/), a comparação em [/headtohead/](https://gcalc.t2software.co/headtohead/) e a página [/calculos/](https://gcalc.t2software.co/calculos/) não usam este quadro. A sessão fica em `gcalc.rh.library.v1` e não mexe em `gcalc.library.v2`, `gcalc.inputs.v1` nem `gcalc.headtohead.v1`. Sem simulação salva, esta versão abre na loja de R$ 2 milhões (2 turnos e 2 balcões). O exemplo de 2 turnos e 1 balcão continua na página de cálculos, como referência.
 
 ## Conta do folguista
 

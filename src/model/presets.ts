@@ -255,3 +255,10 @@ export function storePresets(): StorePreset[] {
     inputs: fromShape(shape),
   }));
 }
+
+/** Porte que a calculadora abre quando não há simulação salva neste navegador. */
+export function defaultStorePreset(): StorePreset {
+  const preset = storePresets().find((item) => item.id === 'loja-2m');
+  if (!preset) throw new Error('Loja de R$ 2 milhões ausente.');
+  return preset;
+}

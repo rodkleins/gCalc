@@ -19,12 +19,12 @@ import { reanchor, sectionForField } from '../model/premises';
 import { createId, defaultSimulationName, type SectionId } from '../model/storage';
 import { NARROW_VIEWPORT_QUERY, readUiFlag, writeUiFlag } from '../model/uiChrome';
 import type { Inputs, ScenarioId } from '../model/types';
-import { wizardSeed } from '../model/wizard';
+import { blankWizardIdentity } from '../model/wizard';
 import { RhPresetPanel, RhStorePicker } from './RhPresets';
 import { RhPageNav, RhValidationNotice } from './RhPageNav';
 import { RosterForm } from './RosterForm';
 import { RosterPrint } from './RosterPrint';
-import { exampleRoster, rhExample, rhStorePresets, type RhPreset } from './presets';
+import { rhDefaultPreset, rhStorePresets, type RhPreset } from './presets';
 import { applyRoster, type Roster } from './roster';
 import {
   RH_KIND,
@@ -97,10 +97,10 @@ function boot(initial?: { inputs: Inputs; roster: Roster }): BootState {
     };
   }
   const loaded = readRhSession(localStorage);
-  const fallback = rhExample();
+  const fallback = rhDefaultPreset();
   const draft = loaded.draft ?? {
-    inputs: fallback.inputs,
-    roster: fallback.roster,
+    inputs: structuredClone(fallback.inputs),
+    roster: structuredClone(fallback.roster),
     scenario: 'base' as const,
     section: 'dashboard' as const,
     wizardStep: 0,
@@ -227,29 +227,33 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
   }
 
   function restoreExample() {
-    const example = rhExample();
-    setRoster(example.roster);
-    resetDraft(example.inputs);
+    const model = rhDefaultPreset();
+    const rosterNext = structuredClone(model.roster);
+    const inputsNext = structuredClone(model.inputs);
+    setRoster(rosterNext);
+    resetDraft(inputsNext);
     setScenario('base');
     setSection('dashboard');
     setWizardStep(0);
     setActiveId(null);
-    setDraftName(defaultSimulationName(example.inputs, 'base'));
-    setStatus('Exemplo fictício desta versão restaurado. As simulações nomeadas continuam neste navegador.');
+    setDraftName(defaultSimulationName(inputsNext, 'base'));
+    setStatus('Loja de R$ 2 milhões restaurada. As simulações nomeadas continuam neste navegador.');
   }
 
   function clearSaved() {
     clearRhSession(localStorage);
-    const example = rhExample();
-    setRoster(example.roster);
-    resetDraft(example.inputs);
+    const model = rhDefaultPreset();
+    const rosterNext = structuredClone(model.roster);
+    const inputsNext = structuredClone(model.inputs);
+    setRoster(rosterNext);
+    resetDraft(inputsNext);
     setScenario('base');
     setSection('dashboard');
     setWizardStep(0);
     setSimulations([]);
     setActiveId(null);
-    setDraftName(defaultSimulationName(example.inputs, 'base'));
-    setStatus('Dados desta versão apagados deste navegador. A calculadora atual não foi alterada.');
+    setDraftName(defaultSimulationName(inputsNext, 'base'));
+    setStatus('Dados desta versão apagados deste navegador. A tela voltou para a loja de R$ 2 milhões. A calculadora atual não foi alterada.');
   }
 
   function saveNamed() {
@@ -449,7 +453,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           <div>
             <p className="eyebrow">
               {storeLabel(inputs.profile.storeType)} · {scenarioLabel(scenario)}
-              {inputs.fictional ? ' · exemplo fictício' : ''}
+              {inputs.fictional ? ' · dados fictícios' : ''}
             </p>
             <h1>{inputs.meta.storeName || 'Simulação de ROI'}</h1>
             <p className="sub">{inputs.meta.clientName || 'Farmácia'} · quadro de RH por turno</p>
@@ -488,15 +492,17 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
               className="btn primary"
               data-testid="new-simulation"
               onClick={() => {
-                const seed = applyRoster(wizardSeed(), exampleRoster());
-                setRoster(exampleRoster());
+                const model = rhDefaultPreset();
+                const rosterNext = structuredClone(model.roster);
+                const seed = applyRoster(blankWizardIdentity(model.inputs), rosterNext);
+                setRoster(rosterNext);
                 resetDraft(seed);
                 setScenario('base');
                 setSection('wizard');
                 setWizardStep(0);
                 setActiveId(null);
                 setDraftName(defaultSimulationName(seed, 'base'));
-                setStatus('Assistente aberto com o quadro sugerido. Troque pelos dados da loja.');
+                setStatus('Assistente aberto na loja de R$ 2 milhões, com dois balcões. Troque pelos dados da loja.');
               }}
             >
               Nova simulação
@@ -538,7 +544,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
             />
           </div>
         </div>
-        <RhStorePicker presets={presets} onLoad={setPendingPreset} />
+        <RhStorePicker presets={presets} onLoad={setPendingPreset} selectedName={inputs.meta.storeName} />
         {importWarnings.length > 0 ? (
           <div className="callout warn" data-testid="rh-import-warnings">
             <strong>O JSON importado tem inconsistências.</strong>

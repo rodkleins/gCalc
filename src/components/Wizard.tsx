@@ -159,6 +159,11 @@ function StartStep({
 }) {
   return (
     <div className="stack">
+      {inputs.profile.monthlyRevenue === 2_000_000 ? (
+        <p className="lede" data-testid="wizard-suggested-size">
+          Porte sugerido: loja de R$ 2 milhões por mês. Os números seguintes partem desse modelo.
+        </p>
+      ) : null}
       <div className="form-grid">
         <TextField
           label="Cliente"

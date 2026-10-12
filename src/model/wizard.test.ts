@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from './calculate';
-import { exampleInputs } from './example';
+import { defaultStorePreset } from './presets';
 import { normalizeWizardStep, validateWizardStep, wizardSeed, withOtherCapex, withTotalOpex, WIZARD_STEPS } from './wizard';
 
 describe('assistente', () => {
@@ -16,16 +16,21 @@ describe('assistente', () => {
     ]);
   });
 
-  it('parte das sugestões do exemplo, com a loja ainda sem nome', () => {
+  it('parte da loja de R$ 2 milhões, com a loja ainda sem nome', () => {
     const seed = wizardSeed();
+    const model = defaultStorePreset().inputs;
+    const modelResult = evaluate(model);
     expect(seed.meta.storeName).toBe('');
     expect(seed.fictional).toBe(true);
-    expect(seed.people.payroll.positionsReduced).toBe(exampleInputs().people.payroll.positionsReduced);
+    expect(seed.profile.monthlyRevenue).toBe(2_000_000);
+    expect(seed.profile.storeType).toBe('existente');
+    expect(seed.people.payroll.positionsReduced).toBe(6);
+    expect(seed.robot.capex.equipment).toBe(model.robot.capex.equipment);
     const result = evaluate(seed);
-    expect(result.netInvestment).toBe(945_000);
-    expect(result.steadyNet).toBe(18_396);
-    expect(result.payback).toBeCloseTo(945_000 / 18_396, 6);
-    expect(result.roi).toBeCloseTo(220_752 / 945_000, 8);
+    expect(result.netInvestment).toBe(modelResult.netInvestment);
+    expect(result.steadyNet).toBe(modelResult.steadyNet);
+    expect(result.payback).toBe(modelResult.payback);
+    expect(result.roi).toBe(modelResult.roi);
   });
 
   it('pede o nome da loja e aceita o restante sugerido', () => {
@@ -65,15 +70,15 @@ describe('assistente', () => {
     expect(normalizeWizardStep('2')).toBe(0);
 
     const inputs = withTotalOpex(withOtherCapex(wizardSeed(), 235_000), 5_000);
-    expect(inputs.robot.capex.equipment).toBe(1_000_000);
+    expect(inputs.robot.capex.equipment).toBe(1_350_000);
     expect(inputs.robot.capex.implementationContingency).toBe(235_000);
     expect(inputs.robot.capex.freightImportTaxes).toBe(0);
     expect(inputs.robot.opexMonthly.maintenance).toBe(5_000);
     expect(inputs.robot.opexMonthly.other).toBe(wizardSeed().robot.opexMonthly.other);
     expect(inputs.robot.energy.powerKw).toBe(wizardSeed().robot.energy.powerKw);
     const result = evaluate(inputs);
-    expect(result.netInvestment).toBe(945_000);
+    expect(result.netInvestment).toBe(1_247_500);
     expect(result.monthlyOpex).toBe(6_604);
-    expect(result.steadyNet).toBe(18_896);
+    expect(result.steadyNet).toBe(50_116);
   });
 });

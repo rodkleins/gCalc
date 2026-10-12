@@ -1,4 +1,4 @@
-import { exampleInputs } from './example';
+import { defaultStorePreset } from './presets';
 import { informedMonthlyRobotCost } from './robotCost';
 import type { Inputs } from './types';
 
@@ -55,16 +55,20 @@ export function normalizeWizardStep(value: unknown): number {
   return value;
 }
 
+export function blankWizardIdentity(inputs: Inputs): Inputs {
+  const next = structuredClone(inputs);
+  next.fictional = true;
+  next.meta.clientName = '';
+  next.meta.storeName = '';
+  next.meta.preparedBy = '';
+  next.meta.owner = '';
+  next.meta.source = 'Sugestões editáveis do assistente. Não são parâmetros oficiais.';
+  next.meta.notes = 'Números sugeridos a partir da loja fictícia de R$ 2 milhões por mês. Troque pelos dados da loja.';
+  return next;
+}
+
 export function wizardSeed(): Inputs {
-  const inputs = exampleInputs();
-  inputs.fictional = true;
-  inputs.meta.clientName = '';
-  inputs.meta.storeName = '';
-  inputs.meta.preparedBy = '';
-  inputs.meta.owner = '';
-  inputs.meta.source = 'Sugestões editáveis do assistente. Não são parâmetros oficiais.';
-  inputs.meta.notes = 'Números sugeridos a partir do exemplo fictício do escopo. Troque pelos dados da loja.';
-  return inputs;
+  return blankWizardIdentity(defaultStorePreset().inputs);
 }
 
 export function otherCapex(inputs: Inputs): number {

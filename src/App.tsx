@@ -18,7 +18,6 @@ import { StockForm } from './components/StockForm';
 import { StoreSizePicker } from './components/StorePresets';
 import { Wizard } from './components/Wizard';
 import { evaluate } from './model/calculate';
-import { exampleInputs } from './model/example';
 import { formatBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from './model/format';
 import {
   STORAGE_VERSION,
@@ -38,7 +37,7 @@ import {
 import { reanchor, sectionForField } from './model/premises';
 import type { Inputs, ScenarioId } from './model/types';
 import { wizardSeed } from './model/wizard';
-import type { StorePreset } from './model/presets';
+import { defaultStorePreset, type StorePreset } from './model/presets';
 import {
   NARROW_VIEWPORT_QUERY,
   RAIL_COLLAPSED_KEY,
@@ -111,7 +110,7 @@ function boot(initialInputs?: Inputs): BootState {
     };
   }
   const loaded = readSession(localStorage);
-  const fallbackInputs = exampleInputs();
+  const fallbackInputs = structuredClone(defaultStorePreset().inputs);
   const draft = loaded.draft ?? {
     inputs: fallbackInputs,
     scenario: 'base' as const,
@@ -230,27 +229,27 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   }
 
   function restoreExample() {
-    const example = exampleInputs();
-    resetDraft(example);
+    const model = structuredClone(defaultStorePreset().inputs);
+    resetDraft(model);
     setScenario('base');
     setSection('dashboard');
     setWizardStep(0);
     setActiveId(null);
-    setDraftName(defaultSimulationName(example, 'base'));
-    setStatus('Exemplo fictício restaurado. As simulações nomeadas continuam neste navegador.');
+    setDraftName(defaultSimulationName(model, 'base'));
+    setStatus('Loja de R$ 2 milhões restaurada. As simulações nomeadas continuam neste navegador.');
   }
 
   function clearSaved() {
     clearSession(localStorage);
-    const example = exampleInputs();
-    resetDraft(example);
+    const model = structuredClone(defaultStorePreset().inputs);
+    resetDraft(model);
     setScenario('base');
     setSection('dashboard');
     setWizardStep(0);
     setSimulations([]);
     setActiveId(null);
-    setDraftName(defaultSimulationName(example, 'base'));
-    setStatus('Dados salvos apagados deste navegador.');
+    setDraftName(defaultSimulationName(model, 'base'));
+    setStatus('Dados salvos apagados deste navegador. A tela voltou para a loja de R$ 2 milhões.');
   }
 
   function saveNamed() {
@@ -422,7 +421,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           <div>
             <p className="eyebrow">
               {storeLabel(inputs.profile.storeType)} · {scenarioLabel(scenario)}
-              {inputs.fictional ? ' · exemplo fictício' : ''}
+              {inputs.fictional ? ' · dados fictícios' : ''}
             </p>
             <h1>{inputs.meta.storeName || 'Simulação de ROI'}</h1>
             <p className="sub">{inputs.meta.clientName || 'Farmácia'} · robô de armazenagem e dispensação</p>
@@ -468,7 +467,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
                 setWizardStep(0);
                 setActiveId(null);
                 setDraftName(defaultSimulationName(seed, 'base'));
-                setStatus('Assistente aberto com valores sugeridos. Troque pelos dados da loja.');
+                setStatus('Assistente aberto na loja de R$ 2 milhões. Troque pelos dados da loja.');
               }}
             >
               Nova simulação
@@ -514,7 +513,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             <MoreActions onCopy={() => void copySummary()} onRestore={restoreExample} onClear={clearSaved} />
           </div>
         </div>
-        <StoreSizePicker onLoad={askPreset} />
+        <StoreSizePicker onLoad={askPreset} selectedName={inputs.meta.storeName} />
         {importWarnings.length > 0 ? (
           <div className="callout warn" data-testid="import-warnings">
             <strong>O JSON importado tem alertas do custo mensal.</strong>
