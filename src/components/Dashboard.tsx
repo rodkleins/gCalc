@@ -15,10 +15,11 @@ import {
 import { evaluate } from '../model/calculate';
 import { CalcMemory } from './CalcMemory';
 import { matchesIllustrativeExample } from '../model/example';
-import { formatBRL, formatCompactBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { formatBRL, formatCompactBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { fieldForAudit, type LeverId } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
 import { Callout, PercentField, StageNote, Switch } from './Fields';
+import { LaborReferenceNote } from './LaborReference';
 import { QuickAdjust } from './QuickAdjust';
 
 const SCENARIOS: ScenarioId[] = ['conservador', 'base', 'otimista'];
@@ -194,7 +195,7 @@ export function Dashboard({
               {formatBRL(result.recoverableTaxCredit)}
             </PremiseValue>
           </em>
-          <em data-testid="tax-credit-premise">Premissa a validar com o fiscal.</em>
+          <em data-testid="tax-credit-premise">Entra no mês 0. É comprovável.</em>
         </article>
         <article className="kpi">
           <span>Benefício líquido no mês 60</span>
@@ -285,7 +286,7 @@ export function Dashboard({
           <li>
             O investimento líquido é {formatBRL(result.netInvestment)}: o equipamento e a instalação, menos o que a loja
             deixa de comprar em prateleira, menos {formatBRL(result.recoverableTaxCredit)} de créditos recuperáveis de
-            impostos (IBS/CBS ou ICMS). Essa linha de crédito é premissa a validar com o fiscal.
+            impostos (IBS/CBS ou ICMS). Esse crédito entra no mês 0 e é comprovável.
           </li>
           <li>
             No mês estável a operação deixa {formatBRL(result.steadyBenefit)} e gasta {formatBRL(result.monthlyOpex)} para
@@ -302,6 +303,15 @@ export function Dashboard({
           <li>O preço do robô entra só uma vez. O custo mensal é manutenção e suporte, e não repete o valor do equipamento.</li>
         </ol>
         <CalcMemory inputs={inputs} result={result} ids={['investimento', 'fluxo', 'indicadores']} />
+      </section>
+
+      <section className="card" data-testid="vacancies-reference">
+        <h2>Vagas evitadas</h2>
+        <p className="lede">
+          No caixa: <strong>{formatNumber(inputs.people.payroll.positionsReduced, 2)}</strong> vagas. O benefício de
+          folha usa só este número.
+        </p>
+        <LaborReferenceNote inputs={inputs} />
       </section>
 
       <BenefitClasses result={result} />

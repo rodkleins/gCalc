@@ -95,7 +95,7 @@ export function InvestmentForm({
           />
         </div>
         <p className="lede" data-testid="tax-credit-amount">
-          {formatBRL(result.recoverableTaxCredit)} sobre o equipamento neste cenário. Premissa a validar.
+          {formatBRL(result.recoverableTaxCredit)} sobre o equipamento neste cenário. Entra no mês 0. É comprovável.
         </p>
       </section>
 

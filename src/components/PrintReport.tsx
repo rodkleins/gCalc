@@ -2,6 +2,7 @@ import { flushSync } from 'react-dom';
 import { useState, type ReactNode } from 'react';
 import { CalcMemoryPrint } from './CalcMemory';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { potentialGain } from '../model/potentialGain';
 import { energyConsumptionKwh, energyMonthlyCost, informedMonthlyRobotCost } from '../model/robotCost';
 import type { AuditLine, Inputs, ModelResult, ScenarioId } from '../model/types';
 import './print.css';
@@ -92,7 +93,7 @@ function parameterGroups(inputs: Inputs, scenario: ScenarioId): Array<{ title: s
         ['Equipamento', money(capex.equipment)],
         [
           'Créditos recuperáveis (IBS/CBS ou ICMS)',
-          `${formatPercent(inputs.robot.recoverableTaxCreditPct)} · ${money(Math.max(0, capex.equipment) * inputs.robot.recoverableTaxCreditPct)} · premissa a validar`,
+          `${formatPercent(inputs.robot.recoverableTaxCreditPct)} · ${money(Math.max(0, capex.equipment) * inputs.robot.recoverableTaxCreditPct)} · comprovável, entra no mês 0`,
         ],
         ['Frete e impostos', money(capex.freightImportTaxes)],
         ['Instalação e treinamento', money(capex.installationTraining)],
@@ -315,7 +316,7 @@ function BenefitCost({ result }: { result: ModelResult }) {
           </tr>
           <tr data-testid="print-tax-credit">
             <td>Créditos recuperáveis de impostos (IBS/CBS ou ICMS)</td>
-            <td>Premissa a validar</td>
+            <td>Comprovável, mês 0</td>
             <td className="num">{money(result.recoverableTaxCredit)}</td>
           </tr>
           <tr>
@@ -456,6 +457,46 @@ function Cashflow({ result }: { result: ModelResult }) {
   );
 }
 
+function PotentialGainSection({ inputs, result }: { inputs: Inputs; result: ModelResult }) {
+  const gain = potentialGain(inputs, result);
+  if (!gain) return null;
+  return (
+    <section data-testid="print-potential-gain">
+      <h2>Ganho potencial (não incluído)</h2>
+      <p className="print-note">
+        Estes itens estão fora do caixa. A soma e os indicadores abaixo são a leitura se eles entrassem. O resultado
+        oficial desta página não muda.
+      </p>
+      <table className="print-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th className="num">R$/mês</th>
+            <th className="num">Pontual</th>
+          </tr>
+        </thead>
+        <tbody>
+          {gain.lines.map((line) => (
+            <tr key={line.id}>
+              <td>{line.label}</td>
+              <td className="num">{line.monthly !== 0 ? money(line.monthly) : '—'}</td>
+              <td className="num">{line.oneTime !== 0 ? money(line.oneTime) : '—'}</td>
+            </tr>
+          ))}
+          <tr>
+            <td>Soma mensal</td>
+            <td className="num">{money(gain.monthlyTotal)}</td>
+            <td className="num">—</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="print-note">
+        Se esses ganhos entrassem: payback {formatPayback(gain.payback)}, ROI {formatPercent(gain.roi)}.
+      </p>
+    </section>
+  );
+}
+
 function ReportBody({
   inputs,
   result,
@@ -480,6 +521,7 @@ function ReportBody({
         <CashChart result={result} />
       </div>
       <BenefitCost result={result} />
+      <PotentialGainSection inputs={inputs} result={result} />
       <MainPremises inputs={inputs} scenario={scenario} />
       {kind === 'completo' ? (
         <>

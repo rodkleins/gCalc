@@ -15,7 +15,8 @@ import {
   type ScaleId,
   type ShiftCount,
 } from './roster';
-import type { StoreType } from '../model/types';
+import type { Inputs, StoreType } from '../model/types';
+import { LaborReferenceNote } from '../components/LaborReference';
 
 const SCALES: Array<{ value: ScaleId; label: string }> = [
   { value: '6x1', label: '6x1' },
@@ -168,10 +169,12 @@ function roleTotals(roster: Roster) {
 
 export function RosterForm({
   roster,
+  inputs,
   storeType,
   onChange,
 }: {
   roster: Roster;
+  inputs: Inputs;
   storeType: StoreType;
   onChange: (roster: Roster) => void;
 }) {
@@ -450,6 +453,7 @@ export function RosterForm({
           A contratação futura, no mês 13, soma {peopleLabel(summary.futureHired)} vagas e {formatBRL(summary.futurePayroll)} por mês
           {storeType === 'existente' ? '.' : ', e só passa a valer se a loja for existente.'}
         </p>
+        <LaborReferenceNote inputs={inputs} />
         <button
           type="button"
           className="btn"

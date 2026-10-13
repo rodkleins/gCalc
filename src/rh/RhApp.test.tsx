@@ -308,7 +308,7 @@ describe('ajuda dos campos', () => {
       if (label === 'Investimento') {
         const helps = [...host.querySelectorAll('[data-field-help]')].map((node) => node.getAttribute('data-field-help') ?? '');
         expect(helps.some((text) => text.includes('regime tributário') && text.includes('fiscal'))).toBe(true);
-        expect(host.textContent).toContain('Premissa a validar');
+        expect(host.textContent).toContain('Entra no mês 0');
       }
       if (label === 'Simulações') {
         const save = [...host.querySelectorAll('button')].find((button) => button.textContent === 'Salvar simulação');

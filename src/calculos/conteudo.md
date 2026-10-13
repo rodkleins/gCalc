@@ -202,6 +202,8 @@ Contratações futuras incluídas, só em loja existente: no maior entre o iníc
 
 Esses eventos não passam por captura, rampa nem fator de benefício do cenário. A folha mensal usa as vagas já limitadas ao quadro. O evento pontual de recrutamento e treinamento da folha usa as vagas informadas.
 
+Há uma referência de mão de obra que não entra no caixa. Ela usa 1 minuto fixo por unidade para receber, conferir, guardar e buscar para despachar. Não há campo para mudar esse minuto. A conta é dispensações por dia × 30 × 1 minuto, em horas por mês. As pessoas equivalentes dividem essas horas pela jornada já usada no modelo (176 horas por pessoa no padrão). A mesma conta também aparece com a cobertura de folguista da escala 6x1, fator 1,2943 (30 dias de férias e 6 faltas). Na loja de R$ 2 milhões, 1.700 dispensações por dia viram 850 horas/mês, 4,83 pessoas na jornada e 6,25 pessoas com folguista. O número fica ao lado das vagas evitadas, na aba Pessoas e em Resultados, e também na memória do cálculo. Ele não soma ao benefício e não muda o payback.
+
 ### 3.3 Logística, caixas, prateleiras e espaço
 
 ```
@@ -313,7 +315,7 @@ investimento evitado = valor das prateleiras evitadas ou liberadas, em qualquer 
                      + investimento imobiliário, em loja nova, se essa for a tese e o valor entrar
 crédito de impostos = equipamento × percentual × multiplicador, arredondado em centavos
                       percentual padrão de 25%, editável de 0% a 100%, sobre o preço de compra do equipamento
-                      premissa a validar com o fiscal: depende do regime (IBS/CBS ou ICMS)
+                      comprovável: entra sempre no mês 0 e não fica no grupo de ganhos potenciais
 investimento líquido = bruto − evitado − crédito, arredondado em centavos
 as parcelas do cronograma são ajustadas para somar 100%
 caixa na data zero = zero se o líquido é zero
@@ -447,7 +449,7 @@ Casos extremos:
 | Recrutamento e treinamento das vagas da folha | Entram, se não bloqueados | Não entram |
 | Recrutamento e treinamento de contratações futuras | Entram | Entram |
 | Investimento imobiliário evitado | Abate o investimento, se essa for a tese | Não entra |
-| Créditos recuperáveis (IBS/CBS ou ICMS) | Abatem o investimento no mês 0. Premissa a validar | Abatem o investimento no mês 0. Premissa a validar |
+| Créditos recuperáveis (IBS/CBS ou ICMS) | Abatem o investimento no mês 0. Comprovável | Abatem o investimento no mês 0. Comprovável |
 
 O fator de benefício multiplica os benefícios recorrentes. O fator de vendas multiplica só as alavancas de venda, além do fator de benefício. No conservador a venda fica com 0,80 × 0,60 = 0,48 do valor base. O fator do custo mensal multiplica suporte, outros custos e a energia calculada. O fator do investimento multiplica o bruto, o evitado, o crédito sobre o equipamento e o valor residual. O percentual do crédito não muda com o cenário; o valor em reais acompanha o equipamento.
 
@@ -513,7 +515,7 @@ Vendas não movem o exemplo porque nenhuma margem de venda entra no fluxo. Desco
 
 ## 10. Exemplo numérico ilustrativo
 
-Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto sobre o resultado, rede desligada, capturas em 1, encargos e benefícios zero. Obras, elétrica e rede continuam R$ 50.000. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500. A energia é calculada (2,5 quilowatts, 16 horas por dia, 30 dias, R$ 1,17 por quilowatt-hora) e os outros custos são R$ 200. O crédito recuperável de impostos parte de 25% do equipamento e é premissa a validar com o fiscal. Avarias ficam fora do caixa. O piso do equipamento não foi compensado com benefício novo.
+Cenário base, loja nova, dados fictícios. Curvas em 100%, sem inflação, sem imposto sobre o resultado, rede desligada, capturas em 1, encargos e benefícios zero. Obras, elétrica e rede continuam R$ 50.000. O equipamento da configuração base é R$ 1.000.000. O suporte pago à fornecedora é R$ 5.500. A energia é calculada (2,5 quilowatts, 16 horas por dia, 30 dias, R$ 1,17 por quilowatt-hora) e os outros custos são R$ 200. O crédito recuperável de impostos parte de 25% do equipamento, entra no mês 0 e é comprovável. Avarias ficam fora do caixa. O piso do equipamento não foi compensado com benefício novo.
 
 Quadro de 12 pessoas, 3 vagas evitadas, jornada de 176 horas. Horas reivindicadas no exemplo somam 70 (supervisão 20, movimentação 20, inventário 10 e venda consultiva 20, esta última fora do caixa), abaixo das 1.584 horas de quem permanece, então as horas entram inteiras.
 

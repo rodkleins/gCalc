@@ -1602,9 +1602,8 @@ function buildAudit(ctx: {
       kind: 'pontual',
       gate: {
         included: ctx.taxCredit !== 0,
-        confidence: 'potencial',
-        reason:
-          'Premissa a validar. O crédito depende do regime tributário da rede e deve ser validado com o fiscal.',
+        confidence: 'comprovavel',
+        reason: 'Entra no mês 0 e abate o investimento líquido. Não é benefício mensal.',
       },
       monthlyValue: 0,
       oneTimeValue: ctx.taxCredit,

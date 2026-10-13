@@ -67,7 +67,8 @@ describe('relatório de impressão', () => {
     expect(sheet?.textContent).toContain('Payback');
     expect(sheet?.textContent).toContain('50,3 meses');
     expect(host.querySelector('[data-testid="print-calc-memory"]')).toBeNull();
-    expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('Premissa a validar');
+    expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('Comprovável, mês 0');
+    expect(host.querySelector('[data-testid="print-potential-gain"]')).toBeNull();
     expect(host.querySelector('[data-testid="print-tax-credit"]')?.textContent).toContain('250.000');
     expect(host.querySelector('[data-testid="print-main-premises"]')?.textContent).toContain('Créditos recuperáveis');
     expect(host.querySelector('[data-testid="print-chart-cash"] svg')).not.toBeNull();
@@ -104,6 +105,43 @@ describe('relatório de impressão', () => {
     expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toMatch(/não considerado/i);
     expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Investimento líquido');
     expect(host.querySelector('[data-testid="print-sheet"] img')).toBeNull();
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Referência de mão de obra');
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Não soma às vagas evitadas');
+    expect(host.querySelector('[data-testid="print-potential-gain"]')).toBeNull();
+  });
+
+  it('mostra o ganho potencial no resumo e no completo quando há valor fora do caixa', async () => {
+    window.print = () => undefined;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    const inputs = exampleInputs();
+    inputs.logistics.boxes.enabled = true;
+    inputs.logistics.boxes.confidence = 'potencial';
+    inputs.logistics.boxes.processValidated = true;
+    inputs.logistics.boxes.cyclesAvoidedPerMonth = 400;
+    inputs.logistics.boxes.costPerCycle = 8;
+    const result = evaluate(inputs);
+    await act(async () => {
+      root?.render(<PrintReport inputs={inputs} result={result} scenario="base" edition="raiz" />);
+    });
+    for (const choice of ['print-choice-resumo', 'print-choice-completo']) {
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>('[data-testid="print-open"]')?.click();
+      });
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>(`[data-testid="${choice}"]`)?.click();
+      });
+      const section = host.querySelector('[data-testid="print-potential-gain"]');
+      expect(section?.textContent).toContain('Ganho potencial (não incluído)');
+      expect(section?.textContent).toContain('Caixas retornáveis');
+      expect(section?.textContent).toContain('Soma mensal');
+      expect(section?.textContent).toMatch(/payback/i);
+      expect(section?.textContent).toContain('ROI');
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>('[data-testid="print-close"]')?.click();
+      });
+    }
   });
 
   it('em /rh/, o completo inclui o quadro cargo x turno e o fluxo', async () => {

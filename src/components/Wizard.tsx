@@ -518,7 +518,7 @@ function InvestmentStep({ inputs, onInputs }: { inputs: Inputs; onInputs: (input
           testId="tax-credit-pct"
           label="Créditos recuperáveis de impostos (IBS/CBS ou ICMS)"
           help={RECOVERABLE_TAX_CREDIT_HELP}
-          hint={`${RECOVERABLE_TAX_CREDIT_HELP} ${formatBRL(robot.capex.equipment * robot.recoverableTaxCreditPct)} sobre o equipamento digitado. Premissa a validar.`}
+          hint={`${RECOVERABLE_TAX_CREDIT_HELP} ${formatBRL(robot.capex.equipment * robot.recoverableTaxCreditPct)} sobre o equipamento digitado. Entra no mês 0.`}
           value={robot.recoverableTaxCreditPct}
           onChange={(recoverableTaxCreditPct) =>
             onInputs({

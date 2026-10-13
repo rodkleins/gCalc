@@ -617,7 +617,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           ) : null}
           {section === 'pessoas' ? (
             <div className="stack">
-              <RosterForm roster={roster} storeType={inputs.profile.storeType} onChange={commitRoster} />
+              <RosterForm roster={roster} inputs={inputs} storeType={inputs.profile.storeType} onChange={commitRoster} />
               <TurnoverPanel inputs={inputs} result={result} onChange={commitInputs} />
             </div>
           ) : null}

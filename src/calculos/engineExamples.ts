@@ -88,7 +88,7 @@ export function engineExamplesHtml(): string {
   const indicatorRows: string[][] = [
     ['Investimento bruto', 'Soma dos itens de investimento', money(example.grossCapex)],
     ['Investimento evitado', 'O que deixou de ser gasto, nesta loja', money(example.avoidedCapex)],
-    ['Créditos recuperáveis', 'Premissa a validar com o fiscal. Abate o mês 0', money(example.recoverableTaxCredit)],
+    ['Créditos recuperáveis', 'Comprovável. Entra no mês 0', money(example.recoverableTaxCredit)],
     ['Investimento líquido', 'Bruto menos evitado menos crédito', money(example.netInvestment)],
     ['Benefício operacional anual', 'Benefício bruto do mês 60 vezes 12', money(example.indicators.annualOperatingBenefit)],
     ['Economia acumulada em 60 meses', 'Soma do benefício bruto no horizonte', money(example.indicators.accumulatedSavings)],

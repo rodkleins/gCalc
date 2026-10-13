@@ -86,8 +86,9 @@ describe('crédito recuperável de impostos', () => {
     const audit = base.audit.find((line) => line.id === 'taxCredit');
     expect(audit?.oneTimeValue).toBe(250_000);
     expect(audit?.includedInCashFlow).toBe(true);
-    expect(audit?.reason).toMatch(/Premissa a validar/);
-    expect(audit?.reason).toMatch(/fiscal/);
+    expect(audit?.confidence).toBe('comprovavel');
+    expect(audit?.reason).toMatch(/mês 0/);
+    expect(audit?.reason).not.toMatch(/potencial/i);
 
     const existing = cloneExample();
     existing.profile.storeType = 'existente';

@@ -1,4 +1,5 @@
-import { formatBRL, formatIrr, formatPayback, formatPercent } from './format';
+import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent } from './format';
+import { laborReference } from './laborReference';
 import { energyMonthlyCost, informedMonthlyRobotCost } from './robotCost';
 import type { AuditLine, Inputs, ModelResult } from './types';
 
@@ -60,7 +61,10 @@ export function calculationMemory(inputs: Inputs, result: ModelResult): MemoryBl
     pieces.length > 0
       ? `${pieces.map(([label, value]) => `${label} ${money(value)}`).join(' + ')} = ${money(result.grossCapex)}`
       : `Investimento bruto ${money(result.grossCapex)}`;
-  const creditText = `${money(Math.max(0, capex.equipment))} × ${formatPercent(inputs.robot.recoverableTaxCreditPct)} = ${money(result.recoverableTaxCredit)}. Premissa a validar com o fiscal.`;
+  const creditText = `${money(Math.max(0, capex.equipment))} × ${formatPercent(inputs.robot.recoverableTaxCreditPct)} = ${money(result.recoverableTaxCredit)}. Entra no mês 0. É comprovável e não fica entre os ganhos potenciais.`;
+  const labor = laborReference(inputs);
+  const laborDigits = Math.abs(labor.hoursPerMonth - Math.round(labor.hoursPerMonth)) < 0.05 ? 0 : 1;
+  const laborText = `${formatNumber(labor.dispensationsPerDay)} dispensações por dia × 30 × 1 min = ${formatNumber(labor.hoursPerMonth, laborDigits)} horas/mês, ${formatNumber(labor.people, 2)} pessoas na jornada de ${formatNumber(labor.journeyHoursPerMonth)} horas. Com folguista, ${formatNumber(labor.peopleWithCoverage, 2)} pessoas. Não soma às vagas evitadas.`;
   const shelfText = shelfCounts
     ? `${money(shelfValue)} abate o investimento no mês 0.`
     : shelfValue > 0
@@ -129,10 +133,17 @@ export function calculationMemory(inputs: Inputs, result: ModelResult): MemoryBl
     {
       id: 'beneficios',
       title: 'Benefícios mensais',
-      rows:
-        benefits.length > 0
+      rows: [
+        ...(benefits.length > 0
           ? benefits
-          : [{ id: 'none', label: 'Benefícios', text: 'Nenhum benefício mensal entrou neste cenário.', considered: true }],
+          : [{ id: 'none', label: 'Benefícios', text: 'Nenhum benefício mensal entrou neste cenário.', considered: true }]),
+        {
+          id: 'labor-reference',
+          label: 'Referência de mão de obra',
+          text: laborText,
+          considered: false,
+        },
+      ],
     },
     {
       id: 'custo',
