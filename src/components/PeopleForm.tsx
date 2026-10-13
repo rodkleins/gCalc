@@ -14,7 +14,7 @@ import {
   editCard,
 } from './Fields';
 import { SUGGESTED_TRAINING_PER_HIRE } from '../model/example';
-import { LaborReferenceNote } from './LaborReference';
+import { VacanciesReference } from './LaborReference';
 import type { Inputs, ModelResult } from '../model/types';
 
 const ROLE_NOTE = 'O nome do cargo identifica a linha. O caixa usa o mês, as vagas e o custo.';
@@ -211,7 +211,7 @@ function PayrollCard({
         min={0}
         onChange={(positionsReduced) => setPeople({ ...people, payroll: editCard(people.payroll, { positionsReduced }) })}
       />
-      <LaborReferenceNote inputs={inputs} />
+      <VacanciesReference inputs={inputs} titleTag="h3" />
       <NumberField
         fieldId="people.payroll.monthlyCostPerPosition"
         label="Custo completo por pessoa (R$/mês)"

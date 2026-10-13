@@ -105,8 +105,10 @@ describe('relatório de impressão', () => {
     expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toMatch(/não considerado/i);
     expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Investimento líquido');
     expect(host.querySelector('[data-testid="print-sheet"] img')).toBeNull();
-    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Referência de mão de obra');
-    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Não soma às vagas evitadas');
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('Referência de mercado');
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).toContain('não soma ao resultado');
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).not.toContain('1,2943');
+    expect(host.querySelector('[data-testid="print-calc-memory"]')?.textContent).not.toContain('6x1');
     expect(host.querySelector('[data-testid="print-potential-gain"]')).toBeNull();
   });
 

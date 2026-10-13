@@ -15,11 +15,11 @@ import {
 import { evaluate } from '../model/calculate';
 import { CalcMemory } from './CalcMemory';
 import { matchesIllustrativeExample } from '../model/example';
-import { formatBRL, formatCompactBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
+import { formatBRL, formatCompactBRL, formatIrr, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { fieldForAudit, type LeverId } from '../model/premises';
 import type { Inputs, ModelResult, ScenarioId } from '../model/types';
 import { Callout, PercentField, StageNote, Switch } from './Fields';
-import { LaborReferenceNote } from './LaborReference';
+import { VacanciesReference } from './LaborReference';
 import { QuickAdjust } from './QuickAdjust';
 
 const SCENARIOS: ScenarioId[] = ['conservador', 'base', 'otimista'];
@@ -305,13 +305,8 @@ export function Dashboard({
         <CalcMemory inputs={inputs} result={result} ids={['investimento', 'fluxo', 'indicadores']} />
       </section>
 
-      <section className="card" data-testid="vacancies-reference">
-        <h2>Vagas evitadas</h2>
-        <p className="lede">
-          No caixa: <strong>{formatNumber(inputs.people.payroll.positionsReduced, 2)}</strong> vagas. O benefício de
-          folha usa só este número.
-        </p>
-        <LaborReferenceNote inputs={inputs} />
+      <section className="card">
+        <VacanciesReference inputs={inputs} />
       </section>
 
       <BenefitClasses result={result} />

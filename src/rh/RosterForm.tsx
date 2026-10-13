@@ -16,7 +16,7 @@ import {
   type ShiftCount,
 } from './roster';
 import type { Inputs, StoreType } from '../model/types';
-import { LaborReferenceNote } from '../components/LaborReference';
+import { VacanciesReference } from '../components/LaborReference';
 
 const SCALES: Array<{ value: ScaleId; label: string }> = [
   { value: '6x1', label: '6x1' },
@@ -453,7 +453,7 @@ export function RosterForm({
           A contratação futura, no mês 13, soma {peopleLabel(summary.futureHired)} vagas e {formatBRL(summary.futurePayroll)} por mês
           {storeType === 'existente' ? '.' : ', e só passa a valer se a loja for existente.'}
         </p>
-        <LaborReferenceNote inputs={inputs} />
+        <VacanciesReference inputs={inputs} titleTag="h3" />
         <button
           type="button"
           className="btn"

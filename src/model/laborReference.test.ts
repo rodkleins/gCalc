@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluate } from './calculate';
 import { exampleInputs } from './example';
 import { formatNumber, formatPayback } from './format';
-import { laborReference } from './laborReference';
+import { laborReference, marketReferenceText } from './laborReference';
 import { potentialGain } from './potentialGain';
 import { defaultStorePreset } from './presets';
 import { applyRoster } from '../rh/roster';
@@ -19,6 +19,10 @@ describe('referência de mão de obra', () => {
     expect(reference.coverageFactor).toBeCloseTo((7 / 6) * (365 / 329), 8);
     expect(formatNumber(reference.people, 2)).toBe('4,83');
     expect(formatNumber(reference.peopleWithCoverage, 2)).toBe('6,25');
+    expect(marketReferenceText(root)).toBe(
+      'Receber, conferir, guardar e separar cada unidade leva cerca de 1 minuto. Com 1.700 unidades por dia, são 850 horas de trabalho por mês: 4,83 pessoas na jornada de 176 horas, ou 6,25 pessoas contando folgas e férias. A referência ajuda a validar as vagas evitadas, mas não soma ao resultado.',
+    );
+    expect(marketReferenceText(root)).not.toMatch(/1,2943|6x1|fator/);
     expect(formatPayback(evaluate(root).payback)).toBe(formatPayback(before.payback));
     expect(formatPayback(before.payback)).toBe('29,1 meses');
 

@@ -454,6 +454,10 @@ p { margin: 0; }
 .card.is-active { outline: 2px solid var(--forest-2); }
 .card h2, .benefit h3 { margin-bottom: 6px; }
 .lede { margin: 8px 0 14px; }
+.vacancies-block { display: grid; gap: 4px; }
+.vacancies-block h2, .vacancies-block h3, .vacancies-block h4, .vacancies-block p { margin: 0; }
+.vacancies-block h4 { font-family: var(--serif); font-size: 1.05rem; font-weight: 560; margin-top: 10px; }
+.vacancies-block p { max-width: 78ch; }
 .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .kpi { padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 4px; }
 .kpi span, .kpi em { color: var(--muted); font-size: 0.82rem; font-style: normal; }
