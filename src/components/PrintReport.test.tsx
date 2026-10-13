@@ -38,7 +38,8 @@ describe('relatório de impressão', () => {
     expect(css).toContain('.quick-dock { display: none !important; }');
     const screen = readFileSync('src/styles.css', 'utf8');
     expect(screen).toContain('@media (max-width: 1439px)');
-    expect(screen).toMatch(/@media \(max-width: 1439px\) \{[\s\S]*\.quick-dock \{[\s\S]*position: static;/);
+    expect(screen).toMatch(/@media \(max-width: 1439px\) \{[\s\S]*\.quick-dock \{[\s\S]*position: sticky;/);
+    expect(screen).toMatch(/@media \(max-width: 1099px\) \{[\s\S]*\.quick-dock \{ top: 76px; \}/);
   });
 
   it('abre o diálogo e monta o resumo sem fluxo de 60 meses nem quadro de RH', async () => {

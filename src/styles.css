@@ -150,7 +150,9 @@ p { margin: 0; }
   pointer-events: none;
   box-shadow: var(--shadow);
 }
-.main { width: 100%; max-width: 2100px; padding: 24px 28px 32px; overflow-x: clip; }
+.main { width: 100%; max-width: 2100px; padding: 24px 28px 32px; }
+/* O indicador fica fora deste bloco: overflow-x clip no ancestral solta o sticky no iPad. */
+.main-clip { min-width: 0; max-width: 100%; overflow-x: clip; }
 .lede, .executive ol, .stage-note-body { max-width: 78ch; }
 .top { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 16px; }
 .top-controls, .toolbar, .inline-controls, .seg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -742,7 +744,8 @@ th.num { white-space: normal; }
 }
 @media (max-width: 1439px) {
   .quick-dock {
-    position: static;
+    position: sticky;
+    top: 8px;
     right: auto;
     bottom: auto;
     left: auto;
@@ -750,7 +753,7 @@ th.num { white-space: normal; }
     max-width: 100%;
     align-items: stretch;
     margin: 0 0 12px;
-    z-index: auto;
+    z-index: 4;
   }
   .quick-dock-chip,
   .quick-dock-panel { width: 100%; max-width: 100%; }
@@ -796,6 +799,7 @@ th.num { white-space: normal; }
     transform: translateX(-50%);
   }
   .main { padding: 18px 16px 28px; }
+  .quick-dock { top: 76px; }
   .top { flex-direction: column; align-items: stretch; }
 }
 @media (prefers-reduced-motion: reduce) {

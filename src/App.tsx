@@ -416,6 +416,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
       </aside>
 
       <main className="main">
+        <div className="main-clip">
         <PreviewNotice />
         <PageNav current="calculadora" />
         <header className="top">
@@ -529,6 +530,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           Os dados ficam só neste navegador.
           {status ? ` ${status}` : ''}
         </p>
+        </div>
 
         <FloatingPayback
           inputs={inputs}
@@ -537,6 +539,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           result={result}
           onUndo={() => setInputs(structuredClone(adjustAnchor))}
         />
+        <div className="main-clip">
         <PremiseFocus field={focusField}>
         {section === 'dashboard' || section === 'simulacoes' ? (
           <PrintReport inputs={inputs} result={result} scenario={scenario} edition="raiz" />
@@ -610,6 +613,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           />
         ) : null}
         </PremiseFocus>
+        </div>
       </main>
       {pendingPreset ? (
         <div

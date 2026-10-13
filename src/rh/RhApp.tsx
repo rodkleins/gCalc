@@ -449,6 +449,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
       </aside>
 
       <main className="main">
+        <div className="main-clip">
         <RhValidationNotice />
         <RhPageNav current="rh" />
         <header className="top">
@@ -561,6 +562,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           Os dados desta versão ficam só neste navegador, separados da calculadora atual.
           {status ? ` ${status}` : ''}
         </p>
+        </div>
 
         <FloatingPayback
           inputs={inputs}
@@ -570,6 +572,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
           onUndo={() => setInputs(structuredClone(adjustAnchor))}
           storageKey={RH_UI_KEYS.quickDockOpen}
         />
+        <div className="main-clip">
         <PremiseFocus field={focusField}>
           {section === 'dashboard' || section === 'simulacoes' ? (
             <PrintReport
@@ -676,6 +679,7 @@ export default function RhApp({ initial }: { initial?: { inputs: Inputs; roster:
             />
           ) : null}
         </PremiseFocus>
+        </div>
       </main>
       {pendingPreset ? (
         <div
