@@ -24,19 +24,21 @@ function chromePath(): string {
 }
 
 async function openTab(page: Page, label: string) {
-  await page.evaluate((name) => {
-    const button = [...document.querySelectorAll('nav button, [data-testid="open-wizard"]')].find((node) =>
-      (node.textContent || '').includes(name),
-    );
-    (button as HTMLButtonElement | undefined)?.click();
-  }, label);
   await page.waitForFunction(
     (name) => {
+      const button = [...document.querySelectorAll('nav button, [data-testid="open-wizard"]')].find((node) =>
+        (node.textContent || '').includes(name),
+      ) as HTMLButtonElement | undefined;
+      if (!button) return false;
       const dock = document.querySelector('[data-testid="quick-dock"]');
-      const active = document.querySelector('nav button.is-active, [data-testid="wizard"]');
-      return Boolean(dock && (name === 'Assistente' ? document.querySelector('[data-testid="wizard"], .wizard') : active?.textContent?.includes(name)));
+      const showing =
+        name === 'Assistente'
+          ? Boolean(document.querySelector('[data-testid="wizard"], .wizard'))
+          : Boolean(document.querySelector('nav button.is-active')?.textContent?.includes(name));
+      if (!showing) button.click();
+      return Boolean(dock && showing);
     },
-    {},
+    { timeout: 20_000 },
     label,
   );
 }
