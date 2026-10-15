@@ -319,6 +319,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .table-wrap { overflow-x: auto; margin-top: 0.8rem; }
+.chart-card .table-wrap { max-height: 16rem; overflow: auto; }
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 
@@ -446,6 +447,7 @@ body { padding-bottom: 7.2rem; }
   body { background: white; padding: 0 !important; }
   .wrap { width: auto; }
   .no-print, .tip, .tip-btn, .dock, input[type="range"] { display: none !important; }
+  .chart-card .table-wrap { max-height: none; overflow: visible; }
   .print-only { display: block; color: var(--muted); }
   .layout { display: block; }
   .card, .results, .sources, .kpi, .parts-card {
