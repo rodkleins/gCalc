@@ -13,6 +13,7 @@ import {
   parseBr,
   plateaus,
   restoreCorrectivesPerYear,
+  restorePremiseDefaults,
   staffSummary,
 } from './calc.js';
 
@@ -43,7 +44,7 @@ const SECTIONS = [
     id: 'equipe',
     title: 'Equipe CLT',
     intro:
-      'A cabine da Fiat Strada leva 2 pessoas, então a equipe tem no máximo sênior e pleno, e sempre começa pelo sênior. Cada equipe sai com o próprio carro. Os salários são premissa interna, acima das médias de mercado.',
+      'A cabine da Fiat Fiorino leva 2 pessoas, então a equipe tem no máximo sênior e pleno, e sempre começa pelo sênior. Cada equipe sai com o próprio furgão. Os salários são premissa interna, acima das médias de mercado.',
     fields: [
       {
         key: 'salarySenior',
@@ -175,7 +176,7 @@ const SECTIONS = [
         prefix: 'R$',
         min: 0,
         tooltip:
-          'Por pessoa e por mês. A FIPE registrou R$ 612,30 em São Paulo no 1º trimestre de 2026. O campo usa R$ 612.',
+          'Por pessoa e por mês. Premissa interna de R$ 1.020. A FIPE registrou R$ 612,30 em São Paulo no 1º trimestre de 2026; o campo fica acima dessa média.',
       },
       {
         key: 'healthPlan',
@@ -183,14 +184,15 @@ const SECTIONS = [
         prefix: 'R$',
         min: 0,
         tooltip:
-          'Por vida e por mês. Premissa de R$ 450, no meio da faixa empresarial de SP citada na pesquisa (R$ 200 a R$ 600).',
+          'Por vida e por mês. Premissa interna de R$ 850, na faixa premium citada para SP (R$ 700 a R$ 1.100). O padrão de mercado pesquisado ficava em R$ 200 a R$ 600.',
       },
     ],
   },
   {
     id: 'carro',
-    title: 'Carro da equipe',
-    intro: 'Uma locação por equipe, no tamanho da Strada (cabine para 2). Combustível = quilômetros ÷ consumo × preço do litro.',
+    title: 'Furgão da equipe',
+    intro:
+      'Uma locação por equipe: Fiat Fiorino Endurance 1.3 Flex, cabine para 2 e baú de 650 kg / 3,3 m³. Combustível = quilômetros ÷ consumo × preço do litro.',
     fields: [
       {
         key: 'carRental',
@@ -198,7 +200,7 @@ const SECTIONS = [
         prefix: 'R$',
         min: 0,
         tooltip:
-          'Assinatura mensal com impostos, seguro e assistência na referência da Strada PJ (a partir de R$ 2.660). O default de R$ 2.700 é a premissa arredondada.',
+          'Assinatura mensal do furgão, com impostos, seguro e assistência. Premissa de R$ 2.900: mediana dos anúncios de cerca de 1.000 km, mais o ajuste para 2.500 km.',
       },
       {
         key: 'kmPerMonth',
@@ -212,7 +214,7 @@ const SECTIONS = [
         label: 'Consumo',
         suffix: 'km/L',
         min: 0.1,
-        tooltip: 'Quilômetros por litro na cidade, gasolina. Premissa de 10,5 km/L (faixa de 10 a 11 da Strada/Fiorino 1.3).',
+        tooltip: 'Quilômetros por litro na cidade, gasolina. A Fiorino 1.3 flex faz 12,4 km/L no ciclo urbano do PBEV/Inmetro.',
       },
       {
         key: 'fuelPrice',
@@ -473,16 +475,18 @@ const SECTIONS = [
 ];
 
 const CHART = { w: 720, h: 368, left: 76, right: 40, top: 16, plotBottom: 250, ribbon: 28 };
+const CHART_MIN_ROBOTS = 10;
 
 let state = freshState();
 const controls = new Map();
 let chartPoints = [];
 let chartScale = null;
 let chartKey = '';
+let drawnEnd = 0;
 let probe = null;
 
 function freshState() {
-  return { ...DEFAULTS, partsPerRobot: null, correctivesDefaultMigrated: true };
+  return { ...DEFAULTS, partsPerRobot: null, correctivesDefaultMigrated: true, premiseDefaultsMigrated: true };
 }
 
 function readStored() {
@@ -497,6 +501,7 @@ function readStored() {
 
 function applyStored(parsed) {
   const alreadyMigrated = parsed.correctivesDefaultMigrated === true;
+  const premisesMigrated = parsed.premiseDefaultsMigrated === true;
   const next = freshState();
   for (const key of RETIRED_KEYS) delete parsed[key];
   for (const key of Object.keys(DEFAULTS)) {
@@ -515,6 +520,19 @@ function applyStored(parsed) {
   }
   next.correctivesPerYear = restoreCorrectivesPerYear(next.correctivesPerYear, alreadyMigrated);
   next.correctivesDefaultMigrated = true;
+  Object.assign(
+    next,
+    restorePremiseDefaults(
+      {
+        carRental: next.carRental,
+        kmPerLiter: next.kmPerLiter,
+        mealVoucher: next.mealVoucher,
+        healthPlan: next.healthPlan,
+      },
+      premisesMigrated,
+    ),
+  );
+  next.premiseDefaultsMigrated = true;
   return next;
 }
 
@@ -861,11 +879,24 @@ function pointAt(robots) {
   return chartPoints[index];
 }
 
+function chartEnd(robots) {
+  const count = Math.round(Number(robots) || CHART_MIN_ROBOTS);
+  return Math.min(FLEET_MAX, Math.max(CHART_MIN_ROBOTS, count));
+}
+
 function axisTicks(from, to) {
-  if (to - from <= 200) return [from, 50, 100, 150, to].filter((value, index, all) => value >= from && value <= to && all.indexOf(value) === index);
+  const span = to - from;
+  let step = 250;
+  if (span <= 20) step = 5;
+  else if (span <= 40) step = 10;
+  else if (span <= 100) step = 25;
+  else if (span <= 200) step = 50;
+  else if (span <= 400) step = 100;
   const ticks = [from];
-  for (let value = 250; value < to; value += 250) ticks.push(value);
-  ticks.push(to);
+  for (let value = step; value < to; value += step) {
+    if (value > from) ticks.push(value);
+  }
+  if (ticks[ticks.length - 1] !== to) ticks.push(to);
   return ticks;
 }
 
@@ -875,22 +906,28 @@ function renderChart(result) {
   if (key !== chartKey || chartPoints.length !== FLEET_MAX) {
     chartPoints = costSeries(input, 1, FLEET_MAX);
     chartKey = key;
-    drawChart();
+    drawnEnd = 0;
+  }
+  const end = chartEnd(result.robots);
+  if (drawnEnd !== end) {
+    drawChart(end);
+    drawnEnd = end;
   }
   placeCurrent(result);
-  setProbe(probe);
+  setProbe(probe != null && probe > end ? null : probe);
 }
 
-function drawChart() {
-  const rows = plateaus(chartPoints);
-  const values = chartPoints.map((point) => point.perRobotRounded);
+function drawChart(end = chartEnd(state.robots)) {
+  const visible = chartPoints.filter((point) => point.robots <= end);
+  const rows = plateaus(visible);
+  const values = visible.map((point) => point.perRobotRounded);
   const minV = Math.min(...values);
   const maxV = Math.max(...values);
   const span = maxV - minV || 1;
   const yMin = Math.max(0, minV - span * 0.08);
   const yMax = maxV + span * 0.08;
-  const from = chartPoints[0].robots;
-  const to = chartPoints[chartPoints.length - 1].robots;
+  const from = visible[0].robots;
+  const to = visible[visible.length - 1].robots;
   const plotW = CHART.w - CHART.left - CHART.right;
   const plotH = CHART.plotBottom - CHART.top;
   const xSpan = Math.max(1, to - from);
@@ -984,10 +1021,10 @@ function drawChart() {
     }
   });
 
-  const area = chartPoints
+  const area = visible
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${xOf(point.robots).toFixed(2)},${yOf(point.perRobotRounded).toFixed(2)}`)
     .join(' ');
-  const baseline = chartPoints[chartPoints.length - 1];
+  const baseline = visible[visible.length - 1];
   svg.append(
     svgEl('path', {
       d: `${area} L${xOf(baseline.robots).toFixed(2)},${yOf(yMin).toFixed(2)} L${xOf(1).toFixed(2)},${yOf(yMin).toFixed(2)} Z`,
@@ -1005,16 +1042,23 @@ function drawChart() {
   line.dataset.testid = 'cost-line';
   svg.append(line);
 
+  const halo = svgEl('circle', {
+    cx: 0,
+    cy: 0,
+    r: 11,
+    fill: 'rgba(15,92,76,0.18)',
+  });
+  halo.id = 'chart-current-halo';
   const current = svgEl('circle', {
     cx: 0,
     cy: 0,
-    r: 5,
+    r: 6,
     fill: '#0f5c4c',
     stroke: '#fffdf8',
-    'stroke-width': 2,
+    'stroke-width': 2.5,
   });
   current.id = 'chart-current';
-  svg.append(current);
+  svg.append(halo, current);
   const guide = svgEl('line', {
     x1: 0,
     x2: 0,
@@ -1057,6 +1101,10 @@ function drawChart() {
     body.append(tr);
   }
   table.append(head, body);
+  const blurb = document.querySelector('#chart-title + p');
+  if (blurb) {
+    blurb.textContent = `De 1 a ${formatFlex(to)} robôs, com as premissas atuais. O eixo acompanha o número escolhido e não fica menor que ${formatFlex(CHART_MIN_ROBOTS)}. O ponto marcado é o cenário atual. Os traços e a faixa marcam quando a equipe muda de tamanho, entra outra equipe ou entra coordenação.`;
+  }
 }
 
 function ribbonLabel(row, width) {
@@ -1068,11 +1116,16 @@ function ribbonLabel(row, width) {
 }
 
 function placeCurrent(result) {
-  const node = document.getElementById('chart-current');
   const point = pointAt(result.robots);
-  if (!node || !point || !chartScale) return;
-  node.setAttribute('cx', String(chartScale.xOf(point.robots)));
-  node.setAttribute('cy', String(chartScale.yOf(point.perRobotRounded)));
+  if (!point || !chartScale) return;
+  const x = String(chartScale.xOf(point.robots));
+  const y = String(chartScale.yOf(point.perRobotRounded));
+  for (const id of ['chart-current', 'chart-current-halo']) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.setAttribute('cx', x);
+    node.setAttribute('cy', y);
+  }
 }
 
 function svgEl(name, attrs) {

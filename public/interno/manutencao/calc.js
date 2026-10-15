@@ -33,11 +33,11 @@ export const DEFAULTS = {
   severanceRate: 8.33,
   hazardOn: false,
   hazardRate: 0.3,
-  mealVoucher: 612,
-  healthPlan: 450,
-  carRental: 2700,
+  mealVoucher: 1020,
+  healthPlan: 850,
+  carRental: 2900,
   kmPerMonth: 2500,
-  kmPerLiter: 10.5,
+  kmPerLiter: 12.4,
   fuelPrice: 6.34,
   tolls: 400,
   visitsPerWeek: 3.5,
@@ -334,6 +334,23 @@ export function managerCount(coordinators, coordinatorsPerManager) {
 }
 
 const PREVIOUS_CORRECTIVES_DEFAULT = 6;
+
+const PREVIOUS_PREMISE_DEFAULTS = {
+  carRental: 2700,
+  kmPerLiter: 10.5,
+  mealVoucher: 612,
+  healthPlan: 450,
+};
+
+/** Troca só o valor que ainda era o default antigo. Edição do usuário, ou o default antigo depois da migração, fica. */
+export function restorePremiseDefaults(stored, alreadyMigrated) {
+  const next = { ...stored };
+  if (alreadyMigrated) return next;
+  for (const [key, previous] of Object.entries(PREVIOUS_PREMISE_DEFAULTS)) {
+    if (next[key] === previous) next[key] = DEFAULTS[key];
+  }
+  return next;
+}
 
 /** O 6 gravado sozinho era o default antigo. Edição do usuário (qualquer outro número, ou 6 depois da migração) fica. */
 export function restoreCorrectivesPerYear(stored, alreadyMigrated) {
@@ -637,7 +654,7 @@ export function explain(result) {
       lines: [
         `Combustível de um carro = (${formatFlex(result.kmPerMonth)} km ÷ ${formatFlex(result.kmPerLiter)} km/L) × ${brl(result.fuelPrice)} = ${brl(result.fuelPerCar)}.`,
         `Carro por equipe = ${brl(result.carRental)} de locação + ${brl(result.fuelPerCar)} de combustível + ${brl(result.tolls)} de pedágio e estacionamento = ${brl(result.carPerTeam)}.`,
-        `Carro no mês = ${brl(result.carPerTeam)} × ${formatFlex(result.teams)} = ${brl(result.lines.car.monthly)}. A cabine da Strada leva 2 pessoas, então cada equipe tem o próprio carro.`,
+        `Carro no mês = ${brl(result.carPerTeam)} × ${formatFlex(result.teams)} = ${brl(result.lines.car.monthly)}. A cabine da Fiorino leva 2 pessoas, então cada equipe tem o próprio furgão.`,
       ],
     },
     {
