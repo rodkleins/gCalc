@@ -2,13 +2,16 @@ import {
   CHARGE_LINES,
   DEFAULTS,
   calculate,
+  chargeNote,
   costSeries,
   explain,
   formatBRL,
   formatFixed,
   formatFlex,
+  headcountLabel,
   parseBr,
   plateaus,
+  restoreCorrectivesPerYear,
   staffSummary,
 } from './calc.js';
 
@@ -95,7 +98,7 @@ const SECTIONS = [
     id: 'encargos',
     title: 'Encargos',
     intro:
-      'O custo multiplica o salário pelo fator abaixo. As alíquotas explicam a composição; a soma simples não fecha em 1,65 porque o fator arredonda a incidência sobre 13º e férias.',
+      'O custo multiplica o salário pelo multiplicador efetivo. O 1,65 cobre encargos, 13º, férias e a multa do FGTS. Com a provisão de rescisão ligada, soma-se o aviso prévio indenizado e os encargos diretos sobre ele.',
     fields: [
       {
         key: 'encargosMultiplier',
@@ -104,7 +107,7 @@ const SECTIONS = [
         digits: 3,
         wide: true,
         tooltip:
-          'Fator aplicado sobre o salário-base (e sobre a periculosidade, se estiver ligada). Não multiplica VR nem plano de saúde. Default 1,65.',
+          'Fator base sobre o salário (e sobre a periculosidade, se estiver ligada). Default 1,65, já com a provisão da multa de 40% do FGTS. Não inclui aviso prévio indenizado. Não multiplica VR nem plano de saúde.',
       },
       ...CHARGE_LINES.map((line) => ({
         key: line.key,
@@ -112,8 +115,29 @@ const SECTIONS = [
         suffix: '%',
         min: 0,
         max: 100,
-        tooltip: `${line.label} entra na composição exibida. Mudar esta alíquota atualiza a soma e a referência com incidência. O custo continua usando o multiplicador até você editá-lo.`,
+        tooltip:
+          line.key === 'multaFgts'
+            ? '40% × 8% de FGTS ≈ 3,2% do salário. É a provisão da multa rescisória do FGTS e já está dentro do multiplicador de 1,65. Não cobre aviso prévio indenizado nem os encargos sobre o aviso: isso fica na provisão de rescisão, para não contar duas vezes.'
+            : `${line.label} entra na composição exibida. Mudar esta alíquota atualiza a soma, a referência com incidência e, no caso de INSS, RAT, terceiros e FGTS, também o reflexo da provisão de rescisão. O 1,65 só muda se você editar o multiplicador.`,
       })),
+      {
+        key: 'severanceOn',
+        label: 'Provisão de rescisão',
+        kind: 'check',
+        checkLabel: 'Ligada',
+        wide: true,
+        tooltip:
+          'Ligada por padrão. Soma ao multiplicador o aviso prévio indenizado e a incidência de INSS, RAT, terceiros e FGTS sobre esse aviso. Não inclui a multa de 40% do FGTS, que já está no 1,65. Vale para técnicos e coordenador.',
+      },
+      {
+        key: 'severanceRate',
+        label: 'Aviso prévio indenizado',
+        suffix: '%',
+        min: 0,
+        max: 100,
+        tooltip:
+          'Percentual do salário provisionado como aviso prévio indenizado. Default 8,33% (um salário ÷ 12). INSS, RAT, terceiros e FGTS incidem sobre esse percentual e entram no multiplicador efetivo. A multa de 40% do FGTS não é recalculada aqui.',
+      },
     ],
   },
   {
@@ -258,7 +282,7 @@ const SECTIONS = [
         min: 0,
         max: 12,
         step: 1,
-        tooltip: 'Visitas corretivas de cada robô no ano. Default 6. Premissa, sem fonte: validar com o histórico.',
+        tooltip: 'Visitas corretivas de cada robô no ano. Default 2. Premissa, sem fonte: validar com o histórico.',
       },
     ],
   },
@@ -273,7 +297,7 @@ const SECTIONS = [
         prefix: 'R$',
         min: 0,
         tooltip:
-          'Salário-base mensal. Premissa de R$ 12.000, multiplicada pelo mesmo fator de encargos. Os benefícios usam o VR e o plano por pessoa. Sem periculosidade.',
+          'Salário-base mensal. Premissa de R$ 12.000, multiplicada pelo mesmo fator efetivo dos técnicos, inclusive a provisão de rescisão quando está ligada. Os benefícios usam o VR e o plano por pessoa. Sem periculosidade.',
       },
       {
         key: 'teamsPerCoordinator',
@@ -282,6 +306,23 @@ const SECTIONS = [
         min: 1,
         max: 50,
         tooltip: 'Um coordenador a cada N equipes. Default 4. Com 2, 3 ou 4 equipes há 1 coordenador; a 5ª equipe abre o segundo.',
+      },
+      {
+        key: 'managerSalary',
+        label: 'Salário do gerente',
+        prefix: 'R$',
+        min: 0,
+        tooltip:
+          'Salário-base mensal. Premissa de R$ 18.000, multiplicada pelo mesmo fator efetivo dos técnicos e do coordenador, inclusive a provisão de rescisão quando está ligada. Benefícios de VR e plano por pessoa. Sem periculosidade.',
+      },
+      {
+        key: 'coordinatorsPerManager',
+        label: 'Coordenadores por gerente',
+        integer: true,
+        min: 1,
+        max: 50,
+        tooltip:
+          'O primeiro gerente entra quando os coordenadores atingem este número. Default 3. Gerentes = teto(coordenadores ÷ limite) a partir daí; abaixo do limite, zero.',
       },
     ],
   },
@@ -363,7 +404,7 @@ const SECTIONS = [
         integer: true,
         min: 0,
         max: 12,
-        tooltip: 'Quantas pessoas dormem fora na visita, se o tamanho da equipe não for usado. A diária não inclui o coordenador.',
+        tooltip: 'Quantas pessoas dormem fora na visita, se o tamanho da equipe não for usado. A diária não inclui coordenador nem gerente.',
       },
     ],
   },
@@ -378,7 +419,7 @@ let chartScale = null;
 let probe = null;
 
 function freshState() {
-  return { ...DEFAULTS, partsPerRobot: null };
+  return { ...DEFAULTS, partsPerRobot: null, correctivesDefaultMigrated: true };
 }
 
 function readStored() {
@@ -392,6 +433,7 @@ function readStored() {
 }
 
 function applyStored(parsed) {
+  const alreadyMigrated = parsed.correctivesDefaultMigrated === true;
   const next = freshState();
   for (const key of RETIRED_KEYS) delete parsed[key];
   for (const key of Object.keys(DEFAULTS)) {
@@ -408,6 +450,8 @@ function applyStored(parsed) {
       next[key] = parsed[key];
     }
   }
+  next.correctivesPerYear = restoreCorrectivesPerYear(next.correctivesPerYear, alreadyMigrated);
+  next.correctivesDefaultMigrated = true;
   return next;
 }
 
@@ -656,6 +700,8 @@ function renderKpis(result) {
   }
   document.getElementById('dock-monthly').textContent = formatBRL(result.monthlyRounded);
   document.getElementById('dock-robot').textContent = formatBRL(result.perRobotRounded);
+  const crew = document.getElementById('dock-crew');
+  if (crew) crew.textContent = headcountLabel(result);
 }
 
 function renderParts(result) {
@@ -692,6 +738,7 @@ function renderBreakdown(result) {
     ['Benefícios', result.lines.benefits],
     ['Carro', result.lines.car],
     ['Coordenação', result.lines.coordination],
+    ['Gerência', result.lines.management],
     ['Fabricante', result.lines.manufacturer],
     ['Diárias', result.lines.perDiem],
   ];
@@ -733,7 +780,8 @@ function plural(count, one, many) {
 function describePoint(point, current) {
   const where = current ? 'Cenário atual' : 'No gráfico';
   const crew = point.peopleOnTeam === 1 ? 'só sênior' : 'sênior + pleno';
-  return `${where}: ${formatFlex(point.robots)} robôs · ${formatBRL(point.perRobotRounded)} por robô/mês · ${plural(point.teams, 'equipe', 'equipes')} (${crew}) · ${plural(point.coordinators, 'coordenador', 'coordenadores')}.`;
+  const managers = point.managers > 0 ? ` · ${plural(point.managers, 'gerente', 'gerentes')}` : '';
+  return `${where}: ${formatFlex(point.robots)} robôs · ${formatBRL(point.perRobotRounded)} por robô/mês · ${plural(point.teams, 'equipe', 'equipes')} (${crew}) · ${plural(point.coordinators, 'coordenador', 'coordenadores')}${managers}.`;
 }
 
 function renderChart(result) {
@@ -961,7 +1009,7 @@ function renderNotes(result) {
   }
   const charges = document.getElementById('encargos-nota');
   if (charges) {
-    charges.textContent = `Soma simples: ${formatFlex(result.simpleChargePercent)}%. Referência com incidência: ${formatFixed(result.incidenceMultiplier, 3)}. O custo usa o multiplicador ${formatFlex(result.encargosMultiplier, 3)}.`;
+    charges.textContent = chargeNote(result);
   }
   const coord = document.getElementById('coord-status');
   if (coord) {
@@ -987,6 +1035,12 @@ function syncStaffControls(result) {
   }
   if (auto && document.activeElement !== auto) auto.checked = Boolean(state.autoScale);
   if (follow && document.activeElement !== follow) follow.checked = Boolean(state.overnightFollow);
+  const notice = controls.get('severanceRate');
+  if (notice?.text) {
+    const off = !state.severanceOn;
+    notice.text.disabled = off;
+    notice.wrap?.classList.toggle('is-off', off);
+  }
   const solo = controls.get('soloMaxRobots');
   if (solo?.text) {
     const off = !state.autoScale;

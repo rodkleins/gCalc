@@ -28,6 +28,8 @@ export const DEFAULTS = {
   decimo: 8.33,
   ferias: 11.11,
   multaFgts: 3.2,
+  severanceOn: true,
+  severanceRate: 8.33,
   hazardOn: false,
   hazardRate: 0.3,
   mealVoucher: 612,
@@ -41,9 +43,11 @@ export const DEFAULTS = {
   weeksPerMonth: 4.33,
   weeksPerYear: 52,
   preventivesPerYear: 4,
-  correctivesPerYear: 6,
+  correctivesPerYear: 2,
   coordinatorSalary: 12000,
   teamsPerCoordinator: 4,
+  managerSalary: 18000,
+  coordinatorsPerManager: 3,
   robotValue: 1300000,
   manufacturerFeeRate: 0.006,
   partsPerRobot: 0,
@@ -136,13 +140,43 @@ export function simpleChargePercent(input = DEFAULTS) {
   return CHARGE_LINES.reduce((sum, line) => sum + num(input[line.key], line.percent), 0);
 }
 
-/** Referência informativa: encargos + 13º + férias + multa + incidência sobre 13º e férias. */
+function chargePct(input, key, fallback) {
+  return num(input[key], fallback) / 100;
+}
+
+/** INSS + RAT + terceiros + FGTS, como fração do salário. */
+export function directChargeRate(input = DEFAULTS) {
+  return chargePct(input, 'inss', 20) + chargePct(input, 'rat', 2) + chargePct(input, 'terceiros', 5.8) + chargePct(input, 'fgts', 8);
+}
+
+/** Aviso prévio indenizado mais INSS, RAT, terceiros e FGTS sobre esse aviso. Zero se a provisão estiver desligada. */
+export function severanceFraction(input = DEFAULTS) {
+  if (!input.severanceOn) return 0;
+  const notice = Math.max(0, num(input.severanceRate, DEFAULTS.severanceRate)) / 100;
+  return notice * (1 + directChargeRate(input));
+}
+
+/** Fator que o custo aplica. O 1,65 já inclui a multa do FGTS; a rescisão soma por cima. */
+export function appliedMultiplier(input = DEFAULTS) {
+  return num(input.encargosMultiplier, DEFAULTS.encargosMultiplier) + severanceFraction(input);
+}
+
+/** Referência informativa: encargos + 13º + férias + multa + incidência sobre 13º e férias. Não inclui aviso prévio. */
 export function incidenceMultiplier(input = DEFAULTS) {
-  const pct = (key, fallback) => num(input[key], fallback) / 100;
-  const direct = pct('inss', 20) + pct('rat', 2) + pct('terceiros', 5.8) + pct('fgts', 8);
-  const provisions = pct('decimo', 8.33) + pct('ferias', 11.11);
-  const fine = pct('multaFgts', 3.2);
+  const direct = directChargeRate(input);
+  const provisions = chargePct(input, 'decimo', 8.33) + chargePct(input, 'ferias', 11.11);
+  const fine = chargePct(input, 'multaFgts', 3.2);
   return 1 + direct + provisions + fine + direct * provisions;
+}
+
+export function chargeNote(result) {
+  const base = formatFlex(result.encargosMultiplier, 3);
+  const fine = formatFlex(result.multaFgts);
+  if (!result.severanceOn) {
+    return `Provisão de rescisão desligada. O custo usa o multiplicador ${base}. A multa do FGTS (${fine}%) continua nesse fator e não cobre aviso prévio.`;
+  }
+  const direct = formatFlex(result.directChargeRate * 100);
+  return `Multiplicador efetivo ${formatFixed(result.appliedMultiplier, 3)} = ${base} + aviso prévio ${formatFlex(result.severanceRate)}% × (1 + ${direct}% de INSS, RAT, terceiros e FGTS). A multa do FGTS (${fine}%) já está no ${base} e não entra de novo.`;
 }
 
 function ceilStable(ratio) {
@@ -261,6 +295,34 @@ export function coordinatorCount(teams, teamsPerCoordinator) {
   return ceilStable(teams / limit);
 }
 
+/** Um gerente só existe a partir do limite de coordenadores. Abaixo disso, zero. */
+export function managerCount(coordinators, coordinatorsPerManager) {
+  const limit = coordinatorsPerManager > 0 ? coordinatorsPerManager : 1;
+  if (!(coordinators >= limit)) return 0;
+  return ceilStable(coordinators / limit);
+}
+
+const PREVIOUS_CORRECTIVES_DEFAULT = 6;
+
+/** O 6 gravado sozinho era o default antigo. Edição do usuário (qualquer outro número, ou 6 depois da migração) fica. */
+export function restoreCorrectivesPerYear(stored, alreadyMigrated) {
+  if (alreadyMigrated) return stored;
+  if (stored === PREVIOUS_CORRECTIVES_DEFAULT) return DEFAULTS.correctivesPerYear;
+  return stored;
+}
+
+export function headcountLabel(result) {
+  const parts = [`${formatFlex(result.teams)} Sênior`];
+  if (result.pleno && result.teams > 0) parts.push(`${formatFlex(result.teams)} Pleno`);
+  if (result.coordinators > 0) {
+    parts.push(`${formatFlex(result.coordinators)} ${result.coordinators === 1 ? 'coordenador' : 'coordenadores'}`);
+  }
+  if (result.managers > 0) {
+    parts.push(`${formatFlex(result.managers)} ${result.managers === 1 ? 'gerente' : 'gerentes'}`);
+  }
+  return parts.join(' · ');
+}
+
 function moneyPair(exact) {
   const cents = toCents(exact);
   return { monthly: cents / 100, annual: (cents * 12) / 100, cents };
@@ -275,20 +337,26 @@ export function calculate(raw = {}) {
   const visitsPerFullTeamYear = plan.pairCap;
   const visitsPerTeamMonth = input.visitsPerWeek * (peopleOnTeam / MAX_PEOPLE_PER_TEAM) * input.weeksPerMonth;
   const coordinators = coordinatorCount(teams, input.teamsPerCoordinator);
+  const managers = managerCount(coordinators, input.coordinatorsPerManager);
   const robotsPerTeam = teams > 0 ? robots / teams : null;
   const hazardFactor = input.hazardOn ? 1 + input.hazardRate : 1;
   const salarySum = input.salarySenior + (plan.pleno ? input.salaryPleno : 0);
-  const peoplePerTeam = salarySum * hazardFactor * input.encargosMultiplier;
+  const directRate = directChargeRate(input);
+  const severanceLoad = severanceFraction(input);
+  const payrollFactor = appliedMultiplier(input);
+  const peoplePerTeam = salarySum * hazardFactor * payrollFactor;
   const peopleMonthly = peoplePerTeam * teams;
   const technicianCount = peopleOnTeam * teams;
   const benefitsPerPerson = input.mealVoucher + input.healthPlan;
-  const benefitsMonthly = (technicianCount + coordinators) * benefitsPerPerson;
+  const benefitsMonthly = (technicianCount + coordinators + managers) * benefitsPerPerson;
   const litersPerMonth = input.kmPerLiter > 0 ? input.kmPerMonth / input.kmPerLiter : 0;
   const fuelPerCar = litersPerMonth * input.fuelPrice;
   const carPerTeam = input.carRental + fuelPerCar + input.tolls;
   const carMonthly = carPerTeam * teams;
-  const coordinatorUnit = input.coordinatorSalary * input.encargosMultiplier;
+  const coordinatorUnit = input.coordinatorSalary * payrollFactor;
   const coordinationMonthly = coordinators * coordinatorUnit;
+  const managerUnit = input.managerSalary * payrollFactor;
+  const managementMonthly = managers * managerUnit;
   const manufacturerAnnualPerRobot = input.robotValue * input.manufacturerFeeRate;
   const manufacturerPerRobotMonth = manufacturerAnnualPerRobot / 12;
   const manufacturerMonthly = robots * manufacturerPerRobotMonth;
@@ -301,12 +369,13 @@ export function calculate(raw = {}) {
     benefits: moneyPair(benefitsMonthly),
     car: moneyPair(carMonthly),
     coordination: moneyPair(coordinationMonthly),
+    management: moneyPair(managementMonthly),
     manufacturer: moneyPair(manufacturerMonthly),
     perDiem: moneyPair(perDiemMonthly),
   };
   const monthlyCents = Object.values(lines).reduce((sum, line) => sum + line.cents, 0);
   const monthlyExact =
-    peopleMonthly + benefitsMonthly + carMonthly + coordinationMonthly + manufacturerMonthly + perDiemMonthly;
+    peopleMonthly + benefitsMonthly + carMonthly + coordinationMonthly + managementMonthly + manufacturerMonthly + perDiemMonthly;
   const monthlyRounded = monthlyCents / 100;
   const annualRounded = (monthlyCents * 12) / 100;
   const perRobotMonth = robots > 0 ? monthlyExact / robots : null;
@@ -319,8 +388,12 @@ export function calculate(raw = {}) {
     visitsPerFullTeamYear,
     visitsPerTeamMonth,
     coordinators,
+    managers,
     robotsPerTeam,
     hazardFactor,
+    directChargeRate: directRate,
+    severanceFraction: severanceLoad,
+    appliedMultiplier: payrollFactor,
     salarySum,
     peoplePerTeam,
     peopleMonthly,
@@ -334,6 +407,8 @@ export function calculate(raw = {}) {
     carMonthly,
     coordinatorUnit,
     coordinationMonthly,
+    managerUnit,
+    managementMonthly,
     manufacturerAnnualPerRobot,
     manufacturerPerRobotMonth,
     manufacturerMonthly,
@@ -362,6 +437,7 @@ export function costSeries(raw = {}, from = 1, to = 200) {
       monthlyRounded: result.monthlyRounded,
       teams: result.teams,
       coordinators: result.coordinators,
+      managers: result.managers,
       peopleOnTeam: result.peopleOnTeam,
       compositionLabel: result.compositionLabel,
     });
@@ -418,9 +494,23 @@ export function explain(result) {
   const hazardLine = result.hazardOn
     ? `Periculosidade ligada: ${formatFlex(result.hazardRate * 100)}% sobre o salário-base de quem está na equipe (fator ${formatFlex(result.hazardFactor, 3)}). Não incide sobre o coordenador nem sobre VR e plano.`
     : 'Periculosidade desligada. O fator sobre o salário-base é 1.';
+  const factor = formatFixed(result.appliedMultiplier, 3);
   const peopleLine = result.hazardOn
-    ? `Folha de uma equipe = ${brl(result.salarySum)} × ${formatFlex(result.hazardFactor, 3)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.peoplePerTeam)}.`
-    : `Folha de uma equipe = ${brl(result.salarySum)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.peoplePerTeam)}, sem periculosidade.`;
+    ? `Folha de uma equipe = ${brl(result.salarySum)} × ${formatFlex(result.hazardFactor, 3)} × ${factor} = ${brl(result.peoplePerTeam)}.`
+    : `Folha de uma equipe = ${brl(result.salarySum)} × ${factor} = ${brl(result.peoplePerTeam)}, sem periculosidade.`;
+  const directPct = result.directChargeRate * 100;
+  const reflectionPct = result.severanceRate * result.directChargeRate;
+  const severanceLines = result.severanceOn
+    ? [
+        `Provisão da multa do FGTS: ${formatFlex(result.multaFgts)}% do salário (40% × 8% de FGTS). Já está dentro do multiplicador ${formatFlex(result.encargosMultiplier, 3)}. Cobre só essa multa, não o aviso prévio indenizado.`,
+        `Provisão de rescisão ligada. Aviso prévio indenizado = ${formatFlex(result.severanceRate)}% do salário. Reflexos de INSS, RAT, terceiros e FGTS = ${formatFlex(result.severanceRate)}% × ${formatFlex(directPct)}% = ${formatFlex(reflectionPct)}%.`,
+        `Parcela da rescisão = ${formatFlex(result.severanceRate)}% × (1 + ${formatFlex(directPct)}%) = ${formatFlex(result.severanceFraction * 100)}% do salário (${formatFixed(result.severanceFraction, 3)} no multiplicador).`,
+        `Multiplicador efetivo = ${formatFlex(result.encargosMultiplier, 3)} + ${formatFixed(result.severanceFraction, 3)} = ${factor}. Vale para técnicos e coordenador. A multa de 40% do FGTS não é somada de novo.`,
+      ]
+    : [
+        `Provisão da multa do FGTS: ${formatFlex(result.multaFgts)}% do salário (40% × 8% de FGTS). Já está dentro do multiplicador ${formatFlex(result.encargosMultiplier, 3)}. Cobre só essa multa, não o aviso prévio indenizado.`,
+        `Provisão de rescisão desligada. O aviso prévio indenizado não entra. Multiplicador efetivo = ${factor}.`,
+      ];
   const salaryLine = result.pleno
     ? `Salários de uma equipe = ${brl(result.salarySenior)} (sênior) + ${brl(result.salaryPleno)} (pleno) = ${brl(result.salarySum)}.`
     : `Salários de uma equipe = ${brl(result.salarySenior)} (sênior). O pleno não entra. Total = ${brl(result.salarySum)}.`;
@@ -455,14 +545,15 @@ export function explain(result) {
         ...CHARGE_LINES.map(
           (line) => `${line.label}: ${formatFlex(result[line.key])}% sobre o salário-base (composição exibida; não substitui o multiplicador).`,
         ),
-        `Multiplicador aplicado = ${formatFlex(result.encargosMultiplier, 3)}. Soma simples das alíquotas = ${formatFlex(result.simpleChargePercent)}%. Referência com incidência dos encargos sobre 13º e férias = ${formatFixed(result.incidenceMultiplier, 3)}. O custo usa o multiplicador, não essa referência.`,
+        ...severanceLines,
+        `Multiplicador base de encargos = ${formatFlex(result.encargosMultiplier, 3)}. Soma simples das alíquotas desse fator = ${formatFlex(result.simpleChargePercent)}%. Referência com incidência sobre 13º e férias = ${formatFixed(result.incidenceMultiplier, 3)}. O custo usa o multiplicador efetivo ${factor}.`,
       ],
     },
     {
       title: 'Benefícios',
       lines: [
         `Benefício por pessoa = ${brl(result.mealVoucher)} de VR + ${brl(result.healthPlan)} de plano = ${brl(result.benefitsPerPerson)}. Sem encargos em cima do benefício.`,
-        `Benefícios no mês = (${formatFlex(result.technicianCount)} pessoas nas equipes + ${formatFlex(result.coordinators)} coordenadores) × ${brl(result.benefitsPerPerson)} = ${brl(result.lines.benefits.monthly)}. Cada pessoa real entra uma vez.`,
+        `Benefícios no mês = (${formatFlex(result.technicianCount)} pessoas nas equipes + ${formatFlex(result.coordinators)} coordenadores + ${formatFlex(result.managers)} gerentes) × ${brl(result.benefitsPerPerson)} = ${brl(result.lines.benefits.monthly)}. Cada pessoa real entra uma vez.`,
       ],
     },
     {
@@ -476,8 +567,18 @@ export function explain(result) {
     {
       title: 'Coordenação',
       lines: [
-        `Cada coordenador = ${brl(result.coordinatorSalary)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.coordinatorUnit)}. Os benefícios dele estão na linha de benefícios. Sem periculosidade.`,
+        `Cada coordenador = ${brl(result.coordinatorSalary)} × ${formatFixed(result.appliedMultiplier, 3)} = ${brl(result.coordinatorUnit)}. O mesmo multiplicador efetivo dos técnicos, inclusive a provisão de rescisão quando está ligada. Os benefícios dele estão na linha de benefícios. Sem periculosidade.`,
         `Coordenação no mês = ${formatFlex(result.coordinators)} × ${brl(result.coordinatorUnit)} = ${brl(result.lines.coordination.monthly)}.`,
+      ],
+    },
+    {
+      title: 'Gerência',
+      lines: [
+        result.managers > 0
+          ? `Gerentes = teto(${formatFlex(result.coordinators)} ÷ ${formatFlex(result.coordinatorsPerManager)}) = teto(${formatFixed(result.coordinators / result.coordinatorsPerManager, 4)}) = ${formatFlex(result.managers)}, porque há pelo menos ${formatFlex(result.coordinatorsPerManager)} coordenadores.`
+          : `Gerentes = 0, porque ${formatFlex(result.coordinators)} coordenadores ficam abaixo de ${formatFlex(result.coordinatorsPerManager)}.`,
+        `Cada gerente = ${brl(result.managerSalary)} × ${formatFixed(result.appliedMultiplier, 3)} = ${brl(result.managerUnit)}. Os mesmos encargos dos técnicos, inclusive a provisão de rescisão quando está ligada. Sem periculosidade. Os benefícios entram na linha de benefícios.`,
+        `Gerência no mês = ${formatFlex(result.managers)} × ${brl(result.managerUnit)} = ${brl(result.lines.management.monthly)}.`,
       ],
     },
     {
@@ -498,7 +599,7 @@ export function explain(result) {
     {
       title: 'Totais',
       lines: [
-        `Custo mensal = ${brl(result.lines.people.monthly)} + ${brl(result.lines.benefits.monthly)} + ${brl(result.lines.car.monthly)} + ${brl(result.lines.coordination.monthly)} + ${brl(result.lines.manufacturer.monthly)} + ${brl(result.lines.perDiem.monthly)} = ${brl(result.monthlyRounded)}. Cada linha entra arredondada no centavo.`,
+        `Custo mensal = ${brl(result.lines.people.monthly)} + ${brl(result.lines.benefits.monthly)} + ${brl(result.lines.car.monthly)} + ${brl(result.lines.coordination.monthly)} + ${brl(result.lines.management.monthly)} + ${brl(result.lines.manufacturer.monthly)} + ${brl(result.lines.perDiem.monthly)} = ${brl(result.monthlyRounded)}. Cada linha entra arredondada no centavo.`,
         `Custo anual = ${brl(result.monthlyRounded)} × 12 = ${brl(result.annualRounded)}.`,
         `Custo por robô/mês = ${brl(result.monthlyRounded)} ÷ ${formatFlex(result.robots)} = ${brl(result.perRobotRounded)}.`,
         partsLine,

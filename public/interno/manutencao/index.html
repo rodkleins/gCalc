@@ -126,7 +126,10 @@
             </p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Provisão da multa de 40% do FGTS ≈ 3,2% (40% × 8%). A soma simples dessas alíquotas fica em 58,44%. O multiplicador de 1,65 é a premissa arredondada que também cobre a incidência dos encargos sobre 13º e férias (a referência da conta dá cerca de 1,654). O custo usa o campo do multiplicador.</p>
+            <p><span class="tag">Premissa</span> Provisão da multa de 40% do FGTS ≈ 3,2% (40% × 8%). Cobre só essa multa sobre o FGTS do salário, e já está dentro do multiplicador de 1,65. A soma simples das alíquotas desse fator fica em 58,44%. O 1,65 é a premissa arredondada que também cobre a incidência dos encargos sobre 13º e férias (a referência da conta dá cerca de 1,654).</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Provisão de rescisão, ligada por padrão: aviso prévio indenizado de 8,33% do salário (um salário ÷ 12) mais INSS, RAT, terceiros e FGTS sobre esse aviso. Com as alíquotas padrão a parcela é 11,31% e o multiplicador efetivo fica em 1,763 (1,65 + 0,113). A multa de 40% do FGTS não entra de novo. O fator vale para técnicos e coordenador. VR e plano ficam de fora.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Periculosidade de 30% (CLT art. 193), desligada. Em robô de baixa tensão a exposição a sistema elétrico de potência provavelmente não se caracteriza. A pesquisa não trouxe URL do artigo.</p>
@@ -201,10 +204,10 @@
         <h3>Operação, fabricante e peças</h3>
         <ul class="source-group">
           <li>
-            <p><span class="tag">Premissa</span> Tudo nesta lista é premissa operacional, sem fonte na pesquisa de 15/10/2026. Validar com a Gollmann ou com o histórico: 4 preventivas por robô/ano, 6 corretivas por robô/ano, 3,5 visitas por semana para a equipe cheia de 2 (faixa usual de 3 a 4; o campo aceita de 2 a 5; uma pessoa faz a metade), 4,33 semanas por mês só como referência e 52 semanas na divisão de equipes. Até 5 robôs a escala automática fica só com o sênior, se a pessoa sozinha der conta das visitas. Acima disso entra o pleno na mesma equipe. Uma equipe nova só abre quando as visitas passam da capacidade.</p>
+            <p><span class="tag">Premissa</span> Tudo nesta lista é premissa operacional, sem fonte na pesquisa de 15/10/2026. Validar com a Gollmann ou com o histórico: 4 preventivas por robô/ano, 2 corretivas por robô/ano, 3,5 visitas por semana para a equipe cheia de 2 (faixa usual de 3 a 4; o campo aceita de 2 a 5; uma pessoa faz a metade), 4,33 semanas por mês só como referência e 52 semanas na divisão de equipes. Até 5 robôs a escala automática fica só com o sênior, se a pessoa sozinha der conta das visitas. Acima disso entra o pleno na mesma equipe. Uma equipe nova só abre quando as visitas passam da capacidade.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Um coordenador a cada 4 equipes, salário de R$ 12.000, e só quando existe mais de uma equipe.</p>
+            <p><span class="tag">Premissa</span> Um coordenador a cada 4 equipes, salário de R$ 12.000, e só quando existe mais de uma equipe. Um gerente a cada 3 coordenadores, salário de R$ 18.000, e só quando há pelo menos 3 coordenadores: gerentes = teto(coordenadores ÷ 3). Abaixo de 3 coordenadores, nenhum gerente. Encargos, inclusive a provisão de rescisão, e benefícios iguais aos do coordenador.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Taxa anual ao fabricante de 0,6% do valor do robô, e valor médio de R$ 1.300.000. A pesquisa chegou a sugerir peças e consumíveis a 3% do valor do robô ao ano; esta conta não usa esse percentual.</p>
@@ -216,6 +219,10 @@
       </section>
     </main>
     <div class="dock no-print" aria-hidden="false">
+      <div class="dock-crew">
+        <span>Pessoas</span>
+        <strong id="dock-crew">—</strong>
+      </div>
       <div>
         <span>Custo mensal</span>
         <strong id="dock-monthly">—</strong>

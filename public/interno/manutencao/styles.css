@@ -379,13 +379,17 @@ tfoot th, tfoot td { font-weight: 700; }
   right: 0;
   bottom: 0;
   z-index: 4;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.45rem 1rem;
   justify-content: space-between;
   padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom));
   background: var(--green-dark);
   color: white;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
 }
+
+.dock-crew { flex: 1 1 100%; min-width: 0; }
 
 .dock span {
   display: block;
@@ -395,7 +399,18 @@ tfoot th, tfoot td { font-weight: 700; }
   opacity: 0.75;
 }
 
-.dock strong { font-variant-numeric: tabular-nums; font-size: 1rem; }
+.dock strong {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.dock-crew strong { font-size: 0.95rem; }
+
+@media (min-width: 720px) {
+  .dock-crew { flex: 1 1 auto; }
+}
 
 .print-only { display: none; }
 
@@ -406,7 +421,7 @@ tfoot th, tfoot td { font-weight: 700; }
   .kpi-main { grid-column: span 3; }
 }
 
-body { padding-bottom: 5.4rem; }
+body { padding-bottom: 7.2rem; }
 
 .dock { display: flex; }
 
