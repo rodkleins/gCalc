@@ -25,7 +25,7 @@
       <p class="kicker">Uso interno · não indexar</p>
       <h1>Custo de manutenção dos robôs Gollmann</h1>
       <p class="lede">
-        Brasil, base em São Paulo. A cabine da Fiat Strada leva duas pessoas: sênior e, quando a escala pede, pleno.
+        Brasil, base em São Paulo. A cabine da Fiat Fiorino leva duas pessoas: sênior e, quando a escala pede, pleno.
         Cada equipe tem o próprio carro. A coordenação só entra a partir da segunda equipe. O estoque de peças é
         investimento no mês 0, separado do custo mensal.
       </p>
@@ -55,8 +55,9 @@
         <div class="chart-card">
           <h3 id="chart-title">Custo por robô/mês</h3>
           <p>
-            De 1 a 1.000 robôs, com as premissas atuais. A linha acompanha o custo por robô. Os traços e a faixa
-            marcam quando a equipe muda de tamanho, entra outra equipe ou entra coordenação.
+            De 1 até o número de robôs escolhido, no mínimo 10. A linha acompanha o custo por robô e o ponto
+            marcado é o cenário atual. Os traços e a faixa marcam quando a equipe muda de tamanho, entra outra
+            equipe ou entra coordenação.
           </p>
           <p id="chart-readout"></p>
           <div id="chart" data-testid="chart"></div>
@@ -80,7 +81,7 @@
           <span class="tag">Premissa</span>
           A equipe é sênior R$ 10.000 e pleno R$ 6.000. Os dois valores são premissa interna, acima das referências
           abaixo. A pesquisa chegou a sugerir um estudante de engenharia no time; esse papel saiu da conta porque a
-          cabine da Fiat Strada leva no máximo duas pessoas. O júnior não entra no custo. Até 5 robôs a equipe
+          cabine da Fiat Fiorino leva no máximo duas pessoas. O júnior não entra no custo. Até 5 robôs a equipe
           automática é só o sênior, se as visitas couberem na metade da capacidade. A partir do robô seguinte entra
           o pleno. Outra equipe de sênior e pleno, com o próprio carro, só abre quando as visitas passam da capacidade da dupla.
         </p>
@@ -135,15 +136,18 @@
             <p><span class="tag">Premissa</span> Periculosidade de 30% (CLT art. 193), desligada. Em robô de baixa tensão a exposição a sistema elétrico de potência provavelmente não se caracteriza. A pesquisa não trouxe URL do artigo.</p>
           </li>
           <li>
-            <p>Vale-refeição médio em SP: R$ 612,30/mês no panorama de benefícios da FIPE, 1º trimestre de 2026 (publicado em 03/2026). O campo usa R$ 612.</p>
+            <p>Vale-refeição médio em SP: R$ 612,30/mês no panorama de benefícios da FIPE, 1º trimestre de 2026 (publicado em 03/2026). O campo não usa essa média.</p>
             <p class="source"><a href="https://downloads.fipe.org.br/indices/panoramabeneficiosbrasil-1t2026.pdf" rel="nofollow noopener noreferrer">downloads.fipe.org.br</a></p>
           </li>
           <li>
-            <p>Almoço médio na capital paulista: R$ 40,07, ou cerca de R$ 841,55/mês em 21 dias. Não é o valor usado; serve de contraste com o VR de R$ 612. 13/05/2026.</p>
+            <p><span class="tag">Premissa</span> Vale-refeição de R$ 1.020 por pessoa e por mês. Fica acima da média FIPE de São Paulo.</p>
+          </li>
+          <li>
+            <p>Almoço médio na capital paulista: R$ 40,07, ou cerca de R$ 841,55/mês em 21 dias. Não é o valor usado; serve de contraste com o VR. 13/05/2026.</p>
             <p class="source"><a href="https://www.guairanews.com/2026/05/13/levantamento-da-alelo-fipe-mostra-que-almoco-com-beneficio-refeicao-custa-em-media-r-4007-em-sao-paulo/" rel="nofollow noopener noreferrer">guairanews.com</a></p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Plano de saúde empresarial em SP: faixa de R$ 200 a R$ 600 por vida no padrão; premium de R$ 700 a R$ 1.100. O campo usa R$ 450, no meio da faixa padrão. 2026.</p>
+            <p><span class="tag">Premissa</span> Plano de saúde empresarial em SP: faixa de R$ 200 a R$ 600 por vida no padrão; premium de R$ 700 a R$ 1.100. O campo usa R$ 850, premissa interna na faixa premium. 2026.</p>
             <p class="source"><a href="https://conveniosmedicossp.com.br/blog/quanto-custa-plano-de-saude-empresarial-sp/" rel="nofollow noopener noreferrer">conveniosmedicossp.com.br</a></p>
           </li>
           <li>
@@ -154,27 +158,58 @@
         <h3>Veículo</h3>
         <ul class="source-group">
           <li>
-            <p>Unidas Livre Empresas, Fiat Strada, a partir de R$ 2.660,19/mês (12, 24 ou 36 meses, com impostos, seguro e assistência). Consultado em 15/10/2026. O campo usa R$ 2.700. A cabine da Strada leva duas pessoas; por isso a equipe tem no máximo sênior e pleno, e cada equipe tem o próprio carro.</p>
-            <p class="source"><a href="https://empresas.livre.com.br/carros-por-assinatura/strada1" rel="nofollow noopener noreferrer">empresas.livre.com.br</a></p>
+            <p>Fiat Fiorino Endurance 1.3 Flex, furgão. Cabine de 2 lugares e baú de 650 kg / 3,3 m³. A equipe continua no máximo sênior e pleno, e cada equipe tem o próprio furgão. Consultado em 15/10/2026.</p>
           </li>
           <li>
-            <p>Fiat por assinatura: Strada Endurance R$ 1.999, Fiorino Endurance 1.3 R$ 3.039, Mobi R$ 1.619. 05/2026.</p>
-            <p class="source"><a href="https://www.vrum.com.br/mercado/2026/05/7414306-fiat-por-assinatura-libera-pagamento-com-cartao-de-credito.html" rel="nofollow noopener noreferrer">vrum.com.br</a></p>
+            <p>Fiorino Endurance 1.3 (Foco), a partir de R$ 2.439/mês, cerca de 1.000 km, 12 meses ou mais. 15/10/2026.</p>
+            <p class="source"><a href="https://zerokm.aluguefoco.com.br/fiorino-13-endurance-2526/" rel="nofollow noopener noreferrer">zerokm.aluguefoco.com.br</a></p>
           </li>
           <li>
-            <p>Fiorino Endurance PJ, 36 meses, a partir de R$ 3.139/mês. 2026.</p>
+            <p>Fiorino Endurance 1.3, menor valor PJ do catálogo Signbox: R$ 2.676/mês, 1.000 km, 24 meses. Outra locadora no mesmo catálogo: R$ 3.398. Estimativa Signbox de R$ 2.882, 12 a 48 meses. 15/10/2026.</p>
+            <p class="source">
+              <a href="https://signboxbrasil.com.br/frota" rel="nofollow noopener noreferrer">signboxbrasil.com.br/frota</a>
+              ·
+              <a href="https://signboxbrasil.com.br/carro-por-assinatura" rel="nofollow noopener noreferrer">signboxbrasil.com.br</a>
+            </p>
+          </li>
+          <li>
+            <p>Fiorino Endurance 1.3 2026 (Reche, anúncio de Manaus): R$ 2.899/mês, 1.000 km, 48 meses. 15/10/2026.</p>
+            <p class="source"><a href="https://rechecarroporassinatura.com.br/veiculo/fiat-fiorino-endurance-1-3-2026" rel="nofollow noopener noreferrer">rechecarroporassinatura.com.br</a></p>
+          </li>
+          <li>
+            <p>Fiorino 1.3 2026 (Webmotors, locadoras parceiras): R$ 2.959 a R$ 3.219/mês. 15/10/2026.</p>
+            <p class="source"><a href="https://www.webmotors.com.br/assinar-carro/br/fiat/fiorino" rel="nofollow noopener noreferrer">webmotors.com.br</a></p>
+          </li>
+          <li>
+            <p>Fiorino Endurance 1.3 (JR&amp;F, PJ com CNPJ de mais de 2 anos): a partir de R$ 3.139/mês, 36 meses. 15/10/2026.</p>
             <p class="source"><a href="https://jrfwebcarroporassinatura.com.br/carros-por-assinatur/fiorino-endurance-1-3/" rel="nofollow noopener noreferrer">jrfwebcarroporassinatura.com.br</a></p>
           </li>
           <li>
-            <p>Localiza Meoo, HB20 1.0, 1.000 km, 36 meses: R$ 2.393. LM AssineCar, o mesmo perfil: R$ 2.029. 2026.</p>
-            <p class="source"><a href="https://educandoseubolso.blog.br/veiculo/carro-por-assinatura/localiza-meoo-x-lm-assinecar" rel="nofollow noopener noreferrer">educandoseubolso.blog.br</a></p>
+            <p>Saveiro / Fiorino Furgão (Caiena, referência nacional): R$ 2.490/mês com 3.000 km, 12 meses, corporativo. 15/10/2026.</p>
+            <p class="source"><a href="https://www.caiena.com.br/tarifario" rel="nofollow noopener noreferrer">caiena.com.br</a></p>
           </li>
           <li>
-            <p>Movida mensal flex e Unidas mensal corporativo: sem preço público. 15/10/2026.</p>
-            <p class="source"><a href="https://empresas.unidas.com.br/" rel="nofollow noopener noreferrer">empresas.unidas.com.br</a></p>
+            <p>Sem preço público da Fiorino em Movida, Unidas Livre, Localiza Meoo nem Fiat por Assinatura. Localiza mensal tem grupo furgão só sob cotação. 15/10/2026.</p>
+            <p class="source">
+              <a href="https://www.localiza.com/brasil/pt-br/mensal" rel="nofollow noopener noreferrer">localiza.com</a>
+              ·
+              <a href="https://motorshow.com.br/fiat-por-assinatura-modelos-e-precos" rel="nofollow noopener noreferrer">motorshow.com.br</a>
+            </p>
           </li>
           <li>
-            <p>Gasolina na cidade de São Paulo: R$ 6,34/L; etanol R$ 3,91/L. Semana de 4 a 10/10/2026. O campo usa a gasolina da capital.</p>
+            <p><span class="tag">Premissa</span> Locação de R$ 2.900/mês. Mediana dos anúncios de cerca de 1.000 km (R$ 2.676 a R$ 3.219) mais um ajuste para chegar perto de 2.500 km. Quase toda franquia publicada é de 1.000 km; na Toriba, cada 1.000 km a mais custa cerca de R$ 110 a R$ 120.</p>
+            <p class="source"><a href="https://assinaturatoriba.com.br/planos/" rel="nofollow noopener noreferrer">assinaturatoriba.com.br</a></p>
+          </li>
+          <li>
+            <p>Consumo oficial PBEV/Inmetro da Fiorino 1.3 Firefly flex, linha 2025/26: gasolina 12,4 km/L na cidade e 13,6 na estrada; etanol 8,7 / 9,6. Não é diesel. O campo usa 12,4 km/L.</p>
+            <p class="source">
+              <a href="https://www.media.stellantis.com/br-pt/fiat/press/fiat-aprimora-performance-de-scudo-e-fiorino-com-novos-motores" rel="nofollow noopener noreferrer">media.stellantis.com</a>
+              ·
+              <a href="https://www.autoo.com.br/fiat-tem-fiorino-2025-com-descontos-de-r-20-mil-veja-os-precos/" rel="nofollow noopener noreferrer">autoo.com.br</a>
+            </p>
+          </li>
+          <li>
+            <p>Gasolina na cidade de São Paulo: R$ 6,34/L; etanol R$ 3,91/L. Semana de 4 a 10/10/2026. O campo usa a gasolina da capital. Etanol a 3,91 ÷ 6,34 fica em 62%, abaixo de 70%.</p>
             <p class="source"><a href="https://www.combustiveis-anp.com.br/estado/sp/sao-paulo" rel="nofollow noopener noreferrer">combustiveis-anp.com.br</a></p>
           </li>
           <li>
@@ -182,7 +217,7 @@
             <p class="source"><a href="https://www.combustiveis-anp.com.br/estado/sp/historico/outubro-2026" rel="nofollow noopener noreferrer">combustiveis-anp.com.br</a></p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Consumo urbano de 10,5 km/L, 2.500 km/mês e R$ 400 de pedágio e estacionamento. A faixa de consumo citada para Strada/Fiorino 1.3 é 10 a 11 km/L; a tabela Inmetro/PBE não foi consultada.</p>
+            <p><span class="tag">Premissa</span> 2.500 km/mês e R$ 400 de pedágio e estacionamento. O baú fechado é a razão de trocar a caçamba: protege ferramenta, peça e notebook.</p>
           </li>
         </ul>
 
