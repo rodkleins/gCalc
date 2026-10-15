@@ -1,6 +1,6 @@
 /** Conta pura da manutenção interna. Sem DOM. */
 
-export const TECHNICIANS_PER_TEAM = 3;
+export const MAX_PEOPLE_PER_TEAM = 2;
 
 export const CHARGE_LINES = [
   { key: 'inss', label: 'INSS patronal', percent: 20 },
@@ -16,7 +16,11 @@ export const DEFAULTS = {
   robots: 10,
   salarySenior: 10000,
   salaryPleno: 6000,
-  salaryJunior: 3500,
+  autoScale: true,
+  includeSenior: true,
+  includePleno: true,
+  soloMaxRobots: 5,
+  pairMaxRobots: 15,
   encargosMultiplier: 1.65,
   inss: 20,
   rat: 2,
@@ -46,7 +50,8 @@ export const DEFAULTS = {
   partsPerRobot: 0,
   partsUnfilled: true,
   overnightShare: 0,
-  peoplePerOvernight: 3,
+  overnightFollow: true,
+  peoplePerOvernight: 2,
   perDiem: 450,
 };
 
@@ -148,10 +153,76 @@ function ceilStable(ratio) {
   return Math.ceil(snapped - 1e-12);
 }
 
-export function teamCount(visitsYear, visitsPerWeek, weeksPerYear) {
-  const capacity = visitsPerWeek * weeksPerYear;
+export function annualCapacity(visitsPerWeek, weeksPerYear, people) {
+  const headcount = Math.min(MAX_PEOPLE_PER_TEAM, Math.max(0, people));
+  return visitsPerWeek * (headcount / MAX_PEOPLE_PER_TEAM) * weeksPerYear;
+}
+
+export function teamCount(visitsYear, visitsPerWeek, weeksPerYear, people = MAX_PEOPLE_PER_TEAM) {
+  const capacity = annualCapacity(visitsPerWeek, weeksPerYear, people);
   if (!(capacity > 0)) return 1;
   return Math.max(1, ceilStable(visitsYear / capacity));
+}
+
+function fits(visits, capacity) {
+  return capacity > 0 && visits <= capacity + 1e-9;
+}
+
+/** Composição e quantidade. A equipe sempre tem sênior e no máximo um pleno. */
+export function staffPlan(raw) {
+  const input = sanitize(raw);
+  const robots = input.robots;
+  const visitsPerRobot = input.preventivesPerYear + input.correctivesPerYear;
+  const visitsYear = robots * visitsPerRobot;
+  const soloMax = Math.max(0, input.soloMaxRobots);
+  const pairMax = Math.max(1, input.pairMaxRobots);
+  const soloCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 1);
+  const pairCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 2);
+  let pleno = false;
+  let teams = 1;
+  let byRobots = 1;
+  let byVisits = 1;
+  let reason = 'solo';
+
+  if (!input.autoScale) {
+    pleno = Boolean(input.includePleno);
+    const people = 1 + (pleno ? 1 : 0);
+    const cap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, people);
+    byVisits = teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, people);
+    if (!(cap > 0)) byVisits = 1;
+    teams = byVisits;
+    reason = 'manual';
+  } else if (robots <= soloMax && fits(visitsYear, soloCap)) {
+    reason = 'solo';
+  } else {
+    pleno = true;
+    byRobots = Math.max(1, ceilStable(robots / pairMax));
+    byVisits = pairCap > 0 ? teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, 2) : 1;
+    teams = Math.max(byRobots, byVisits);
+    if (robots <= soloMax || byVisits > byRobots) reason = 'capacity';
+    else if (robots > pairMax) reason = 'robots';
+    else reason = 'pair';
+  }
+
+  const peopleOnTeam = 1 + (pleno ? 1 : 0);
+  return {
+    robots,
+    visitsPerRobot,
+    visitsYear,
+    soloMax,
+    pairMax,
+    soloCap,
+    pairCap,
+    teamCap: annualCapacity(input.visitsPerWeek, input.weeksPerYear, peopleOnTeam),
+    seniorOnTeam: true,
+    pleno,
+    teams,
+    byRobots,
+    byVisits,
+    reason,
+    peopleOnTeam,
+    compositionLabel: pleno ? 'Sênior + Pleno' : 'Sênior',
+  };
 }
 
 export function coordinatorCount(teams, teamsPerCoordinator) {
@@ -167,19 +238,19 @@ function moneyPair(exact) {
 
 export function calculate(raw = {}) {
   const input = sanitize(raw);
+  const plan = staffPlan(input);
   const robots = input.robots;
-  const visitsPerRobot = input.preventivesPerYear + input.correctivesPerYear;
-  const visitsYear = robots * visitsPerRobot;
-  const visitsPerTeamYear = input.visitsPerWeek * input.weeksPerYear;
-  const visitsPerTeamMonth = input.visitsPerWeek * input.weeksPerMonth;
-  const teams = teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear);
+  const { visitsPerRobot, visitsYear, teams, peopleOnTeam } = plan;
+  const visitsPerTeamYear = plan.teamCap;
+  const visitsPerFullTeamYear = plan.pairCap;
+  const visitsPerTeamMonth = input.visitsPerWeek * (peopleOnTeam / MAX_PEOPLE_PER_TEAM) * input.weeksPerMonth;
   const coordinators = coordinatorCount(teams, input.teamsPerCoordinator);
   const robotsPerTeam = teams > 0 ? robots / teams : null;
   const hazardFactor = input.hazardOn ? 1 + input.hazardRate : 1;
-  const salarySum = input.salarySenior + input.salaryPleno + input.salaryJunior;
+  const salarySum = input.salarySenior + (plan.pleno ? input.salaryPleno : 0);
   const peoplePerTeam = salarySum * hazardFactor * input.encargosMultiplier;
   const peopleMonthly = peoplePerTeam * teams;
-  const technicianCount = TECHNICIANS_PER_TEAM * teams;
+  const technicianCount = peopleOnTeam * teams;
   const benefitsPerPerson = input.mealVoucher + input.healthPlan;
   const benefitsMonthly = (technicianCount + coordinators) * benefitsPerPerson;
   const litersPerMonth = input.kmPerLiter > 0 ? input.kmPerMonth / input.kmPerLiter : 0;
@@ -191,7 +262,8 @@ export function calculate(raw = {}) {
   const manufacturerAnnualPerRobot = input.robotValue * input.manufacturerFeeRate;
   const manufacturerPerRobotMonth = manufacturerAnnualPerRobot / 12;
   const manufacturerMonthly = robots * manufacturerPerRobotMonth;
-  const perDiemAnnual = visitsYear * input.overnightShare * input.peoplePerOvernight * input.perDiem;
+  const overnightPeople = input.overnightFollow ? peopleOnTeam : input.peoplePerOvernight;
+  const perDiemAnnual = visitsYear * input.overnightShare * overnightPeople * input.perDiem;
   const perDiemMonthly = perDiemAnnual / 12;
   const partsInvestment = input.partsPerRobot * robots;
   const lines = {
@@ -212,11 +284,10 @@ export function calculate(raw = {}) {
 
   return {
     ...input,
-    visitsPerRobot,
-    visitsYear,
+    ...plan,
     visitsPerTeamYear,
+    visitsPerFullTeamYear,
     visitsPerTeamMonth,
-    teams,
     coordinators,
     robotsPerTeam,
     hazardFactor,
@@ -224,6 +295,7 @@ export function calculate(raw = {}) {
     peoplePerTeam,
     peopleMonthly,
     technicianCount,
+    overnightPeople,
     benefitsPerPerson,
     benefitsMonthly,
     litersPerMonth,
@@ -260,6 +332,8 @@ export function costSeries(raw = {}, from = 1, to = 200) {
       monthlyRounded: result.monthlyRounded,
       teams: result.teams,
       coordinators: result.coordinators,
+      peopleOnTeam: result.peopleOnTeam,
+      compositionLabel: result.compositionLabel,
     });
   }
   return points;
@@ -269,12 +343,14 @@ export function plateaus(points) {
   const rows = [];
   for (const point of points) {
     const last = rows[rows.length - 1];
-    if (!last || last.teams !== point.teams || last.coordinators !== point.coordinators) {
+    if (!last || last.teams !== point.teams || last.coordinators !== point.coordinators || last.peopleOnTeam !== point.peopleOnTeam) {
       rows.push({
         from: point.robots,
         to: point.robots,
         teams: point.teams,
         coordinators: point.coordinators,
+        peopleOnTeam: point.peopleOnTeam,
+        compositionLabel: point.compositionLabel,
         perRobotAtStart: point.perRobotRounded,
         perRobotAtEnd: point.perRobotRounded,
       });
@@ -290,35 +366,63 @@ function brl(value) {
   return formatBRL(value);
 }
 
+function teamSentence(result) {
+  const visits = formatFlex(result.visitsYear);
+  const pairCap = formatFlex(result.pairCap);
+  const soloCap = formatFlex(result.soloCap);
+  const ratio = result.pairCap > 0 ? formatFixed(result.visitsYear / result.pairCap, 4) : null;
+  const visitTerm =
+    result.pairCap > 0
+      ? `máximo(1, teto(${visits} ÷ ${pairCap})) = máximo(1, teto(${ratio})) = ${formatFlex(result.byVisits)}`
+      : '1, porque a capacidade anual da dupla não está definida';
+  if (result.reason === 'manual') {
+    const people = result.peopleOnTeam;
+    const cap = formatFlex(result.teamCap);
+    return `Modo manual. Cada equipe é ${result.compositionLabel} (${formatFlex(people)} ${people === 1 ? 'pessoa' : 'pessoas'}, no máximo 2). A capacidade desta equipe é ${formatFlex(result.visitsPerWeek)} × (${formatFlex(people)} ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${cap} visitas/ano. Os limites de ${formatFlex(result.soloMax)} e ${formatFlex(result.pairMax)} robôs ficam de fora. Equipes = ${visitTerm}.`;
+  }
+  if (result.reason === 'solo') {
+    return `Modo automático. Até ${formatFlex(result.soloMax)} robôs a equipe é só o sênior, e ${visits} visitas cabem nas ${soloCap} da pessoa sozinha. Equipes = 1, composição ${result.compositionLabel}. A equipe sempre começa pelo sênior.`;
+  }
+  const why =
+    result.reason === 'capacity'
+      ? 'A capacidade da faixa anterior não cobre as visitas, então entram equipes de sênior + pleno.'
+      : result.reason === 'robots'
+        ? `${formatFlex(result.robots)} robôs passam de ${formatFlex(result.pairMax)}, então entram mais equipes de sênior + pleno.`
+        : `${formatFlex(result.robots)} robôs ficam entre ${formatFlex(result.soloMax + 1)} e ${formatFlex(result.pairMax)}, na faixa de uma equipe de sênior + pleno.`;
+  return `Modo automático. ${why} Pelo volume de visitas, ${visitTerm}. Pelo limite de robôs por equipe de dois, teto(${formatFlex(result.robots)} ÷ ${formatFlex(result.pairMax)}) = ${formatFlex(result.byRobots)}. Equipes = o maior dos dois = ${formatFlex(result.teams)}, composição ${result.compositionLabel}. Cada equipe tem o próprio carro. A equipe sempre começa pelo sênior.`;
+}
+
 export function explain(result) {
-  const capacity = result.visitsPerTeamYear;
-  const teamRatio = capacity > 0 ? result.visitsYear / capacity : null;
-  const teamLine =
-    teamRatio == null
-      ? `Equipes = 1 (capacidade anual inválida; o mínimo é 1).`
-      : `Equipes = máximo(1, teto(${formatFlex(result.visitsYear)} ÷ ${formatFlex(capacity)})) = máximo(1, teto(${formatFixed(teamRatio, 4)})) = ${formatFlex(result.teams)}.`;
   const coordinatorLine =
     result.teams <= 1
       ? 'Coordenadores = 0, porque a coordenação só existe quando há mais de uma equipe.'
       : `Coordenadores = teto(${formatFlex(result.teams)} ÷ ${formatFlex(result.teamsPerCoordinator)}) = teto(${formatFixed(result.teams / result.teamsPerCoordinator, 4)}) = ${formatFlex(result.coordinators)}.`;
   const hazardLine = result.hazardOn
-    ? `Periculosidade ligada: ${formatFlex(result.hazardRate * 100)}% sobre o salário-base dos três técnicos (fator ${formatFlex(result.hazardFactor, 3)}). Não incide sobre o coordenador nem sobre VR e plano.`
+    ? `Periculosidade ligada: ${formatFlex(result.hazardRate * 100)}% sobre o salário-base de quem está na equipe (fator ${formatFlex(result.hazardFactor, 3)}). Não incide sobre o coordenador nem sobre VR e plano.`
     : 'Periculosidade desligada. O fator sobre o salário-base é 1.';
   const peopleLine = result.hazardOn
-    ? `Pessoas por equipe = ${brl(result.salarySum)} × ${formatFlex(result.hazardFactor, 3)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.peoplePerTeam)}.`
-    : `Pessoas por equipe = ${brl(result.salarySum)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.peoplePerTeam)}, sem periculosidade.`;
+    ? `Folha de uma equipe = ${brl(result.salarySum)} × ${formatFlex(result.hazardFactor, 3)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.peoplePerTeam)}.`
+    : `Folha de uma equipe = ${brl(result.salarySum)} × ${formatFlex(result.encargosMultiplier, 3)} = ${brl(result.peoplePerTeam)}, sem periculosidade.`;
+  const salaryLine = result.pleno
+    ? `Salários de uma equipe = ${brl(result.salarySenior)} (sênior) + ${brl(result.salaryPleno)} (pleno) = ${brl(result.salarySum)}.`
+    : `Salários de uma equipe = ${brl(result.salarySenior)} (sênior). O pleno não entra. Total = ${brl(result.salarySum)}.`;
   const partsLine = result.partsUnfilled
     ? `Estoque de peças por robô não informado (campo em branco). Investimento inicial no mês 0 = ${brl(0)}. Não entra no custo mensal.`
     : `Investimento inicial em peças (mês 0) = ${brl(result.partsPerRobot)} × ${formatFlex(result.robots)} robôs = ${brl(result.partsInvestment)}. Não entra no custo mensal.`;
+  const overnightLine = result.overnightFollow
+    ? `Pessoas por pernoite = ${formatFlex(result.overnightPeople)}, o tamanho da equipe que visita.`
+    : `Pessoas por pernoite = ${formatFlex(result.overnightPeople)}, valor fixado no campo.`;
 
   return [
     {
       title: 'Visitas e equipes',
       lines: [
         `Visitas no ano = ${formatFlex(result.robots)} robôs × (${formatFlex(result.preventivesPerYear)} preventivas + ${formatFlex(result.correctivesPerYear)} corretivas (premissa)) = ${formatFlex(result.visitsYear)} visitas.`,
-        `Capacidade anual da equipe = ${formatFlex(result.visitsPerWeek)} visitas/semana × ${formatFlex(result.weeksPerYear)} semanas = ${formatFlex(capacity)} visitas/ano.`,
-        `Referência mensal = ${formatFlex(result.visitsPerWeek)} × ${formatFlex(result.weeksPerMonth)} semanas/mês = ${formatFlex(result.visitsPerTeamMonth)} visitas/mês. Este fator mensal não entra na divisão de equipes.`,
-        teamLine,
+        `O campo de visitas por semana vale para a equipe cheia de 2 pessoas. Quem viaja sozinho faz a metade: visitas/semana × (pessoas ÷ 2).`,
+        `Capacidade anual da dupla = ${formatFlex(result.visitsPerWeek)} × (2 ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.pairCap)} visitas/ano.`,
+        `Capacidade anual de uma pessoa = ${formatFlex(result.visitsPerWeek)} × (1 ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.soloCap)} visitas/ano.`,
+        `Referência mensal desta equipe = ${formatFlex(result.visitsPerWeek)} × (${formatFlex(result.peopleOnTeam)} ÷ 2) × ${formatFlex(result.weeksPerMonth)} semanas/mês = ${formatFlex(result.visitsPerTeamMonth)} visitas/mês. Este fator mensal não entra na divisão de equipes.`,
+        teamSentence(result),
         coordinatorLine,
         `Robôs por equipe = ${formatFlex(result.robots)} ÷ ${formatFlex(result.teams)} = ${formatFlex(result.robotsPerTeam)}.`,
       ],
@@ -326,10 +430,10 @@ export function explain(result) {
     {
       title: 'Pessoas e encargos',
       lines: [
-        `Salários da equipe = ${brl(result.salarySenior)} (sênior) + ${brl(result.salaryPleno)} (pleno) + ${brl(result.salaryJunior)} (júnior) = ${brl(result.salarySum)}.`,
+        salaryLine,
         hazardLine,
         peopleLine,
-        `Pessoas no mês = ${brl(result.peoplePerTeam)} × ${formatFlex(result.teams)} ${result.teams === 1 ? 'equipe' : 'equipes'} = ${brl(result.lines.people.monthly)}.`,
+        `Folha no mês = ${brl(result.peoplePerTeam)} × ${formatFlex(result.teams)} ${result.teams === 1 ? 'equipe' : 'equipes'} = ${brl(result.lines.people.monthly)}.`,
         ...CHARGE_LINES.map(
           (line) => `${line.label}: ${formatFlex(result[line.key])}% sobre o salário-base (composição exibida; não substitui o multiplicador).`,
         ),
@@ -340,7 +444,7 @@ export function explain(result) {
       title: 'Benefícios',
       lines: [
         `Benefício por pessoa = ${brl(result.mealVoucher)} de VR + ${brl(result.healthPlan)} de plano = ${brl(result.benefitsPerPerson)}. Sem encargos em cima do benefício.`,
-        `Benefícios no mês = (${formatFlex(result.technicianCount)} técnicos + ${formatFlex(result.coordinators)} coordenadores) × ${brl(result.benefitsPerPerson)} = ${brl(result.lines.benefits.monthly)}.`,
+        `Benefícios no mês = (${formatFlex(result.technicianCount)} pessoas nas equipes + ${formatFlex(result.coordinators)} coordenadores) × ${brl(result.benefitsPerPerson)} = ${brl(result.lines.benefits.monthly)}. Cada pessoa real entra uma vez.`,
       ],
     },
     {
@@ -348,7 +452,7 @@ export function explain(result) {
       lines: [
         `Combustível de um carro = (${formatFlex(result.kmPerMonth)} km ÷ ${formatFlex(result.kmPerLiter)} km/L) × ${brl(result.fuelPrice)} = ${brl(result.fuelPerCar)}.`,
         `Carro por equipe = ${brl(result.carRental)} de locação + ${brl(result.fuelPerCar)} de combustível + ${brl(result.tolls)} de pedágio e estacionamento = ${brl(result.carPerTeam)}.`,
-        `Carro no mês = ${brl(result.carPerTeam)} × ${formatFlex(result.teams)} = ${brl(result.lines.car.monthly)}.`,
+        `Carro no mês = ${brl(result.carPerTeam)} × ${formatFlex(result.teams)} = ${brl(result.lines.car.monthly)}. A cabine da Strada leva 2 pessoas, então cada equipe tem o próprio carro.`,
       ],
     },
     {
@@ -368,7 +472,8 @@ export function explain(result) {
     {
       title: 'Diárias',
       lines: [
-        `Diárias no ano = ${formatFlex(result.visitsYear)} visitas × ${formatFlex(result.overnightShare * 100)}% × ${formatFlex(result.peoplePerOvernight)} pessoas × ${brl(result.perDiem)} = ${brl(result.perDiemAnnual)}.`,
+        overnightLine,
+        `Diárias no ano = ${formatFlex(result.visitsYear)} visitas × ${formatFlex(result.overnightShare * 100)}% × ${formatFlex(result.overnightPeople)} pessoas × ${brl(result.perDiem)} = ${brl(result.perDiemAnnual)}.`,
         `Diárias no mês = ${brl(result.perDiemAnnual)} ÷ 12 = ${brl(result.lines.perDiem.monthly)}.`,
       ],
     },

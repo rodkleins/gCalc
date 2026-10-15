@@ -25,8 +25,9 @@
       <p class="kicker">Uso interno · não indexar</p>
       <h1>Custo de manutenção dos robôs Gollmann</h1>
       <p class="lede">
-        Brasil, base em São Paulo. Três técnicos CLT e um carro por equipe. A coordenação só entra a partir da
-        segunda equipe. O estoque de peças é investimento no mês 0, separado do custo mensal.
+        Brasil, base em São Paulo. A cabine da Fiat Strada leva duas pessoas: sênior e, quando a escala pede, pleno.
+        Cada equipe tem o próprio carro. A coordenação só entra a partir da segunda equipe. O estoque de peças é
+        investimento no mês 0, separado do custo mensal.
       </p>
       <div class="actions no-print">
         <button type="button" id="print">Imprimir em A4</button>
@@ -55,7 +56,7 @@
           <h3 id="chart-title">Custo por robô/mês</h3>
           <p>
             De 1 a 200 robôs, com as premissas atuais. A linha acompanha o custo por robô. Os traços e a faixa
-            marcam quando entra equipe ou coordenação.
+            marcam quando a equipe muda de tamanho, entra outra equipe ou entra coordenação.
           </p>
           <p id="chart-readout"></p>
           <div id="chart" data-testid="chart"></div>
@@ -77,9 +78,11 @@
         <h3>Salários</h3>
         <p>
           <span class="tag">Premissa</span>
-          A equipe desta calculadora é sênior R$ 10.000, pleno R$ 6.000 e júnior (estudante de engenharia, CLT)
-          R$ 3.500. Esses três valores são premissa interna, acima das referências abaixo. A pesquisa sugeria um
-          desenho de dois técnicos e um estudante; aqui o time é fixo em três CLT.
+          A equipe é sênior R$ 10.000 e pleno R$ 6.000. Os dois valores são premissa interna, acima das referências
+          abaixo. A pesquisa chegou a sugerir um estudante de engenharia no time; esse papel saiu da conta porque a
+          cabine da Fiat Strada leva no máximo duas pessoas. O júnior não entra no custo. Até 5 robôs a equipe
+          automática é só o sênior; de 6 a 15, sênior e pleno; acima de 15, ou quando as visitas não cabem, entram
+          novas equipes de sênior e pleno, cada uma com o próprio carro.
         </p>
         <ul class="source-group">
           <li>
@@ -99,15 +102,15 @@
             <p class="source"><a href="https://www.salario.com.br/profissao/tecnico-de-manutencao-eletronica-cbo-313205/sao-paulo-sp/" rel="nofollow noopener noreferrer">salario.com.br</a></p>
           </li>
           <li>
-            <p>Técnico de manutenção eletrônica em SP, júnior / pleno / sênior: R$ 2.780 / R$ 3.271 / R$ 4.906. 17/08/2026.</p>
+            <p>Técnico de manutenção eletrônica em SP, júnior / pleno / sênior: R$ 2.780 / R$ 3.271 / R$ 4.906. 17/08/2026. O júnior desta tabela não entra na equipe.</p>
             <p class="source"><a href="https://quantoganhaum.com.br/tecnico-de-manutencao-eletronica/sao-paulo" rel="nofollow noopener noreferrer">quantoganhaum.com.br</a></p>
           </li>
           <li>
-            <p>Vaga de técnico de manutenção elétrico ou mecatrônico júnior em SP, aceita curso em andamento, a partir de R$ 3.000. Publicada em 24/07.</p>
+            <p>Vaga de técnico de manutenção elétrico ou mecatrônico júnior em SP, aceita curso em andamento, a partir de R$ 3.000. Publicada em 24/07. Referência de mercado; o papel não está na equipe.</p>
             <p class="source"><a href="https://www.catho.com.br/vagas/tecnico-de-manutencao-eletrico-ou-mecatronico-junior/37646125/" rel="nofollow noopener noreferrer">catho.com.br</a></p>
           </li>
           <li>
-            <p>Vaga de técnico de manutenção elétrica júnior em São Bernardo do Campo: R$ 1.999 a R$ 3.000. 18/09/2026.</p>
+            <p>Vaga de técnico de manutenção elétrica júnior em São Bernardo do Campo: R$ 1.999 a R$ 3.000. 18/09/2026. Referência de mercado; o papel não está na equipe.</p>
             <p class="source"><a href="https://betavagas.com/vaga/sao-bernardo-do-campo-sp-tecnico-de-manutencao-eletrica-jr-tmk-56ee11f4a1" rel="nofollow noopener noreferrer">betavagas.com</a></p>
           </li>
         </ul>
@@ -148,7 +151,7 @@
         <h3>Veículo</h3>
         <ul class="source-group">
           <li>
-            <p>Unidas Livre Empresas, Fiat Strada, a partir de R$ 2.660,19/mês (12, 24 ou 36 meses, com impostos, seguro e assistência). Consultado em 15/10/2026. O campo usa R$ 2.700.</p>
+            <p>Unidas Livre Empresas, Fiat Strada, a partir de R$ 2.660,19/mês (12, 24 ou 36 meses, com impostos, seguro e assistência). Consultado em 15/10/2026. O campo usa R$ 2.700. A cabine da Strada leva duas pessoas; por isso a equipe tem no máximo sênior e pleno, e cada equipe tem o próprio carro.</p>
             <p class="source"><a href="https://empresas.livre.com.br/carros-por-assinatura/strada1" rel="nofollow noopener noreferrer">empresas.livre.com.br</a></p>
           </li>
           <li>
@@ -191,14 +194,14 @@
             <p class="source"><a href="https://sjsp.org.br/wp-content/uploads/2026/03/02032026_-_CCT-2026_-_assinada_Jornalistas_assin_260304_151605.pdf" rel="nofollow noopener noreferrer">sjsp.org.br</a></p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> A diária do campo é R$ 450 por pessoa por noite, abaixo da faixa estadual. A parcela de visitas com pernoite começa em 0%. Três pessoas viajam juntas, salvo edição.</p>
+            <p><span class="tag">Premissa</span> A diária do campo é R$ 450 por pessoa por noite, abaixo da faixa estadual. A parcela de visitas com pernoite começa em 0%. Viaja quem está na equipe (1 ou 2 pessoas), salvo edição do campo.</p>
           </li>
         </ul>
 
         <h3>Operação, fabricante e peças</h3>
         <ul class="source-group">
           <li>
-            <p><span class="tag">Premissa</span> Tudo nesta lista é premissa operacional, sem fonte na pesquisa de 15/10/2026. Validar com a Gollmann ou com o histórico: 4 preventivas por robô/ano, 6 corretivas por robô/ano, 3,5 visitas por semana por equipe (faixa usual de 3 a 4; o campo aceita de 2 a 5), 4,33 semanas por mês só como referência e 52 semanas na divisão de equipes.</p>
+            <p><span class="tag">Premissa</span> Tudo nesta lista é premissa operacional, sem fonte na pesquisa de 15/10/2026. Validar com a Gollmann ou com o histórico: 4 preventivas por robô/ano, 6 corretivas por robô/ano, 3,5 visitas por semana para a equipe cheia de 2 (faixa usual de 3 a 4; o campo aceita de 2 a 5; uma pessoa faz a metade), 4,33 semanas por mês só como referência e 52 semanas na divisão de equipes. Até 5 robôs a escala automática fica só com o sênior; até 15 robôs por equipe de dois.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Um coordenador a cada 4 equipes, salário de R$ 12.000, e só quando existe mais de uma equipe.</p>

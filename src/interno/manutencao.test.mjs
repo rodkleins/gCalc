@@ -29,12 +29,14 @@ function textOf(result) {
 }
 
 describe('custo de manutenção dos robôs', () => {
-  it('no default de 10 robôs fecha 100 visitas, 1 equipe e 0 coordenadores', () => {
+  it('no default de 10 robôs fecha 100 visitas, 1 equipe de sênior e pleno e 0 coordenadores', () => {
     const result = calculate();
     assert.equal(result.robots, 10);
     assert.equal(result.preventivesPerYear, 4);
     assert.equal(result.correctivesPerYear, 6);
     assert.equal(result.visitsYear, 100);
+    assert.equal(result.peopleOnTeam, 2);
+    assert.equal(result.compositionLabel, 'Sênior + Pleno');
     assert.equal(result.visitsPerTeamYear, 3.5 * 52);
     assert.equal(teamCount(100, 3.5, 52), 1);
     assert.equal(result.teams, 1);
@@ -50,17 +52,57 @@ describe('custo de manutenção dos robôs', () => {
     assert.match(memory, /corretivas \(premissa\)/);
     assert.match(memory, /Coordenadores = 0, porque/);
     assert.match(memory, /máximo\(1, teto\(100 ÷ 182\)\)/);
+    assert.match(memory, /pessoas ÷ 2/);
+    assert.match(memory, /Modo automático/);
     assert.match(memory, /Não entra no custo mensal/);
     assert.match(memory, /não informado/i);
+    assert.doesNotMatch(memory, /júnior/i);
+  });
+
+  it('escala 5 robôs com só o sênior e 20 robôs com duas equipes e coordenador', () => {
+    const five = calculate({ robots: 5 });
+    assert.equal(five.visitsYear, 50);
+    assert.equal(five.teams, 1);
+    assert.equal(five.peopleOnTeam, 1);
+    assert.equal(five.compositionLabel, 'Sênior');
+    assert.equal(five.coordinators, 0);
+    assert.equal(five.salarySum, 10000);
+    assert.equal(five.technicianCount, 1);
+    assert.equal(cents(five.monthlyRounded), 2542152);
+    assert.match(textOf(five), /só o sênior/);
+    assert.match(textOf(five), /pessoas ÷ 2/);
+
+    const twenty = calculate({ robots: 20 });
+    assert.equal(twenty.visitsYear, 200);
+    assert.equal(twenty.teams, 2);
+    assert.equal(twenty.peopleOnTeam, 2);
+    assert.equal(twenty.coordinators, 1);
+    assert.equal(twenty.technicianCount, 4);
+    assert.equal(twenty.peopleMonthly, 16000 * 1.65 * 2);
+    assert.equal(twenty.benefitsMonthly, 5 * 1062);
+    assert.equal(twenty.coordinationMonthly, 12000 * 1.65);
+    assert.equal(cents(twenty.monthlyRounded), 10012905);
+    assert.equal(cents(twenty.perRobotRounded), 500645);
+
+    const low = calculate({ robots: 16, preventivesPerYear: 1, correctivesPerYear: 0 });
+    assert.equal(low.visitsYear, 16);
+    assert.equal(low.teams, 2);
+    assert.equal(low.coordinators, 1);
+
+    const heavy = calculate({ robots: 5, preventivesPerYear: 12, correctivesPerYear: 12 });
+    assert.equal(heavy.visitsYear, 120);
+    assert.equal(heavy.peopleOnTeam, 2);
+    assert.equal(heavy.teams, 1);
+    assert.ok(heavy.peopleOnTeam <= 2);
   });
 
   it('separa folha, benefícios, carro, fabricante e o investimento em peças', () => {
     const result = calculate();
-    assert.equal(result.salarySum, 19500);
-    assert.equal(result.peoplePerTeam, 19500 * 1.65);
-    assert.equal(result.peopleMonthly, 32175);
+    assert.equal(result.salarySum, 16000);
+    assert.equal(result.peoplePerTeam, 16000 * 1.65);
+    assert.equal(result.peopleMonthly, 26400);
     assert.equal(result.benefitsPerPerson, 1062);
-    assert.equal(result.benefitsMonthly, 3186);
+    assert.equal(result.benefitsMonthly, 2124);
     assert.equal(result.encargosMultiplier, 1.65);
     const fuel = (2500 / 10.5) * 6.34;
     assert.ok(Math.abs(result.fuelPerCar - fuel) < 1e-9);
@@ -69,9 +111,9 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(result.manufacturerMonthly, 6500);
     assert.equal(result.coordinationMonthly, 0);
     assert.equal(cents(result.lines.car.monthly), 460952);
-    assert.equal(cents(result.monthlyRounded), 4647052);
-    assert.equal(cents(result.annualRounded), 55764624);
-    assert.equal(cents(result.perRobotRounded), 464705);
+    assert.equal(cents(result.monthlyRounded), 3963352);
+    assert.equal(cents(result.annualRounded), 47560224);
+    assert.equal(cents(result.perRobotRounded), 396335);
     assert.equal(
       result.lines.people.cents +
         result.lines.benefits.cents +
@@ -81,8 +123,8 @@ describe('custo de manutenção dos robôs', () => {
         result.lines.perDiem.cents,
       cents(result.monthlyRounded),
     );
-    assert.match(formatBRL(result.monthlyRounded), /46\.470,52/);
-    assert.match(formatBRL(result.perRobotRounded), /4\.647,05/);
+    assert.match(formatBRL(result.monthlyRounded), /39\.633,52/);
+    assert.match(formatBRL(result.perRobotRounded), /3\.963,35/);
     assert.match(textOf(result), /Multiplicador aplicado = 1,65/);
     assert.match(textOf(result), /INSS patronal: 20%/);
     assert.match(textOf(result), /Terceiros \(Sistema S\): 5,8%/);
@@ -96,8 +138,8 @@ describe('custo de manutenção dos robôs', () => {
     assert.ok(reference > 1.65 && reference < 1.66);
     assert.ok(Math.abs(simpleChargePercent() - 58.44) < 1e-9);
     const doubled = calculate({ encargosMultiplier: 2 });
-    assert.equal(doubled.peoplePerTeam, 19500 * 2);
-    assert.equal(doubled.benefitsMonthly, 3186);
+    assert.equal(doubled.peoplePerTeam, 16000 * 2);
+    assert.equal(doubled.benefitsMonthly, 2124);
   });
 
   it('liga a periculosidade só na folha dos técnicos', () => {
@@ -109,25 +151,27 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(on.coordinationMonthly, off.coordinationMonthly);
   });
 
-  it('abre a segunda equipe e o primeiro coordenador no 19º robô', () => {
-    assert.equal(calculate({ robots: 18 }).teams, 1);
-    assert.equal(calculate({ robots: 18 }).coordinators, 0);
-    const step = calculate({ robots: 19 });
-    assert.equal(step.visitsYear, 190);
+  it('abre outra equipe de dois no 16º robô e o coordenador junto', () => {
+    assert.equal(calculate({ robots: 15 }).teams, 1);
+    assert.equal(calculate({ robots: 15 }).coordinators, 0);
+    assert.equal(calculate({ robots: 15 }).peopleOnTeam, 2);
+    const step = calculate({ robots: 16 });
+    assert.equal(step.visitsYear, 160);
     assert.equal(step.teams, 2);
     assert.equal(step.coordinators, 1);
-    assert.equal(step.peopleMonthly, 32175 * 2);
-    assert.equal(step.technicianCount, 6);
-    assert.equal(step.benefitsMonthly, 7 * 1062);
+    assert.equal(step.peopleOnTeam, 2);
+    assert.equal(step.peopleMonthly, 16000 * 1.65 * 2);
+    assert.equal(step.technicianCount, 4);
+    assert.equal(step.benefitsMonthly, 5 * 1062);
     assert.equal(step.coordinationMonthly, 12000 * 1.65);
     assert.ok(Math.abs(step.carMonthly - calculate().carPerTeam * 2) < 1e-6);
-    assert.equal(step.manufacturerMonthly, 19 * 650);
+    assert.equal(step.manufacturerMonthly, 16 * 650);
     assert.equal(calculate({ robots: 55 }).teams, 4);
     assert.equal(calculate({ robots: 55 }).coordinators, 1);
     assert.equal(calculate({ robots: 73 }).teams, 5);
     assert.equal(calculate({ robots: 73 }).coordinators, 2);
-    assert.equal(calculate({ robots: 200 }).teams, 11);
-    assert.equal(calculate({ robots: 200 }).coordinators, 3);
+    assert.equal(calculate({ robots: 200 }).teams, 14);
+    assert.equal(calculate({ robots: 200 }).coordinators, 4);
     assert.equal(calculate({ teamsPerCoordinator: 1 }).coordinators, 0);
     assert.equal(coordinatorCount(2, 4), 1);
     assert.equal(coordinatorCount(4, 4), 1);
@@ -138,17 +182,26 @@ describe('custo de manutenção dos robôs', () => {
     const series = costSeries();
     assert.equal(series.length, 200);
     assert.equal(series[0].robots, 1);
+    assert.equal(series[4].teams, 1);
+    assert.equal(series[4].peopleOnTeam, 1);
     assert.equal(series[9].teams, 1);
+    assert.equal(series[9].peopleOnTeam, 2);
     assert.equal(series[9].coordinators, 0);
     assert.equal(series[199].robots, 200);
+    assert.equal(series[199].teams, 14);
     const steps = plateaus(series);
     assert.equal(steps[0].from, 1);
-    assert.equal(steps[0].to, 18);
+    assert.equal(steps[0].to, 5);
     assert.equal(steps[0].teams, 1);
+    assert.equal(steps[0].peopleOnTeam, 1);
     assert.equal(steps[0].coordinators, 0);
-    assert.equal(steps[1].from, 19);
-    assert.equal(steps[1].teams, 2);
-    assert.equal(steps[1].coordinators, 1);
+    assert.equal(steps[1].from, 6);
+    assert.equal(steps[1].to, 15);
+    assert.equal(steps[1].peopleOnTeam, 2);
+    assert.equal(steps[1].coordinators, 0);
+    assert.equal(steps[2].from, 16);
+    assert.equal(steps[2].teams, 2);
+    assert.equal(steps[2].coordinators, 1);
     assert.ok(steps[1].perRobotAtStart > steps[0].perRobotAtEnd);
   });
 
@@ -159,10 +212,13 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(stocked.monthlyExact, base.monthlyExact);
     assert.doesNotMatch(textOf(stocked), /não informado/i);
     assert.match(textOf(stocked), /Não entra no custo mensal/);
-    const travel = calculate({ overnightShare: 0.1, peoplePerOvernight: 3, perDiem: 450 });
-    assert.equal(travel.perDiemAnnual, 13500);
-    assert.equal(travel.perDiemMonthly, 1125);
+    const travel = calculate({ overnightShare: 0.1, overnightFollow: false, peoplePerOvernight: 2, perDiem: 450 });
+    assert.equal(travel.perDiemAnnual, 9000);
+    assert.equal(travel.perDiemMonthly, 750);
     assert.equal(travel.teams, base.teams);
+    const followed = calculate({ overnightShare: 0.1, robots: 5 });
+    assert.equal(followed.overnightPeople, 1);
+    assert.equal(followed.perDiemAnnual, 50 * 0.1 * 1 * 450);
   });
 
   it('usa 52 semanas na equipe e deixa 4,33 só na referência mensal', () => {
@@ -172,8 +228,15 @@ describe('custo de manutenção dos robôs', () => {
     assert.notEqual(month.visitsPerTeamMonth, base.visitsPerTeamMonth);
     const year = calculate({ weeksPerYear: 20, visitsPerWeek: 2 });
     assert.equal(year.visitsYear, 100);
+    assert.equal(year.peopleOnTeam, 2);
     assert.equal(year.teams, 3);
     assert.equal(year.coordinators, 1);
+    const manual = calculate({ autoScale: false, includePleno: false, includeSenior: false });
+    assert.equal(manual.peopleOnTeam, 1);
+    assert.equal(manual.teams, 2);
+    assert.equal(manual.coordinators, 1);
+    assert.match(textOf(manual), /Modo manual/);
+    assert.equal(manual.seniorOnTeam, true);
     assert.equal(teamCount(0, 3.5, 52), 1);
     assert.equal(calculate({ preventivesPerYear: 0, correctivesPerYear: 0 }).teams, 1);
   });
@@ -225,6 +288,11 @@ describe('página interna isolada', () => {
     assert.match(page, /src="\.\/app\.js"/);
     assert.match(app, /from '\.\/calc\.js'/);
     assert.match(app, /Corretivas por ano por robô \(premissa\)/);
+    assert.match(app, /Escalonamento automático/);
+    assert.match(page, /cabine da Fiat Strada/);
+    assert.equal(calc.includes('salaryJunior'), false);
+    assert.equal(app.includes('salaryJunior'), false);
+    assert.equal(page.includes('salaryJunior'), false);
     assert.match(app, /Valor médio de estoque de peças por robô/);
     assert.match(page, /Ver cálculo/);
     assert.equal(page.includes('gcalc.t2software.co'), false);
