@@ -13,6 +13,7 @@ import {
   parseBr,
   plateaus,
   simpleChargePercent,
+  staffSummary,
   teamCount,
 } from '../../public/interno/manutencao/calc.js';
 
@@ -52,8 +53,10 @@ describe('custo de manutenção dos robôs', () => {
     assert.match(memory, /corretivas \(premissa\)/);
     assert.match(memory, /Coordenadores = 0, porque/);
     assert.match(memory, /máximo\(1, teto\(100 ÷ 182\)\)/);
+    assert.match(memory, /1 equipe · Sênior \+ Pleno · 10 robôs por equipe · 0 coordenador/);
+    assert.match(memory, /Pelas visitas: 100 de 182 por equipe → 1 equipe/);
     assert.match(memory, /pessoas ÷ 2/);
-    assert.match(memory, /Modo automático/);
+    assert.doesNotMatch(memory, /por equipe de dois/);
     assert.match(memory, /Não entra no custo mensal/);
     assert.match(memory, /não informado/i);
     assert.doesNotMatch(memory, /júnior/i);
@@ -69,8 +72,18 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(five.salarySum, 10000);
     assert.equal(five.technicianCount, 1);
     assert.equal(cents(five.monthlyRounded), 2542152);
-    assert.match(textOf(five), /só o sênior/);
+    assert.match(textOf(five), /só sênior/);
+    assert.match(textOf(five), /máximo\(1, teto\(50 ÷ 91\)\)/);
     assert.match(textOf(five), /pessoas ÷ 2/);
+
+    assert.equal(staffSummary(calculate({ robots: 1 })).resultLine, '1 equipe · Sênior · 1 robô por equipe · 0 coordenador');
+
+    const six = calculate({ robots: 6 });
+    assert.equal(six.teams, 1);
+    assert.equal(six.peopleOnTeam, 2);
+    assert.equal(six.compositionLabel, 'Sênior + Pleno');
+    assert.equal(six.coordinators, 0);
+    assert.equal(cents(six.monthlyRounded), 3703352);
 
     const twenty = calculate({ robots: 20 });
     assert.equal(twenty.visitsYear, 200);
@@ -86,8 +99,9 @@ describe('custo de manutenção dos robôs', () => {
 
     const low = calculate({ robots: 16, preventivesPerYear: 1, correctivesPerYear: 0 });
     assert.equal(low.visitsYear, 16);
-    assert.equal(low.teams, 2);
-    assert.equal(low.coordinators, 1);
+    assert.equal(low.teams, 1);
+    assert.equal(low.peopleOnTeam, 2);
+    assert.equal(low.coordinators, 0);
 
     const heavy = calculate({ robots: 5, preventivesPerYear: 12, correctivesPerYear: 12 });
     assert.equal(heavy.visitsYear, 120);
@@ -151,12 +165,26 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(on.coordinationMonthly, off.coordinationMonthly);
   });
 
-  it('abre outra equipe de dois no 16º robô e o coordenador junto', () => {
-    assert.equal(calculate({ robots: 15 }).teams, 1);
-    assert.equal(calculate({ robots: 15 }).coordinators, 0);
-    assert.equal(calculate({ robots: 15 }).peopleOnTeam, 2);
-    const step = calculate({ robots: 16 });
-    assert.equal(step.visitsYear, 160);
+  it('mantém 16 robôs numa equipe e abre a segunda só quando as visitas estouram', () => {
+    const sixteen = calculate({ robots: 16 });
+    assert.equal(sixteen.visitsYear, 160);
+    assert.equal(sixteen.teams, 1);
+    assert.equal(sixteen.coordinators, 0);
+    assert.equal(sixteen.peopleOnTeam, 2);
+    assert.equal(sixteen.peopleMonthly, 16000 * 1.65);
+    assert.equal(sixteen.technicianCount, 2);
+    assert.equal(sixteen.benefitsMonthly, 2 * 1062);
+    assert.equal(sixteen.coordinationMonthly, 0);
+    assert.equal(sixteen.manufacturerMonthly, 16 * 650);
+    assert.equal(cents(sixteen.monthlyRounded), 4353352);
+    assert.equal(staffSummary(sixteen).resultLine, '1 equipe · Sênior + Pleno · 16 robôs por equipe · 0 coordenador');
+    assert.match(staffSummary(sixteen).reasonLine, /160 de 182 por equipe → 1 equipe/);
+    assert.equal(calculate({ robots: 16, pairMaxRobots: 10 }).teams, 1);
+
+    assert.equal(calculate({ robots: 18 }).teams, 1);
+    assert.equal(calculate({ robots: 18 }).coordinators, 0);
+    const step = calculate({ robots: 19 });
+    assert.equal(step.visitsYear, 190);
     assert.equal(step.teams, 2);
     assert.equal(step.coordinators, 1);
     assert.equal(step.peopleOnTeam, 2);
@@ -165,13 +193,19 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(step.benefitsMonthly, 5 * 1062);
     assert.equal(step.coordinationMonthly, 12000 * 1.65);
     assert.ok(Math.abs(step.carMonthly - calculate().carPerTeam * 2) < 1e-6);
-    assert.equal(step.manufacturerMonthly, 16 * 650);
+
+    const soloOverflow = calculate({ robots: 8, soloMaxRobots: 20, preventivesPerYear: 12, correctivesPerYear: 6 });
+    assert.equal(soloOverflow.visitsYear, 144);
+    assert.equal(soloOverflow.peopleOnTeam, 2);
+    assert.equal(soloOverflow.teams, 1);
+    assert.match(textOf(soloOverflow), /sem abrir outra equipe só de sênior/);
+
     assert.equal(calculate({ robots: 55 }).teams, 4);
     assert.equal(calculate({ robots: 55 }).coordinators, 1);
     assert.equal(calculate({ robots: 73 }).teams, 5);
     assert.equal(calculate({ robots: 73 }).coordinators, 2);
-    assert.equal(calculate({ robots: 200 }).teams, 14);
-    assert.equal(calculate({ robots: 200 }).coordinators, 4);
+    assert.equal(calculate({ robots: 200 }).teams, 11);
+    assert.equal(calculate({ robots: 200 }).coordinators, 3);
     assert.equal(calculate({ teamsPerCoordinator: 1 }).coordinators, 0);
     assert.equal(coordinatorCount(2, 4), 1);
     assert.equal(coordinatorCount(4, 4), 1);
@@ -184,11 +218,13 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(series[0].robots, 1);
     assert.equal(series[4].teams, 1);
     assert.equal(series[4].peopleOnTeam, 1);
-    assert.equal(series[9].teams, 1);
-    assert.equal(series[9].peopleOnTeam, 2);
-    assert.equal(series[9].coordinators, 0);
+    assert.equal(series[5].teams, 1);
+    assert.equal(series[5].peopleOnTeam, 2);
+    assert.equal(series[15].teams, 1);
+    assert.equal(series[15].coordinators, 0);
     assert.equal(series[199].robots, 200);
-    assert.equal(series[199].teams, 14);
+    assert.equal(series[199].teams, 11);
+    assert.equal(series[199].coordinators, 3);
     const steps = plateaus(series);
     assert.equal(steps[0].from, 1);
     assert.equal(steps[0].to, 5);
@@ -196,10 +232,10 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(steps[0].peopleOnTeam, 1);
     assert.equal(steps[0].coordinators, 0);
     assert.equal(steps[1].from, 6);
-    assert.equal(steps[1].to, 15);
+    assert.equal(steps[1].to, 18);
     assert.equal(steps[1].peopleOnTeam, 2);
     assert.equal(steps[1].coordinators, 0);
-    assert.equal(steps[2].from, 16);
+    assert.equal(steps[2].from, 19);
     assert.equal(steps[2].teams, 2);
     assert.equal(steps[2].coordinators, 1);
     assert.ok(steps[1].perRobotAtStart > steps[0].perRobotAtEnd);
@@ -231,11 +267,19 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(year.peopleOnTeam, 2);
     assert.equal(year.teams, 3);
     assert.equal(year.coordinators, 1);
-    const manual = calculate({ autoScale: false, includePleno: false, includeSenior: false });
+    const manual = calculate({ autoScale: false, includePleno: false, includeSenior: false, soloMaxRobots: 9, pairMaxRobots: 10 });
     assert.equal(manual.peopleOnTeam, 1);
     assert.equal(manual.teams, 2);
     assert.equal(manual.coordinators, 1);
-    assert.match(textOf(manual), /Modo manual/);
+    assert.equal(manual.visitsYear, 100);
+    assert.equal(manual.teamCap, 91);
+    const manualText = textOf(manual);
+    assert.match(manualText, /Modo manual/);
+    assert.match(manualText, /pleno está desligado e vale para todas as equipes/);
+    assert.match(manualText, /limite de só sênior está desligado/);
+    assert.match(manualText, /máximo\(1, teto\(100 ÷ 91\)\) = máximo\(1, teto\(1,0989\)\) = 2/);
+    assert.doesNotMatch(manualText, /teto\(100 ÷ 182\)/);
+    assert.equal(staffSummary(manual).resultLine, '2 equipes · Sênior · 5 robôs por equipe · 1 coordenador');
     assert.equal(manual.seniorOnTeam, true);
     assert.equal(teamCount(0, 3.5, 52), 1);
     assert.equal(calculate({ preventivesPerYear: 0, correctivesPerYear: 0 }).teams, 1);
@@ -289,6 +333,12 @@ describe('página interna isolada', () => {
     assert.match(app, /from '\.\/calc\.js'/);
     assert.match(app, /Corretivas por ano por robô \(premissa\)/);
     assert.match(app, /Escalonamento automático/);
+    assert.match(app, /gcalc\.manutencao\.interno\.v3/);
+    assert.match(app, /gcalc\.manutencao\.interno\.v2/);
+    assert.match(app, /pairMaxRobots/);
+    assert.equal(app.includes('Robôs por equipe Sênior + Pleno'), false);
+    assert.equal(calc.includes('pairMaxRobots'), false);
+    assert.equal(page.includes('até 15 robôs'), false);
     assert.match(page, /cabine da Fiat Strada/);
     assert.equal(calc.includes('salaryJunior'), false);
     assert.equal(app.includes('salaryJunior'), false);
