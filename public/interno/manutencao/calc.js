@@ -45,6 +45,12 @@ export const DEFAULTS = {
   weeksPerYear: 52,
   preventivesPerYear: 4,
   correctivesPerYear: 2,
+  absenteeismOn: true,
+  absenteeismRate: 3,
+  vacationCoverOn: true,
+  vacationCoverRate: 8.33,
+  turnoverRate: 25,
+  replacementFactor: 1.25,
   coordinatorSalary: 12000,
   teamsPerCoordinator: 4,
   managerSalary: 18000,
@@ -187,15 +193,37 @@ function ceilStable(ratio) {
   return Math.ceil(snapped - 1e-12);
 }
 
-export function annualCapacity(visitsPerWeek, weeksPerYear, people) {
-  const headcount = Math.min(MAX_PEOPLE_PER_TEAM, Math.max(0, people));
-  return visitsPerWeek * (headcount / MAX_PEOPLE_PER_TEAM) * weeksPerYear;
+function clampPercent(value, fallback) {
+  return Math.min(100, Math.max(0, num(value, fallback)));
 }
 
-export function teamCount(visitsYear, visitsPerWeek, weeksPerYear, people = MAX_PEOPLE_PER_TEAM) {
-  const capacity = annualCapacity(visitsPerWeek, weeksPerYear, people);
+/** Fração da capacidade que sobra depois de absenteísmo e da cobertura de férias. Cada um vale 1 se estiver desligado. */
+export function availabilityFactor(raw = {}) {
+  const input = sanitize(raw);
+  const absence = input.absenteeismOn ? clampPercent(input.absenteeismRate, DEFAULTS.absenteeismRate) / 100 : 0;
+  const vacation = input.vacationCoverOn ? clampPercent(input.vacationCoverRate, DEFAULTS.vacationCoverRate) / 100 : 0;
+  return (1 - absence) * (1 - vacation);
+}
+
+export function annualCapacity(visitsPerWeek, weeksPerYear, people, availability = 1) {
+  const headcount = Math.min(MAX_PEOPLE_PER_TEAM, Math.max(0, people));
+  const ready = Number.isFinite(availability) ? Math.max(0, availability) : 1;
+  return visitsPerWeek * (headcount / MAX_PEOPLE_PER_TEAM) * weeksPerYear * ready;
+}
+
+export function teamCount(visitsYear, visitsPerWeek, weeksPerYear, people = MAX_PEOPLE_PER_TEAM, availability = 1) {
+  const capacity = annualCapacity(visitsPerWeek, weeksPerYear, people, availability);
   if (!(capacity > 0)) return 1;
   return Math.max(1, ceilStable(visitsYear / capacity));
+}
+
+/** Custo mensal de substituição de um papel: pessoas × turnover × salário-base × fator ÷ 12. */
+export function roleTurnoverMonthly(count, salary, turnoverPercent, replacementFactor) {
+  const people = Math.max(0, count);
+  const pay = Math.max(0, salary);
+  const rate = clampPercent(turnoverPercent, 0) / 100;
+  const factor = Math.max(0, num(replacementFactor, 0));
+  return (people * pay * rate * factor) / 12;
 }
 
 function fits(visits, capacity) {
@@ -213,8 +241,9 @@ export function staffPlan(raw) {
   const visitsPerRobot = input.preventivesPerYear + input.correctivesPerYear;
   const visitsYear = robots * visitsPerRobot;
   const soloMax = Math.max(0, input.soloMaxRobots);
-  const soloCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 1);
-  const pairCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 2);
+  const availability = availabilityFactor(input);
+  const soloCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 1, availability);
+  const pairCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 2, availability);
   let pleno = false;
   let teams = 1;
   let byVisits = 1;
@@ -223,8 +252,8 @@ export function staffPlan(raw) {
   if (!input.autoScale) {
     pleno = Boolean(input.includePleno);
     const people = 1 + (pleno ? 1 : 0);
-    const cap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, people);
-    byVisits = teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, people);
+    const cap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, people, availability);
+    byVisits = teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, people, availability);
     if (!(cap > 0)) byVisits = 1;
     teams = byVisits;
     reason = 'manual';
@@ -234,7 +263,7 @@ export function staffPlan(raw) {
     reason = 'solo';
   } else {
     pleno = true;
-    byVisits = pairCap > 0 ? teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, 2) : 1;
+    byVisits = pairCap > 0 ? teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, 2, availability) : 1;
     teams = byVisits;
     reason = robots <= soloMax ? 'upgrade' : 'pair';
   }
@@ -247,7 +276,8 @@ export function staffPlan(raw) {
     soloMax,
     soloCap,
     pairCap,
-    teamCap: annualCapacity(input.visitsPerWeek, input.weeksPerYear, peopleOnTeam),
+    availability,
+    teamCap: annualCapacity(input.visitsPerWeek, input.weeksPerYear, peopleOnTeam, availability),
     seniorOnTeam: true,
     pleno,
     teams,
@@ -365,18 +395,38 @@ export function calculate(raw = {}) {
   const perDiemAnnual = visitsYear * input.overnightShare * overnightPeople * input.perDiem;
   const perDiemMonthly = perDiemAnnual / 12;
   const partsInvestment = input.partsPerRobot * robots;
+  const seniorCount = teams;
+  const plenoCount = plan.pleno ? teams : 0;
+  const seniorTurnover = roleTurnoverMonthly(seniorCount, input.salarySenior, input.turnoverRate, input.replacementFactor);
+  const plenoTurnover = roleTurnoverMonthly(plenoCount, input.salaryPleno, input.turnoverRate, input.replacementFactor);
+  const coordinatorTurnover = roleTurnoverMonthly(coordinators, input.coordinatorSalary, input.turnoverRate, input.replacementFactor);
+  const managerTurnover = roleTurnoverMonthly(managers, input.managerSalary, input.turnoverRate, input.replacementFactor);
+  const turnoverParts = [seniorTurnover, plenoTurnover, coordinatorTurnover, managerTurnover].map(moneyPair);
+  const turnoverCents = turnoverParts.reduce((sum, line) => sum + line.cents, 0);
+  const turnoverMonthly = turnoverCents / 100;
   const lines = {
     people: moneyPair(peopleMonthly),
     benefits: moneyPair(benefitsMonthly),
     car: moneyPair(carMonthly),
     coordination: moneyPair(coordinationMonthly),
     management: moneyPair(managementMonthly),
+    turnover: { monthly: turnoverMonthly, annual: (turnoverCents * 12) / 100, cents: turnoverCents },
     manufacturer: moneyPair(manufacturerMonthly),
     perDiem: moneyPair(perDiemMonthly),
   };
   const monthlyCents = Object.values(lines).reduce((sum, line) => sum + line.cents, 0);
   const monthlyExact =
-    peopleMonthly + benefitsMonthly + carMonthly + coordinationMonthly + managementMonthly + manufacturerMonthly + perDiemMonthly;
+    peopleMonthly +
+    benefitsMonthly +
+    carMonthly +
+    coordinationMonthly +
+    managementMonthly +
+    seniorTurnover +
+    plenoTurnover +
+    coordinatorTurnover +
+    managerTurnover +
+    manufacturerMonthly +
+    perDiemMonthly;
   const monthlyRounded = monthlyCents / 100;
   const annualRounded = (monthlyCents * 12) / 100;
   const perRobotMonth = robots > 0 ? monthlyExact / robots : null;
@@ -410,6 +460,13 @@ export function calculate(raw = {}) {
     coordinationMonthly,
     managerUnit,
     managementMonthly,
+    seniorCount,
+    plenoCount,
+    seniorTurnover,
+    plenoTurnover,
+    coordinatorTurnover,
+    managerTurnover,
+    turnoverMonthly,
     manufacturerAnnualPerRobot,
     manufacturerPerRobotMonth,
     manufacturerMonthly,
@@ -486,12 +543,22 @@ function visitEquation(visitsYear, capacity, teams) {
   return `máximo(1, teto(${formatFlex(visitsYear)} ÷ ${formatFlex(capacity)})) = máximo(1, teto(${ratio})) = ${formatFlex(teams)}`;
 }
 
+function availabilityClause(result) {
+  const absence = result.absenteeismOn ? result.absenteeismRate : 0;
+  const vacation = result.vacationCoverOn ? result.vacationCoverRate : 0;
+  return `(1 − ${formatFlex(absence)}%) × (1 − ${formatFlex(vacation)}%)`;
+}
+
 function teamSentence(result) {
   const summary = staffSummary(result);
   const people = result.peopleOnTeam;
   const cap = formatFlex(result.teamCap);
-  const sized = `A capacidade desta equipe é ${formatFlex(result.visitsPerWeek)} × (${formatFlex(people)} ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${cap} visitas/ano.`;
+  const sized = `A capacidade desta equipe é ${formatFlex(result.visitsPerWeek)} × (${formatFlex(people)} ÷ 2) × ${formatFlex(result.weeksPerYear)} × ${availabilityClause(result)} = ${cap} visitas/ano.`;
   return `${summary.resultLine}. ${summary.reasonLine} ${sized} Equipes = ${visitEquation(result.visitsYear, result.teamCap, result.teams)}.`;
+}
+
+function turnoverRoleLine(result, label, count, salary, amount) {
+  return `${label} = ${formatFlex(count)} × ${formatFlex(result.turnoverRate)}% × ${brl(salary)} × ${formatFlex(result.replacementFactor)} ÷ 12 = ${brl(amount)}.`;
 }
 
 export function explain(result) {
@@ -535,8 +602,9 @@ export function explain(result) {
       lines: [
         `Visitas no ano = ${formatFlex(result.robots)} robôs × (${formatFlex(result.preventivesPerYear)} preventivas + ${formatFlex(result.correctivesPerYear)} corretivas (premissa)) = ${formatFlex(result.visitsYear)} visitas.`,
         `O campo de visitas por semana vale para a equipe cheia de 2 pessoas. Quem viaja sozinho faz a metade: visitas/semana × (pessoas ÷ 2).`,
-        `Capacidade anual da dupla = ${formatFlex(result.visitsPerWeek)} × (2 ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.pairCap)} visitas/ano.`,
-        `Capacidade anual de uma pessoa = ${formatFlex(result.visitsPerWeek)} × (1 ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.soloCap)} visitas/ano.`,
+        `Disponibilidade = ${availabilityClause(result)} = ${formatFixed(result.availability, 3)}. Absenteísmo e cobertura de férias só reduzem visitas; o salário dessas ausências não é somado de novo.`,
+        `Capacidade anual da dupla = ${formatFlex(result.visitsPerWeek)} × (2 ÷ 2) × ${formatFlex(result.weeksPerYear)} × ${availabilityClause(result)} = ${formatFlex(result.pairCap)} visitas/ano.`,
+        `Capacidade anual de uma pessoa = metade da dupla = ${formatFlex(result.soloCap)} visitas/ano.`,
         `Referência mensal desta equipe = ${formatFlex(result.visitsPerWeek)} × (${formatFlex(result.peopleOnTeam)} ÷ 2) × ${formatFlex(result.weeksPerMonth)} semanas/mês = ${formatFlex(result.visitsPerTeamMonth)} visitas/mês. Este fator mensal não entra na divisão de equipes.`,
         teamSentence(result),
         coordinatorLine,
@@ -590,6 +658,17 @@ export function explain(result) {
       ],
     },
     {
+      title: 'Turnover',
+      lines: [
+        `Turnover = ${formatFlex(result.turnoverRate)}% ao ano. Cada substituição custa ${formatFlex(result.replacementFactor)} salário-base mensal do papel e cobre rescisão não provisionada, recrutamento, treinamento e curva de aprendizado. Não multiplica encargos nem periculosidade. O salário de férias continua só nos encargos.`,
+        turnoverRoleLine(result, 'Sênior', result.seniorCount, result.salarySenior, result.seniorTurnover),
+        turnoverRoleLine(result, 'Pleno', result.plenoCount, result.salaryPleno, result.plenoTurnover),
+        turnoverRoleLine(result, 'Coordenadores', result.coordinators, result.coordinatorSalary, result.coordinatorTurnover),
+        turnoverRoleLine(result, 'Gerentes', result.managers, result.managerSalary, result.managerTurnover),
+        `Turnover no mês = ${brl(result.lines.turnover.monthly)}. A soma dos papéis entra arredondada por papel.`,
+      ],
+    },
+    {
       title: 'Fabricante',
       lines: [
         `Taxa por robô no ano = ${brl(result.robotValue)} × ${formatFlex(result.manufacturerFeeRate * 100)}% = ${brl(result.manufacturerAnnualPerRobot)}.`,
@@ -607,7 +686,7 @@ export function explain(result) {
     {
       title: 'Totais',
       lines: [
-        `Custo mensal = ${brl(result.lines.people.monthly)} + ${brl(result.lines.benefits.monthly)} + ${brl(result.lines.car.monthly)} + ${brl(result.lines.coordination.monthly)} + ${brl(result.lines.management.monthly)} + ${brl(result.lines.manufacturer.monthly)} + ${brl(result.lines.perDiem.monthly)} = ${brl(result.monthlyRounded)}. Cada linha entra arredondada no centavo.`,
+        `Custo mensal = ${brl(result.lines.people.monthly)} + ${brl(result.lines.benefits.monthly)} + ${brl(result.lines.car.monthly)} + ${brl(result.lines.coordination.monthly)} + ${brl(result.lines.management.monthly)} + ${brl(result.lines.turnover.monthly)} + ${brl(result.lines.manufacturer.monthly)} + ${brl(result.lines.perDiem.monthly)} = ${brl(result.monthlyRounded)}. Cada linha entra arredondada no centavo.`,
         `Custo anual = ${brl(result.monthlyRounded)} × 12 = ${brl(result.annualRounded)}.`,
         `Custo por robô/mês = ${brl(result.monthlyRounded)} ÷ ${formatFlex(result.robots)} = ${brl(result.perRobotRounded)}.`,
         partsLine,

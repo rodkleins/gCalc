@@ -288,6 +288,67 @@ const SECTIONS = [
     ],
   },
   {
+    id: 'disponibilidade',
+    title: 'Disponibilidade e turnover',
+    intro:
+      'Absenteísmo e a cobertura de férias só diminuem as visitas que a equipe consegue fazer. O salário de férias já está nos encargos. O turnover é o custo de substituir quem sai, em cima do salário-base.',
+    fields: [
+      {
+        key: 'absenteeismOn',
+        label: 'Absenteísmo',
+        kind: 'check',
+        checkLabel: 'Ligado',
+        wide: true,
+        tooltip:
+          'Ligado por padrão. Reduz a capacidade de visitas da equipe. Não soma salário de novo: a folha de quem falta continua nas pessoas. Default 3%, premissa interna.',
+      },
+      {
+        key: 'absenteeismRate',
+        label: 'Taxa de absenteísmo',
+        suffix: '%',
+        min: 0,
+        max: 100,
+        tooltip: 'Percentual da capacidade perdido com faltas. Default 3%. Premissa interna, na borda baixa da faixa industrial citada nas fontes.',
+      },
+      {
+        key: 'vacationCoverOn',
+        label: 'Cobertura de férias',
+        kind: 'check',
+        checkLabel: 'Ligada',
+        wide: true,
+        tooltip:
+          'Ligada por padrão. Tira da capacidade o tempo de férias, porque alguém precisa cobrir as visitas. O pagamento das férias já está no multiplicador de encargos e não entra outra vez.',
+      },
+      {
+        key: 'vacationCoverRate',
+        label: 'Percentual da cobertura',
+        suffix: '%',
+        min: 0,
+        max: 100,
+        tooltip: 'Default 8,33%, que é 1/12 (30 dias em 12 meses, CLT). A capacidade da dupla multiplica por (1 − este percentual).',
+      },
+      {
+        key: 'turnoverRate',
+        label: 'Turnover ao ano',
+        suffix: '%',
+        min: 0,
+        max: 100,
+        tooltip:
+          'Percentual ao ano de pessoas substituídas, igual para técnicos, coordenadores e gerentes. Default 25%. Premissa interna, acima do 16,65% do setor de energia em 2024.',
+      },
+      {
+        key: 'replacementFactor',
+        label: 'Custo de substituição',
+        suffix: '× salário',
+        min: 0,
+        max: 24,
+        digits: 2,
+        tooltip:
+          'Salários-base mensais por substituição. Default 1,25. Premissa interna para rescisão que a provisão não cobre, recrutamento, treinamento e curva de aprendizado. Não leva encargos nem periculosidade.',
+      },
+    ],
+  },
+  {
     id: 'coordenacao',
     title: 'Coordenação',
     intro: 'Só existe quando há mais de uma equipe. Coordenadores = teto(equipes ÷ limite). Com uma equipe, o resultado é zero.',
@@ -741,6 +802,7 @@ function renderBreakdown(result) {
     ['Carro', result.lines.car],
     ['Coordenação', result.lines.coordination],
     ['Gerência', result.lines.management],
+    ['Turnover', result.lines.turnover],
     ['Fabricante', result.lines.manufacturer],
     ['Diárias', result.lines.perDiem],
   ];
@@ -1065,7 +1127,9 @@ function setProbe(robots) {
 function renderNotes(result) {
   const capacity = document.getElementById('capacity-readout');
   if (capacity) {
-    capacity.textContent = `Esta equipe (${result.compositionLabel}) faz ${formatFlex(result.visitsPerWeek, 1)} × (${formatFlex(result.peopleOnTeam)} ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.visitsPerTeamYear)} visitas por ano. No mês, a referência é ${formatFlex(result.visitsPerTeamMonth)}.`;
+    const absence = result.absenteeismOn ? result.absenteeismRate : 0;
+    const vacation = result.vacationCoverOn ? result.vacationCoverRate : 0;
+    capacity.textContent = `Esta equipe (${result.compositionLabel}) faz ${formatFlex(result.visitsPerWeek, 1)} × (${formatFlex(result.peopleOnTeam)} ÷ 2) × ${formatFlex(result.weeksPerYear)} × (1 − ${formatFlex(absence)}%) × (1 − ${formatFlex(vacation)}%) = ${formatFlex(result.visitsPerTeamYear)} visitas por ano. No mês, a referência bruta é ${formatFlex(result.visitsPerTeamMonth)}, sem essa disponibilidade.`;
   }
   const charges = document.getElementById('encargos-nota');
   if (charges) {
@@ -1100,6 +1164,16 @@ function syncStaffControls(result) {
     const off = !state.severanceOn;
     notice.text.disabled = off;
     notice.wrap?.classList.toggle('is-off', off);
+  }
+  for (const [toggle, field] of [
+    ['absenteeismOn', 'absenteeismRate'],
+    ['vacationCoverOn', 'vacationCoverRate'],
+  ]) {
+    const control = controls.get(field);
+    if (!control?.text) continue;
+    const off = !state[toggle];
+    control.text.disabled = off;
+    control.wrap?.classList.toggle('is-off', off);
   }
   const solo = controls.get('soloMaxRobots');
   if (solo?.text) {
