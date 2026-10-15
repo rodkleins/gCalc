@@ -1,7 +1,6 @@
 import {
   CHARGE_LINES,
   DEFAULTS,
-  TECHNICIANS_PER_TEAM,
   calculate,
   costSeries,
   explain,
@@ -12,7 +11,7 @@ import {
   plateaus,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.manutencao.interno.v1';
+const STORAGE_KEY = 'gcalc.manutencao.interno.v2';
 
 const SECTIONS = [
   {
@@ -36,7 +35,8 @@ const SECTIONS = [
   {
     id: 'equipe',
     title: 'Equipe CLT',
-    intro: `Cada equipe é ${TECHNICIANS_PER_TEAM} técnicos e um carro. Os salários são premissa interna, acima das médias de mercado da pesquisa.`,
+    intro:
+      'A cabine da Fiat Strada leva 2 pessoas, então a equipe tem no máximo sênior e pleno, e sempre começa pelo sênior. Cada equipe sai com o próprio carro. Os salários são premissa interna, acima das médias de mercado.',
     fields: [
       {
         key: 'salarySenior',
@@ -50,16 +50,49 @@ const SECTIONS = [
         label: 'Pleno',
         prefix: 'R$',
         min: 0,
-        tooltip: 'Salário-base mensal CLT, sem adicionais. Premissa interna de R$ 6.000.',
+        tooltip: 'Salário-base mensal CLT, sem adicionais. Premissa interna de R$ 6.000. Só entra quando a equipe é de duas pessoas.',
       },
       {
-        key: 'salaryJunior',
-        label: 'Júnior (estudante de engenharia, CLT)',
-        prefix: 'R$',
-        min: 0,
+        key: 'autoScale',
+        label: 'Escalonamento automático',
+        kind: 'check',
+        checkLabel: 'Ligado',
         wide: true,
         tooltip:
-          'Estudante de engenharia contratado como CLT. Premissa interna de R$ 3.500. As vagas júnior achadas na pesquisa ficam entre R$ 2.780 e R$ 3.000.',
+          'Ligado: até o primeiro limite, uma equipe só com sênior; até o segundo, sênior e pleno; acima disso, ou se as visitas não couberem, novas equipes de sênior e pleno. Desligado: vale a composição marcada à mão, e o número de equipes segue só a capacidade de visitas.',
+      },
+      {
+        key: 'soloMaxRobots',
+        label: 'Até quantos robôs a equipe é só Sênior',
+        integer: true,
+        min: 0,
+        max: 200,
+        tooltip: 'No modo automático, até este número de robôs a equipe é uma pessoa (sênior), se as visitas couberem na metade da capacidade. Default 5.',
+      },
+      {
+        key: 'pairMaxRobots',
+        label: 'Robôs por equipe Sênior + Pleno',
+        integer: true,
+        min: 1,
+        max: 200,
+        tooltip:
+          'No modo automático, uma equipe de dois cobre até este número de robôs. Acima, ou quando as visitas estouram a capacidade, entra outra equipe igual, com outro carro. Default 15.',
+      },
+      {
+        key: 'includeSenior',
+        label: 'Sênior na equipe',
+        kind: 'check',
+        checkLabel: 'Sempre na equipe',
+        locked: true,
+        tooltip: 'A equipe sempre começa pelo sênior. Este papel não sai da composição. No máximo duas pessoas por carro.',
+      },
+      {
+        key: 'includePleno',
+        label: 'Pleno na equipe',
+        kind: 'check',
+        checkLabel: 'Incluir o pleno',
+        tooltip:
+          'Marcar ou desmarcar compõe a equipe à mão e desliga o escalonamento automático. No modo automático o campo mostra o que a regra escolheu. Máximo de 2 pessoas.',
       },
     ],
   },
@@ -114,7 +147,7 @@ const SECTIONS = [
   {
     id: 'beneficios',
     title: 'Benefícios por pessoa',
-    intro: 'VR e plano não levam encargos. Entram para os três técnicos e também para cada coordenador.',
+    intro: 'VR e plano não levam encargos. Entram uma vez para cada pessoa que está de fato na equipe, e também para cada coordenador.',
     fields: [
       {
         key: 'mealVoucher',
@@ -137,7 +170,7 @@ const SECTIONS = [
   {
     id: 'carro',
     title: 'Carro da equipe',
-    intro: 'Uma locação por equipe. Combustível = quilômetros ÷ consumo × preço do litro.',
+    intro: 'Uma locação por equipe, no tamanho da Strada (cabine para 2). Combustível = quilômetros ÷ consumo × preço do litro.',
     fields: [
       {
         key: 'carRental',
@@ -181,7 +214,8 @@ const SECTIONS = [
   {
     id: 'capacidade',
     title: 'Capacidade e visitas',
-    intro: 'Equipes = teto(visitas anuais ÷ (visitas por semana × semanas no ano)), com mínimo de 1. O fator de 4,33 semanas só mostra a capacidade mensal.',
+    intro:
+      'O campo de visitas por semana vale para a equipe cheia de 2. Uma pessoa faz a metade: visitas/semana × (pessoas ÷ 2) × semanas no ano. O fator de 4,33 semanas só mostra a capacidade mensal.',
     fields: [
       {
         key: 'visitsPerWeek',
@@ -193,7 +227,7 @@ const SECTIONS = [
         digits: 1,
         wide: true,
         tooltip:
-          'Capacidade de uma equipe. A faixa usual é 3 a 4; o controle aceita de 2 a 5. O default 3,5 é premissa.',
+          'Capacidade da equipe cheia, com sênior e pleno. A faixa usual é 3 a 4; o controle aceita de 2 a 5. Uma pessoa sozinha faz a metade. O default 3,5 é premissa.',
       },
       {
         key: 'weeksPerMonth',
@@ -321,12 +355,20 @@ const SECTIONS = [
           'Hotel e refeições por pessoa por noite. Premissa de R$ 450. A referência do Estado de SP fica entre R$ 471 e R$ 555.',
       },
       {
+        key: 'overnightFollow',
+        label: 'Pessoas da diária',
+        kind: 'check',
+        checkLabel: 'Usar o tamanho da equipe',
+        wide: true,
+        tooltip: 'Ligado: a diária multiplica pelas pessoas que estão de fato na equipe (1 ou 2). Desligado: vale o número do campo ao lado.',
+      },
+      {
         key: 'peoplePerOvernight',
         label: 'Pessoas por pernoite',
         integer: true,
         min: 0,
         max: 12,
-        tooltip: 'Quantas pessoas dormem fora na visita. Default 3: a equipe viaja junta. A diária não usa o coordenador.',
+        tooltip: 'Quantas pessoas dormem fora na visita, se o tamanho da equipe não for usado. A diária não inclui o coordenador.',
       },
     ],
   },
@@ -431,11 +473,23 @@ function renderField(field) {
     const input = el('input');
     input.type = 'checkbox';
     input.id = field.key;
+    if (field.locked) input.disabled = true;
     input.addEventListener('change', () => {
+      if (field.key === 'includePleno' || field.key === 'includeSenior') {
+        state.autoScale = false;
+        state.includeSenior = true;
+        state.includePleno = field.key === 'includePleno' ? input.checked : state.includePleno;
+        commit();
+        return;
+      }
+      if (field.key === 'autoScale' && !input.checked) {
+        state.includeSenior = true;
+        state.includePleno = Boolean(controls.get('includePleno')?.check?.checked);
+      }
       state[field.key] = input.checked;
       commit();
     });
-    row.append(input, el('span', null, 'Incluir no custo'));
+    row.append(input, el('span', null, field.checkLabel || 'Incluir no custo'));
     wrap.append(row);
     controls.set(field.key, { field, check: input });
     return wrap;
@@ -476,6 +530,7 @@ function renderField(field) {
   text.addEventListener('input', () => {
     const value = fromDisplay(field, text.value);
     if (value === undefined) return;
+    if (field.key === 'peoplePerOvernight') state.overnightFollow = false;
     state[field.key] = value;
     if (slider && value != null) slider.value = String(value * (field.scale || 1));
     commit();
@@ -513,6 +568,11 @@ function renderForm() {
     const grid = el('div', 'fields');
     for (const field of section.fields) grid.append(renderField(field));
     card.append(grid);
+    if (section.id === 'equipe') {
+      const note = el('p', 'mode');
+      note.id = 'mode-status';
+      card.insertBefore(note, grid);
+    }
     if (section.id === 'capacidade') {
       const note = el('p', 'readout');
       note.id = 'capacity-readout';
@@ -566,6 +626,7 @@ function renderKpis(result) {
     ['teams', 'Equipes', formatFlex(result.teams), false],
     ['coordinators', 'Coordenadores', formatFlex(result.coordinators), false],
     ['robots-per-team', 'Robôs por equipe', formatFlex(result.robotsPerTeam), false],
+    ['composition', 'Composição', result.compositionLabel, false],
   ];
   for (const [id, label, value, main] of cards) {
     const card = el('article', main ? 'kpi kpi-main' : 'kpi');
@@ -652,7 +713,8 @@ function plural(count, one, many) {
 
 function describePoint(point, current) {
   const where = current ? 'Cenário atual' : 'No gráfico';
-  return `${where}: ${formatFlex(point.robots)} robôs · ${formatBRL(point.perRobotRounded)} por robô/mês · ${plural(point.teams, 'equipe', 'equipes')} · ${plural(point.coordinators, 'coordenador', 'coordenadores')}.`;
+  const crew = point.peopleOnTeam === 1 ? 'só sênior' : 'sênior + pleno';
+  return `${where}: ${formatFlex(point.robots)} robôs · ${formatBRL(point.perRobotRounded)} por robô/mês · ${plural(point.teams, 'equipe', 'equipes')} (${crew}) · ${plural(point.coordinators, 'coordenador', 'coordenadores')}.`;
 }
 
 function renderChart(result) {
@@ -711,7 +773,7 @@ function renderChart(result) {
   }
 
   const ribbonY = CHART.plotBottom + 8;
-  for (const row of rows) {
+  rows.forEach((row, index) => {
     const x = xOf(row.from);
     const width = Math.max(0, xOf(row.to) - x + plotW / 199);
     svg.append(
@@ -720,7 +782,7 @@ function renderChart(result) {
         y: ribbonY,
         width,
         height: 18,
-        fill: (row.teams + row.coordinators) % 2 === 0 ? '#d7ebe3' : '#8fbfb0',
+        fill: index % 2 === 0 ? '#d7ebe3' : '#8fbfb0',
         'data-step': `${row.from}-${row.to}`,
       }),
     );
@@ -731,7 +793,8 @@ function renderChart(result) {
         'text-anchor': 'middle',
         class: 'ribbon',
       });
-      label.textContent = row.coordinators > 0 ? `${row.teams} eq · ${row.coordinators} c` : `${row.teams} eq`;
+      label.textContent =
+        row.peopleOnTeam === 1 ? `${row.teams}×sênior` : row.coordinators > 0 ? `${row.teams} eq · ${row.coordinators} c` : `${row.teams} eq`;
       svg.append(label);
     }
     if (row.from > 1) {
@@ -746,7 +809,7 @@ function renderChart(result) {
         }),
       );
     }
-  }
+  });
 
   const area = chartPoints
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${xOf(point.robots).toFixed(2)},${yOf(point.perRobotRounded).toFixed(2)}`)
@@ -802,11 +865,11 @@ function renderChart(result) {
 
   const table = document.getElementById('plateaus');
   table.replaceChildren();
-  table.append(el('caption', null, 'Degraus de equipe e coordenação'));
+  table.append(el('caption', null, 'Degraus de equipe, composição e coordenação'));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  for (const label of ['Robôs', 'Equipes', 'Coordenadores', 'R$/robô no início', 'R$/robô no fim']) {
-    hr.append(el('th', label === 'Robôs' ? null : 'num', label));
+  for (const label of ['Robôs', 'Equipes', 'Composição', 'Coordenadores', 'R$/robô no início', 'R$/robô no fim']) {
+    hr.append(el('th', label === 'Robôs' || label === 'Composição' ? null : 'num', label));
   }
   head.append(hr);
   const body = document.createElement('tbody');
@@ -814,6 +877,7 @@ function renderChart(result) {
     const tr = document.createElement('tr');
     tr.append(el('th', null, row.from === row.to ? String(row.from) : `${row.from}–${row.to}`));
     tr.append(el('td', 'num', formatFlex(row.teams)));
+    tr.append(el('td', null, row.peopleOnTeam === 1 ? 'Sênior' : 'Sênior + Pleno'));
     tr.append(el('td', 'num', formatFlex(row.coordinators)));
     tr.append(el('td', 'num', formatBRL(row.perRobotAtStart)));
     tr.append(el('td', 'num', formatBRL(row.perRobotAtEnd)));
@@ -874,7 +938,7 @@ function setProbe(robots) {
 function renderNotes(result) {
   const capacity = document.getElementById('capacity-readout');
   if (capacity) {
-    capacity.textContent = `Referência: ${formatFlex(result.visitsPerWeek, 1)} visitas/semana × ${formatFlex(result.weeksPerMonth)} = ${formatFlex(result.visitsPerTeamMonth)} visitas por mês por equipe. A divisão usa ${formatFlex(result.visitsPerWeek, 1)} × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.visitsPerTeamYear)} visitas por ano.`;
+    capacity.textContent = `Esta equipe (${result.compositionLabel}) faz ${formatFlex(result.visitsPerWeek, 1)} × (${formatFlex(result.peopleOnTeam)} ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${formatFlex(result.visitsPerTeamYear)} visitas por ano. No mês, a referência é ${formatFlex(result.visitsPerTeamMonth)}.`;
   }
   const charges = document.getElementById('encargos-nota');
   if (charges) {
@@ -889,8 +953,37 @@ function renderNotes(result) {
   }
 }
 
+function syncStaffControls(result) {
+  const senior = controls.get('includeSenior')?.check;
+  const pleno = controls.get('includePleno')?.check;
+  const auto = controls.get('autoScale')?.check;
+  const follow = controls.get('overnightFollow')?.check;
+  const mode = document.getElementById('mode-status');
+  if (senior) {
+    senior.checked = true;
+    senior.disabled = true;
+  }
+  if (pleno && document.activeElement !== pleno) {
+    pleno.checked = state.autoScale ? result.pleno : Boolean(state.includePleno);
+  }
+  if (auto && document.activeElement !== auto) auto.checked = Boolean(state.autoScale);
+  if (follow && document.activeElement !== follow) follow.checked = Boolean(state.overnightFollow);
+  if (mode) {
+    mode.classList.toggle('is-manual', !state.autoScale);
+    const crew = `${formatFlex(result.teams)} ${result.teams === 1 ? 'equipe' : 'equipes'} de ${result.compositionLabel}`;
+    mode.textContent = state.autoScale
+      ? `Modo automático. ${crew}. Até ${formatFlex(result.soloMax)} robôs: só sênior, se a capacidade couber. Até ${formatFlex(result.pairMax)} robôs por equipe de dois; acima disso, ou se as visitas estourarem, entra outra equipe com outro carro.`
+      : `Modo manual. ${crew}. Os limites de robôs estão desligados; a quantidade de equipes segue só a capacidade de visitas.`;
+  }
+  const overnight = controls.get('peoplePerOvernight');
+  if (overnight?.text && state.overnightFollow && document.activeElement !== overnight.text) {
+    overnight.text.value = toDisplay(overnight.field, result.peopleOnTeam);
+  }
+}
+
 function renderOutputs() {
   const result = scenario();
+  syncStaffControls(result);
   renderKpis(result);
   renderParts(result);
   renderBreakdown(result);

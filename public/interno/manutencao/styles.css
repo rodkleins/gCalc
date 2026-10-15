@@ -199,6 +199,17 @@ a { color: var(--green-dark); }
 }
 
 .check input { width: 1.2rem; height: 1.2rem; accent-color: var(--green); }
+.check input:disabled { cursor: not-allowed; }
+
+.mode {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: #e7f3ee;
+  font-weight: 600;
+}
+
+.mode.is-manual { background: #f8ecd6; }
 
 input[type="range"] {
   -webkit-appearance: none;
