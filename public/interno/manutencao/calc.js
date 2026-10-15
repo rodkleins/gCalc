@@ -20,7 +20,6 @@ export const DEFAULTS = {
   includeSenior: true,
   includePleno: true,
   soloMaxRobots: 5,
-  pairMaxRobots: 15,
   encargosMultiplier: 1.65,
   inss: 20,
   rat: 2,
@@ -168,19 +167,21 @@ function fits(visits, capacity) {
   return capacity > 0 && visits <= capacity + 1e-9;
 }
 
-/** Composição e quantidade. A equipe sempre tem sênior e no máximo um pleno. */
+/**
+ * Composição e quantidade. A equipe sempre tem sênior e no máximo um pleno.
+ * No automático, outra equipe só abre quando as visitas passam da capacidade da dupla.
+ * Não há cota de robôs por equipe de dois.
+ */
 export function staffPlan(raw) {
   const input = sanitize(raw);
   const robots = input.robots;
   const visitsPerRobot = input.preventivesPerYear + input.correctivesPerYear;
   const visitsYear = robots * visitsPerRobot;
   const soloMax = Math.max(0, input.soloMaxRobots);
-  const pairMax = Math.max(1, input.pairMaxRobots);
   const soloCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 1);
   const pairCap = annualCapacity(input.visitsPerWeek, input.weeksPerYear, 2);
   let pleno = false;
   let teams = 1;
-  let byRobots = 1;
   let byVisits = 1;
   let reason = 'solo';
 
@@ -193,15 +194,14 @@ export function staffPlan(raw) {
     teams = byVisits;
     reason = 'manual';
   } else if (robots <= soloMax && fits(visitsYear, soloCap)) {
+    byVisits = 1;
+    teams = 1;
     reason = 'solo';
   } else {
     pleno = true;
-    byRobots = Math.max(1, ceilStable(robots / pairMax));
     byVisits = pairCap > 0 ? teamCount(visitsYear, input.visitsPerWeek, input.weeksPerYear, 2) : 1;
-    teams = Math.max(byRobots, byVisits);
-    if (robots <= soloMax || byVisits > byRobots) reason = 'capacity';
-    else if (robots > pairMax) reason = 'robots';
-    else reason = 'pair';
+    teams = byVisits;
+    reason = robots <= soloMax ? 'upgrade' : 'pair';
   }
 
   const peopleOnTeam = 1 + (pleno ? 1 : 0);
@@ -210,19 +210,49 @@ export function staffPlan(raw) {
     visitsPerRobot,
     visitsYear,
     soloMax,
-    pairMax,
     soloCap,
     pairCap,
     teamCap: annualCapacity(input.visitsPerWeek, input.weeksPerYear, peopleOnTeam),
     seniorOnTeam: true,
     pleno,
     teams,
-    byRobots,
     byVisits,
     reason,
     peopleOnTeam,
     compositionLabel: pleno ? 'Sênior + Pleno' : 'Sênior',
   };
+}
+
+function countPhrase(count, singular, plural) {
+  const n = formatFlex(count);
+  if (count === 1) return `1 ${singular}`;
+  if (!(count > 1)) return `${n} ${singular}`;
+  return `${n} ${plural}`;
+}
+
+/** Duas frases da faixa: o resultado e o motivo que decidiu a conta. */
+export function staffSummary(result) {
+  const robotWord = result.robotsPerTeam === 1 ? 'robô' : 'robôs';
+  const resultLine = [
+    countPhrase(result.teams, 'equipe', 'equipes'),
+    result.compositionLabel,
+    `${formatFlex(result.robotsPerTeam)} ${robotWord} por equipe`,
+    countPhrase(result.coordinators, 'coordenador', 'coordenadores'),
+  ].join(' · ');
+  const dest = countPhrase(result.teams, 'equipe', 'equipes');
+  const visits = `Pelas visitas: ${formatFlex(result.visitsYear)} de ${formatFlex(result.teamCap)} por equipe → ${dest}`;
+  let reasonLine;
+  if (result.reason === 'manual') {
+    const pleno = result.pleno ? 'ligado' : 'desligado';
+    reasonLine = `Modo manual. O pleno está ${pleno} e vale para todas as equipes. O limite de só sênior está desligado. ${visits}.`;
+  } else if (result.reason === 'solo') {
+    reasonLine = `Até ${formatFlex(result.soloMax)} robôs a equipe é só sênior. ${visits}.`;
+  } else if (result.reason === 'upgrade') {
+    reasonLine = `Até ${formatFlex(result.soloMax)} robôs, mas as visitas passam de ${formatFlex(result.soloCap)} do sênior sozinho: entra o pleno, sem abrir outra equipe só de sênior. ${visits}.`;
+  } else {
+    reasonLine = `A partir de ${formatFlex(result.soloMax + 1)} robôs entra o pleno. ${visits}.`;
+  }
+  return { resultLine, reasonLine };
 }
 
 export function coordinatorCount(teams, teamsPerCoordinator) {
@@ -366,30 +396,18 @@ function brl(value) {
   return formatBRL(value);
 }
 
+function visitEquation(visitsYear, capacity, teams) {
+  if (!(capacity > 0)) return '1, porque a capacidade anual desta equipe não está definida';
+  const ratio = formatFixed(visitsYear / capacity, 4);
+  return `máximo(1, teto(${formatFlex(visitsYear)} ÷ ${formatFlex(capacity)})) = máximo(1, teto(${ratio})) = ${formatFlex(teams)}`;
+}
+
 function teamSentence(result) {
-  const visits = formatFlex(result.visitsYear);
-  const pairCap = formatFlex(result.pairCap);
-  const soloCap = formatFlex(result.soloCap);
-  const ratio = result.pairCap > 0 ? formatFixed(result.visitsYear / result.pairCap, 4) : null;
-  const visitTerm =
-    result.pairCap > 0
-      ? `máximo(1, teto(${visits} ÷ ${pairCap})) = máximo(1, teto(${ratio})) = ${formatFlex(result.byVisits)}`
-      : '1, porque a capacidade anual da dupla não está definida';
-  if (result.reason === 'manual') {
-    const people = result.peopleOnTeam;
-    const cap = formatFlex(result.teamCap);
-    return `Modo manual. Cada equipe é ${result.compositionLabel} (${formatFlex(people)} ${people === 1 ? 'pessoa' : 'pessoas'}, no máximo 2). A capacidade desta equipe é ${formatFlex(result.visitsPerWeek)} × (${formatFlex(people)} ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${cap} visitas/ano. Os limites de ${formatFlex(result.soloMax)} e ${formatFlex(result.pairMax)} robôs ficam de fora. Equipes = ${visitTerm}.`;
-  }
-  if (result.reason === 'solo') {
-    return `Modo automático. Até ${formatFlex(result.soloMax)} robôs a equipe é só o sênior, e ${visits} visitas cabem nas ${soloCap} da pessoa sozinha. Equipes = 1, composição ${result.compositionLabel}. A equipe sempre começa pelo sênior.`;
-  }
-  const why =
-    result.reason === 'capacity'
-      ? 'A capacidade da faixa anterior não cobre as visitas, então entram equipes de sênior + pleno.'
-      : result.reason === 'robots'
-        ? `${formatFlex(result.robots)} robôs passam de ${formatFlex(result.pairMax)}, então entram mais equipes de sênior + pleno.`
-        : `${formatFlex(result.robots)} robôs ficam entre ${formatFlex(result.soloMax + 1)} e ${formatFlex(result.pairMax)}, na faixa de uma equipe de sênior + pleno.`;
-  return `Modo automático. ${why} Pelo volume de visitas, ${visitTerm}. Pelo limite de robôs por equipe de dois, teto(${formatFlex(result.robots)} ÷ ${formatFlex(result.pairMax)}) = ${formatFlex(result.byRobots)}. Equipes = o maior dos dois = ${formatFlex(result.teams)}, composição ${result.compositionLabel}. Cada equipe tem o próprio carro. A equipe sempre começa pelo sênior.`;
+  const summary = staffSummary(result);
+  const people = result.peopleOnTeam;
+  const cap = formatFlex(result.teamCap);
+  const sized = `A capacidade desta equipe é ${formatFlex(result.visitsPerWeek)} × (${formatFlex(people)} ÷ 2) × ${formatFlex(result.weeksPerYear)} = ${cap} visitas/ano.`;
+  return `${summary.resultLine}. ${summary.reasonLine} ${sized} Equipes = ${visitEquation(result.visitsYear, result.teamCap, result.teams)}.`;
 }
 
 export function explain(result) {

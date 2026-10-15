@@ -9,9 +9,12 @@ import {
   formatFlex,
   parseBr,
   plateaus,
+  staffSummary,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.manutencao.interno.v2';
+const STORAGE_KEY = 'gcalc.manutencao.interno.v3';
+const LEGACY_STORAGE_KEYS = ['gcalc.manutencao.interno.v2'];
+const RETIRED_KEYS = ['pairMaxRobots'];
 
 const SECTIONS = [
   {
@@ -59,7 +62,7 @@ const SECTIONS = [
         checkLabel: 'Ligado',
         wide: true,
         tooltip:
-          'Ligado: até o primeiro limite, uma equipe só com sênior; até o segundo, sênior e pleno; acima disso, ou se as visitas não couberem, novas equipes de sênior e pleno. Desligado: vale a composição marcada à mão, e o número de equipes segue só a capacidade de visitas.',
+          'Ligado: até o limite, uma equipe só com sênior, se as visitas couberem na metade; a partir do robô seguinte entra o pleno. Outra equipe só quando as visitas passam da capacidade da dupla. Desligado: a composição marcada vale para todas as equipes, o limite fica de fora e o número de equipes segue só a capacidade.',
       },
       {
         key: 'soloMaxRobots',
@@ -67,16 +70,8 @@ const SECTIONS = [
         integer: true,
         min: 0,
         max: 200,
-        tooltip: 'No modo automático, até este número de robôs a equipe é uma pessoa (sênior), se as visitas couberem na metade da capacidade. Default 5.',
-      },
-      {
-        key: 'pairMaxRobots',
-        label: 'Robôs por equipe Sênior + Pleno',
-        integer: true,
-        min: 1,
-        max: 200,
         tooltip:
-          'No modo automático, uma equipe de dois cobre até este número de robôs. Acima, ou quando as visitas estouram a capacidade, entra outra equipe igual, com outro carro. Default 15.',
+          'No modo automático, até este número a equipe é só o sênior, se as visitas couberem na metade da capacidade. Se não couberem, entra o pleno na mesma equipe, em vez de abrir outra equipe só de sênior. No modo manual este campo fica desligado. Default 5.',
       },
       {
         key: 'includeSenior',
@@ -386,26 +381,50 @@ function freshState() {
   return { ...DEFAULTS, partsPerRobot: null };
 }
 
+function readStored() {
+  for (const key of [STORAGE_KEY, ...LEGACY_STORAGE_KEYS]) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') return parsed;
+  }
+  return null;
+}
+
+function applyStored(parsed) {
+  const next = freshState();
+  for (const key of RETIRED_KEYS) delete parsed[key];
+  for (const key of Object.keys(DEFAULTS)) {
+    if (key === 'partsPerRobot') {
+      if (parsed.partsPerRobot == null) next.partsPerRobot = null;
+      else if (typeof parsed.partsPerRobot === 'number' && Number.isFinite(parsed.partsPerRobot)) {
+        next.partsPerRobot = parsed.partsPerRobot;
+      }
+      continue;
+    }
+    if (typeof DEFAULTS[key] === 'boolean') {
+      if (typeof parsed[key] === 'boolean') next[key] = parsed[key];
+    } else if (typeof parsed[key] === 'number' && Number.isFinite(parsed[key])) {
+      next[key] = parsed[key];
+    }
+  }
+  return next;
+}
+
+function persistState(value) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  for (const key of LEGACY_STORAGE_KEYS) localStorage.removeItem(key);
+}
+
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return freshState();
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return freshState();
-    const next = freshState();
-    for (const key of Object.keys(DEFAULTS)) {
-      if (key === 'partsPerRobot') {
-        if (parsed.partsPerRobot == null) next.partsPerRobot = null;
-        else if (typeof parsed.partsPerRobot === 'number' && Number.isFinite(parsed.partsPerRobot)) {
-          next.partsPerRobot = parsed.partsPerRobot;
-        }
-        continue;
-      }
-      if (typeof DEFAULTS[key] === 'boolean') {
-        if (typeof parsed[key] === 'boolean') next[key] = parsed[key];
-      } else if (typeof parsed[key] === 'number' && Number.isFinite(parsed[key])) {
-        next[key] = parsed[key];
-      }
+    const parsed = readStored();
+    if (!parsed) return freshState();
+    const next = applyStored(parsed);
+    try {
+      persistState(next);
+    } catch {
+      /* navegador sem armazenamento */
     }
     return next;
   } catch {
@@ -542,7 +561,7 @@ function renderField(field) {
   if (field.suffix) affix.append(el('span', 'affix-label', field.suffix));
   control.append(affix);
   wrap.append(control);
-  controls.set(field.key, { field, text, slider });
+  controls.set(field.key, { field, text, slider, wrap });
   return wrap;
 }
 
@@ -968,12 +987,16 @@ function syncStaffControls(result) {
   }
   if (auto && document.activeElement !== auto) auto.checked = Boolean(state.autoScale);
   if (follow && document.activeElement !== follow) follow.checked = Boolean(state.overnightFollow);
+  const solo = controls.get('soloMaxRobots');
+  if (solo?.text) {
+    const off = !state.autoScale;
+    solo.text.disabled = off;
+    solo.wrap?.classList.toggle('is-off', off);
+  }
   if (mode) {
     mode.classList.toggle('is-manual', !state.autoScale);
-    const crew = `${formatFlex(result.teams)} ${result.teams === 1 ? 'equipe' : 'equipes'} de ${result.compositionLabel}`;
-    mode.textContent = state.autoScale
-      ? `Modo automático. ${crew}. Até ${formatFlex(result.soloMax)} robôs: só sênior, se a capacidade couber. Até ${formatFlex(result.pairMax)} robôs por equipe de dois; acima disso, ou se as visitas estourarem, entra outra equipe com outro carro.`
-      : `Modo manual. ${crew}. Os limites de robôs estão desligados; a quantidade de equipes segue só a capacidade de visitas.`;
+    const summary = staffSummary(result);
+    mode.replaceChildren(el('span', 'mode-result', summary.resultLine), el('span', 'mode-reason', summary.reasonLine));
   }
   const overnight = controls.get('peoplePerOvernight');
   if (overnight?.text && state.overnightFollow && document.activeElement !== overnight.text) {
@@ -999,7 +1022,7 @@ function renderOutputs() {
 function commit() {
   renderOutputs();
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    persistState(state);
   } catch {
     /* navegador sem armazenamento */
   }
@@ -1022,6 +1045,7 @@ function bindChrome() {
     fillControls();
     try {
       localStorage.removeItem(STORAGE_KEY);
+      for (const key of LEGACY_STORAGE_KEYS) localStorage.removeItem(key);
     } catch {
       /* ignore */
     }

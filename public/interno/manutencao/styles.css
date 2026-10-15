@@ -209,7 +209,14 @@ a { color: var(--green-dark); }
   font-weight: 600;
 }
 
+.mode-result, .mode-reason { display: block; }
+.mode-reason { font-weight: 500; margin-top: 0.35rem; }
+
 .mode.is-manual { background: #f8ecd6; }
+
+.field.is-off { opacity: 0.55; }
+.field.is-off .affix { background: #f3efe6; }
+.affix input:disabled { color: #6e675d; cursor: not-allowed; }
 
 input[type="range"] {
   -webkit-appearance: none;
@@ -440,8 +447,9 @@ body { padding-bottom: 5.4rem; }
     font-size: 9pt;
     word-break: break-all;
   }
-  .kpi-main, .parts-card, .ribbon, .axis {
+  .mode, .field.is-off .affix, .kpi-main, .parts-card, .ribbon, .axis {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  .field.is-off .affix input { color: #4d463c; }
 }
