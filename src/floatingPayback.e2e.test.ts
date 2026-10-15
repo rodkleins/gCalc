@@ -1,6 +1,10 @@
 /** @vitest-environment node */
 // @ts-expect-error o teste roda no Node; o app não depende dos tipos de fs
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
+// @ts-expect-error o teste roda no Node; o app não depende dos tipos de os
+import { tmpdir } from 'node:os';
+// @ts-expect-error o teste roda no Node; o app não depende dos tipos de path
+import { join } from 'node:path';
 import puppeteer, { type Browser, type Page } from 'puppeteer-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type ViteDevServer } from 'vite';
@@ -24,23 +28,37 @@ function chromePath(): string {
 }
 
 async function openTab(page: Page, label: string) {
-  await page.waitForFunction(
-    (name) => {
-      const button = [...document.querySelectorAll('nav button, [data-testid="open-wizard"]')].find((node) =>
-        (node.textContent || '').includes(name),
-      ) as HTMLButtonElement | undefined;
-      if (!button) return false;
-      const dock = document.querySelector('[data-testid="quick-dock"]');
-      const showing =
-        name === 'Assistente'
-          ? Boolean(document.querySelector('[data-testid="wizard"], .wizard'))
-          : Boolean(document.querySelector('nav button.is-active')?.textContent?.includes(name));
-      if (!showing) button.click();
-      return Boolean(dock && showing);
-    },
-    { timeout: 40_000 },
-    label,
-  );
+  try {
+    await page.waitForFunction(
+      (name) => {
+        const button = [...document.querySelectorAll('nav button, [data-testid="open-wizard"]')].find((node) =>
+          (node.textContent || '').includes(name),
+        ) as HTMLButtonElement | undefined;
+        if (!button) return false;
+        const dock = document.querySelector('[data-testid="quick-dock"]');
+        const showing =
+          name === 'Assistente'
+            ? Boolean(document.querySelector('[data-testid="wizard"], .wizard'))
+            : Boolean(document.querySelector('nav button.is-active')?.textContent?.includes(name));
+        if (!showing) button.click();
+        return Boolean(dock && showing);
+      },
+      // O polling padrão usa requestAnimationFrame. No Chrome do runner, com a suíte
+      // saturando a CPU, esse quadro não volta e a espera estoura mesmo com a tela pronta.
+      { timeout: 40_000, polling: 100 },
+      label,
+    );
+  } catch (error) {
+    const snap = await page
+      .evaluate(() => ({
+        href: location.href,
+        title: document.title,
+        text: (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 400),
+      }))
+      .catch(() => ({ href: page.url(), title: '', text: '' }));
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`${detail} — ${label} em ${snap.href} (${snap.title}): ${snap.text}`);
+  }
 }
 
 async function scrollToEnd(page: Page) {
@@ -58,7 +76,17 @@ describe('payback flutuante permanece na tela ao rolar', () => {
 
   beforeAll(async () => {
     server = await createServer({
-      server: { host: '127.0.0.1', port: 0, strictPort: false, hmr: false },
+      // Cache e watcher próprios: o build de caminhos relativos, no outro processo,
+      // regrava node_modules/.vite e derruba esta página com 504 se os dois dividem o cache.
+      cacheDir: mkdtempSync(join(tmpdir(), 'gcalc-e2e-')),
+      server: {
+        host: '127.0.0.1',
+        port: 0,
+        strictPort: false,
+        hmr: false,
+        watch: null,
+        warmup: { clientFiles: ['./src/main.tsx', './src/rh/main.tsx'] },
+      },
       logLevel: 'error',
     });
     await server.listen();
