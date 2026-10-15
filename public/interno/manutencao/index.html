@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="description"
+      content="Calculadora interna do custo de manutenção dos robôs Gollmann no Brasil. Uso interno, fora de índice."
+    />
+    <meta name="theme-color" content="#0b3d34" />
+    <title>Manutenção de robôs (interno)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f5c4c'/%3E%3Cpath d='M8 22h16M11 10h3l2 5 2-5h3' stroke='%23fff' stroke-width='2' fill='none'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,560;8..60,650&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#resultados">Ir para o resultado</a>
+    <header class="site-header wrap">
+      <p class="kicker">Uso interno · não indexar</p>
+      <h1>Custo de manutenção dos robôs Gollmann</h1>
+      <p class="lede">
+        Brasil, base em São Paulo. Três técnicos CLT e um carro por equipe. A coordenação só entra a partir da
+        segunda equipe. O estoque de peças é investimento no mês 0, separado do custo mensal.
+      </p>
+      <div class="actions no-print">
+        <button type="button" id="print">Imprimir em A4</button>
+        <button type="button" id="reset">Restaurar premissas</button>
+      </div>
+    </header>
+    <main class="layout wrap">
+      <form id="form" autocomplete="off">
+        <p id="boot">Carregando a conta…</p>
+      </form>
+      <section class="results" id="resultados" aria-label="Resultado">
+        <div class="results-head">
+          <h2>Resultado</h2>
+          <button type="button" id="ver-calculo" class="no-print" aria-expanded="false" aria-controls="memoria">
+            Ver cálculo
+          </button>
+        </div>
+        <p class="print-only" id="print-date"></p>
+        <div id="kpis"></div>
+        <aside id="parts-card" class="parts-card"></aside>
+        <div class="table-wrap">
+          <table id="breakdown"></table>
+        </div>
+        <div id="memoria" class="memory is-collapsed"></div>
+        <div class="chart-card">
+          <h3 id="chart-title">Custo por robô/mês</h3>
+          <p>
+            De 1 a 200 robôs, com as premissas atuais. A linha acompanha o custo por robô. Os traços e a faixa
+            marcam quando entra equipe ou coordenação.
+          </p>
+          <p id="chart-readout"></p>
+          <div id="chart" data-testid="chart"></div>
+          <div class="table-wrap">
+            <table id="plateaus"></table>
+          </div>
+        </div>
+      </section>
+      <section class="sources" id="fontes">
+        <div class="sources-head">
+          <h2>Premissas e fontes</h2>
+        </div>
+        <p class="lede">
+          Pesquisa de 15/10/2026. Onde há fonte, o número de mercado está citado. Onde a pesquisa não fechou o
+          valor usado na conta, está marcado como premissa e precisa de confirmação interna. A memória de cálculo
+          usa o que estiver nos campos, não esta lista.
+        </p>
+
+        <h3>Salários</h3>
+        <p>
+          <span class="tag">Premissa</span>
+          A equipe desta calculadora é sênior R$ 10.000, pleno R$ 6.000 e júnior (estudante de engenharia, CLT)
+          R$ 3.500. Esses três valores são premissa interna, acima das referências abaixo. A pesquisa sugeria um
+          desenho de dois técnicos e um estudante; aqui o time é fixo em três CLT.
+        </p>
+        <ul class="source-group">
+          <li>
+            <p>Técnico em manutenção mecatrônica (CBO 3001-05), média em SP: R$ 4.509/mês. Novo CAGED, atualizado em 08/10/2026.</p>
+            <p class="source"><a href="https://www.salario.com.br/profissao/tecnico-em-manutencao-mecatronica-cbo-300105/sp/" rel="nofollow noopener noreferrer">salario.com.br</a></p>
+          </li>
+          <li>
+            <p>Técnico em mecatrônica — robótica (CBO 3001-10), Brasil: média R$ 3.964; piso R$ 2.772; mediana R$ 3.435; teto R$ 6.507. 08/10/2026.</p>
+            <p class="source"><a href="https://www.salario.com.br/profissao/tecnico-em-mecatronica-robotica-cbo-300110/" rel="nofollow noopener noreferrer">salario.com.br</a></p>
+          </li>
+          <li>
+            <p>Técnico em mecatrônica — automação da manufatura, SP: mediana R$ 2.940; média R$ 3.258; P75 R$ 4.500. Referência 01/2026.</p>
+            <p class="source"><a href="https://www.numerando.com.br/salarios/tecnico-em-mecatronica-automacao-da-manufatura/sao-paulo" rel="nofollow noopener noreferrer">numerando.com.br</a></p>
+          </li>
+          <li>
+            <p>Técnico de manutenção eletrônica (CBO 3132-05), cidade de SP: média R$ 3.310. 08/10/2026.</p>
+            <p class="source"><a href="https://www.salario.com.br/profissao/tecnico-de-manutencao-eletronica-cbo-313205/sao-paulo-sp/" rel="nofollow noopener noreferrer">salario.com.br</a></p>
+          </li>
+          <li>
+            <p>Técnico de manutenção eletrônica em SP, júnior / pleno / sênior: R$ 2.780 / R$ 3.271 / R$ 4.906. 17/08/2026.</p>
+            <p class="source"><a href="https://quantoganhaum.com.br/tecnico-de-manutencao-eletronica/sao-paulo" rel="nofollow noopener noreferrer">quantoganhaum.com.br</a></p>
+          </li>
+          <li>
+            <p>Vaga de técnico de manutenção elétrico ou mecatrônico júnior em SP, aceita curso em andamento, a partir de R$ 3.000. Publicada em 24/07.</p>
+            <p class="source"><a href="https://www.catho.com.br/vagas/tecnico-de-manutencao-eletrico-ou-mecatronico-junior/37646125/" rel="nofollow noopener noreferrer">catho.com.br</a></p>
+          </li>
+          <li>
+            <p>Vaga de técnico de manutenção elétrica júnior em São Bernardo do Campo: R$ 1.999 a R$ 3.000. 18/09/2026.</p>
+            <p class="source"><a href="https://betavagas.com/vaga/sao-bernardo-do-campo-sp-tecnico-de-manutencao-eletrica-jr-tmk-56ee11f4a1" rel="nofollow noopener noreferrer">betavagas.com</a></p>
+          </li>
+        </ul>
+
+        <h3>Encargos e benefícios</h3>
+        <ul class="source-group">
+          <li>
+            <p>INSS patronal 20%, RAT 2% (faixa de 1% a 3% com FAP 1,0), terceiros / Sistema S 5,8%, FGTS 8%, 13º 8,33% e férias + 1/3 11,11%. Lucro real ou presumido, 2026.</p>
+            <p class="source">
+              <a href="https://rrtcontabilidade.com.br/calculadora-custo-funcionario/" rel="nofollow noopener noreferrer">rrtcontabilidade.com.br</a>
+              ·
+              <a href="https://ecalculadora.com.br/trabalhistas/custo-funcionario/" rel="nofollow noopener noreferrer">ecalculadora.com.br</a>
+            </p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Provisão da multa de 40% do FGTS ≈ 3,2% (40% × 8%). A soma simples dessas alíquotas fica em 58,44%. O multiplicador de 1,65 é a premissa arredondada que também cobre a incidência dos encargos sobre 13º e férias (a referência da conta dá cerca de 1,654). O custo usa o campo do multiplicador.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Periculosidade de 30% (CLT art. 193), desligada. Em robô de baixa tensão a exposição a sistema elétrico de potência provavelmente não se caracteriza. A pesquisa não trouxe URL do artigo.</p>
+          </li>
+          <li>
+            <p>Vale-refeição médio em SP: R$ 612,30/mês no panorama de benefícios da FIPE, 1º trimestre de 2026 (publicado em 03/2026). O campo usa R$ 612.</p>
+            <p class="source"><a href="https://downloads.fipe.org.br/indices/panoramabeneficiosbrasil-1t2026.pdf" rel="nofollow noopener noreferrer">downloads.fipe.org.br</a></p>
+          </li>
+          <li>
+            <p>Almoço médio na capital paulista: R$ 40,07, ou cerca de R$ 841,55/mês em 21 dias. Não é o valor usado; serve de contraste com o VR de R$ 612. 13/05/2026.</p>
+            <p class="source"><a href="https://www.guairanews.com/2026/05/13/levantamento-da-alelo-fipe-mostra-que-almoco-com-beneficio-refeicao-custa-em-media-r-4007-em-sao-paulo/" rel="nofollow noopener noreferrer">guairanews.com</a></p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Plano de saúde empresarial em SP: faixa de R$ 200 a R$ 600 por vida no padrão; premium de R$ 700 a R$ 1.100. O campo usa R$ 450, no meio da faixa padrão. 2026.</p>
+            <p class="source"><a href="https://conveniosmedicossp.com.br/blog/quanto-custa-plano-de-saude-empresarial-sp/" rel="nofollow noopener noreferrer">conveniosmedicossp.com.br</a></p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Vale-transporte fica de fora: com carro da equipe, o custo para a empresa tende a zero. EPI, uniforme e ferramentas também não entram nesta versão.</p>
+          </li>
+        </ul>
+
+        <h3>Veículo</h3>
+        <ul class="source-group">
+          <li>
+            <p>Unidas Livre Empresas, Fiat Strada, a partir de R$ 2.660,19/mês (12, 24 ou 36 meses, com impostos, seguro e assistência). Consultado em 15/10/2026. O campo usa R$ 2.700.</p>
+            <p class="source"><a href="https://empresas.livre.com.br/carros-por-assinatura/strada1" rel="nofollow noopener noreferrer">empresas.livre.com.br</a></p>
+          </li>
+          <li>
+            <p>Fiat por assinatura: Strada Endurance R$ 1.999, Fiorino Endurance 1.3 R$ 3.039, Mobi R$ 1.619. 05/2026.</p>
+            <p class="source"><a href="https://www.vrum.com.br/mercado/2026/05/7414306-fiat-por-assinatura-libera-pagamento-com-cartao-de-credito.html" rel="nofollow noopener noreferrer">vrum.com.br</a></p>
+          </li>
+          <li>
+            <p>Fiorino Endurance PJ, 36 meses, a partir de R$ 3.139/mês. 2026.</p>
+            <p class="source"><a href="https://jrfwebcarroporassinatura.com.br/carros-por-assinatur/fiorino-endurance-1-3/" rel="nofollow noopener noreferrer">jrfwebcarroporassinatura.com.br</a></p>
+          </li>
+          <li>
+            <p>Localiza Meoo, HB20 1.0, 1.000 km, 36 meses: R$ 2.393. LM AssineCar, o mesmo perfil: R$ 2.029. 2026.</p>
+            <p class="source"><a href="https://educandoseubolso.blog.br/veiculo/carro-por-assinatura/localiza-meoo-x-lm-assinecar" rel="nofollow noopener noreferrer">educandoseubolso.blog.br</a></p>
+          </li>
+          <li>
+            <p>Movida mensal flex e Unidas mensal corporativo: sem preço público. 15/10/2026.</p>
+            <p class="source"><a href="https://empresas.unidas.com.br/" rel="nofollow noopener noreferrer">empresas.unidas.com.br</a></p>
+          </li>
+          <li>
+            <p>Gasolina na cidade de São Paulo: R$ 6,34/L; etanol R$ 3,91/L. Semana de 4 a 10/10/2026. O campo usa a gasolina da capital.</p>
+            <p class="source"><a href="https://www.combustiveis-anp.com.br/estado/sp/sao-paulo" rel="nofollow noopener noreferrer">combustiveis-anp.com.br</a></p>
+          </li>
+          <li>
+            <p>Gasolina, média do estado de SP: R$ 6,401/L. 10/2026. Não é o valor do campo.</p>
+            <p class="source"><a href="https://www.combustiveis-anp.com.br/estado/sp/historico/outubro-2026" rel="nofollow noopener noreferrer">combustiveis-anp.com.br</a></p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Consumo urbano de 10,5 km/L, 2.500 km/mês e R$ 400 de pedágio e estacionamento. A faixa de consumo citada para Strada/Fiorino 1.3 é 10 a 11 km/L; a tabela Inmetro/PBE não foi consultada.</p>
+          </li>
+        </ul>
+
+        <h3>Diárias</h3>
+        <ul class="source-group">
+          <li>
+            <p>Diária com pernoite na referência do Estado de SP: R$ 471,26 a R$ 555,01. Consultado em 15/10/2026.</p>
+            <p class="source"><a href="https://www.transparencia.sp.gov.br/Home/TabDiarias" rel="nofollow noopener noreferrer">transparencia.sp.gov.br</a></p>
+          </li>
+          <li>
+            <p>Refeição fora da sede, acima de 100 km, em CCT de jornalistas de SP: R$ 41,31. 03/2026. Não é uma linha própria; entra só como contexto da diária.</p>
+            <p class="source"><a href="https://sjsp.org.br/wp-content/uploads/2026/03/02032026_-_CCT-2026_-_assinada_Jornalistas_assin_260304_151605.pdf" rel="nofollow noopener noreferrer">sjsp.org.br</a></p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> A diária do campo é R$ 450 por pessoa por noite, abaixo da faixa estadual. A parcela de visitas com pernoite começa em 0%. Três pessoas viajam juntas, salvo edição.</p>
+          </li>
+        </ul>
+
+        <h3>Operação, fabricante e peças</h3>
+        <ul class="source-group">
+          <li>
+            <p><span class="tag">Premissa</span> Tudo nesta lista é premissa operacional, sem fonte na pesquisa de 15/10/2026. Validar com a Gollmann ou com o histórico: 4 preventivas por robô/ano, 6 corretivas por robô/ano, 3,5 visitas por semana por equipe (faixa usual de 3 a 4; o campo aceita de 2 a 5), 4,33 semanas por mês só como referência e 52 semanas na divisão de equipes.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Um coordenador a cada 4 equipes, salário de R$ 12.000, e só quando existe mais de uma equipe.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Taxa anual ao fabricante de 0,6% do valor do robô, e valor médio de R$ 1.300.000. A pesquisa chegou a sugerir peças e consumíveis a 3% do valor do robô ao ano; esta conta não usa esse percentual.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Estoque local de peças: campo em branco, tratado como zero até ser preenchido. É investimento no mês 0 (valor por robô × robôs) e não se mistura ao mensal.</p>
+          </li>
+        </ul>
+      </section>
+    </main>
+    <div class="dock no-print" aria-hidden="false">
+      <div>
+        <span>Custo mensal</span>
+        <strong id="dock-monthly">—</strong>
+      </div>
+      <div>
+        <span>Por robô/mês</span>
+        <strong id="dock-robot">—</strong>
+      </div>
+    </div>
+    <noscript>
+      <p class="wrap">Esta página precisa de JavaScript para calcular. As fontes acima continuam visíveis.</p>
+    </noscript>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
