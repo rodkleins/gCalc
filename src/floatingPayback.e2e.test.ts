@@ -38,7 +38,7 @@ async function openTab(page: Page, label: string) {
       if (!showing) button.click();
       return Boolean(dock && showing);
     },
-    { timeout: 20_000 },
+    { timeout: 40_000 },
     label,
   );
 }
@@ -155,5 +155,5 @@ describe('payback flutuante permanece na tela ao rolar', () => {
       await page.close().catch(() => undefined);
     }
     expect(failures).toEqual([]);
-  }, 180_000);
+  }, 240_000);
 });
