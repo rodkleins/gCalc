@@ -5,6 +5,7 @@ import {
   chargeNote,
   costSeries,
   explain,
+  FLEET_MAX,
   formatBRL,
   formatFixed,
   formatFlex,
@@ -30,11 +31,11 @@ const SECTIONS = [
         slider: true,
         integer: true,
         min: 1,
-        max: 200,
+        max: FLEET_MAX,
         step: 1,
         wide: true,
         tooltip:
-          'Quantidade de robôs Gollmann atendidos por esta base. Multiplica visitas, taxa do fabricante e o estoque inicial de peças.',
+          'Quantidade de robôs Gollmann atendidos por esta base, de 1 a 1.000. O controle anda de 1 em 1 e o campo aceita o número digitado. Multiplica visitas, taxa do fabricante e o estoque inicial de peças.',
       },
     ],
   },
@@ -410,12 +411,13 @@ const SECTIONS = [
   },
 ];
 
-const CHART = { w: 720, h: 368, left: 76, right: 28, top: 16, plotBottom: 250, ribbon: 28 };
+const CHART = { w: 720, h: 368, left: 76, right: 40, top: 16, plotBottom: 250, ribbon: 28 };
 
 let state = freshState();
 const controls = new Map();
 let chartPoints = [];
 let chartScale = null;
+let chartKey = '';
 let probe = null;
 
 function freshState() {
@@ -784,8 +786,40 @@ function describePoint(point, current) {
   return `${where}: ${formatFlex(point.robots)} robôs · ${formatBRL(point.perRobotRounded)} por robô/mês · ${plural(point.teams, 'equipe', 'equipes')} (${crew}) · ${plural(point.coordinators, 'coordenador', 'coordenadores')}${managers}.`;
 }
 
+function chartInputKey(input) {
+  const premises = { ...input };
+  delete premises.robots;
+  return JSON.stringify(premises);
+}
+
+function pointAt(robots) {
+  if (!chartPoints.length) return null;
+  const from = chartPoints[0].robots;
+  const index = Math.min(chartPoints.length - 1, Math.max(0, robots - from));
+  return chartPoints[index];
+}
+
+function axisTicks(from, to) {
+  if (to - from <= 200) return [from, 50, 100, 150, to].filter((value, index, all) => value >= from && value <= to && all.indexOf(value) === index);
+  const ticks = [from];
+  for (let value = 250; value < to; value += 250) ticks.push(value);
+  ticks.push(to);
+  return ticks;
+}
+
 function renderChart(result) {
-  chartPoints = costSeries(scenarioInput(), 1, 200);
+  const input = scenarioInput();
+  const key = chartInputKey(input);
+  if (key !== chartKey || chartPoints.length !== FLEET_MAX) {
+    chartPoints = costSeries(input, 1, FLEET_MAX);
+    chartKey = key;
+    drawChart();
+  }
+  placeCurrent(result);
+  setProbe(probe);
+}
+
+function drawChart() {
   const rows = plateaus(chartPoints);
   const values = chartPoints.map((point) => point.perRobotRounded);
   const minV = Math.min(...values);
@@ -793,11 +827,14 @@ function renderChart(result) {
   const span = maxV - minV || 1;
   const yMin = Math.max(0, minV - span * 0.08);
   const yMax = maxV + span * 0.08;
+  const from = chartPoints[0].robots;
+  const to = chartPoints[chartPoints.length - 1].robots;
   const plotW = CHART.w - CHART.left - CHART.right;
   const plotH = CHART.plotBottom - CHART.top;
-  const xOf = (robots) => CHART.left + ((robots - 1) / 199) * plotW;
+  const xSpan = Math.max(1, to - from);
+  const xOf = (robots) => CHART.left + ((robots - from) / xSpan) * plotW;
   const yOf = (value) => CHART.top + (1 - (value - yMin) / (yMax - yMin)) * plotH;
-  chartScale = { xOf, yOf, yMin, yMax };
+  chartScale = { xOf, yOf, yMin, yMax, from, to };
 
   const svg = svgEl('svg', {
     viewBox: `0 0 ${CHART.w} ${CHART.h}`,
@@ -828,21 +865,28 @@ function renderChart(result) {
     svg.append(label);
   }
 
-  for (const robot of [1, 50, 100, 150, 200]) {
+  for (const robot of axisTicks(from, to)) {
     const label = svgEl('text', {
       x: xOf(robot),
       y: CHART.plotBottom + CHART.ribbon + 22,
-      'text-anchor': 'middle',
+      'text-anchor': robot === to ? 'end' : 'middle',
       class: 'axis',
     });
-    label.textContent = String(robot);
+    label.textContent = formatFlex(robot);
     svg.append(label);
   }
 
   const ribbonY = CHART.plotBottom + 8;
+  const robotWidth = plotW / xSpan;
   rows.forEach((row, index) => {
+    const previous = rows[index - 1];
+    const structural =
+      !previous ||
+      previous.peopleOnTeam !== row.peopleOnTeam ||
+      previous.coordinators !== row.coordinators ||
+      previous.managers !== row.managers;
     const x = xOf(row.from);
-    const width = Math.max(0, xOf(row.to) - x + plotW / 199);
+    const width = Math.max(robotWidth, xOf(row.to) - x + robotWidth);
     svg.append(
       svgEl('rect', {
         x,
@@ -853,18 +897,17 @@ function renderChart(result) {
         'data-step': `${row.from}-${row.to}`,
       }),
     );
-    if (width > 46) {
+    if (width >= 14) {
       const label = svgEl('text', {
         x: x + width / 2,
         y: ribbonY + 13,
         'text-anchor': 'middle',
         class: 'ribbon',
       });
-      label.textContent =
-        row.peopleOnTeam === 1 ? `${row.teams}×sênior` : row.coordinators > 0 ? `${row.teams} eq · ${row.coordinators} c` : `${row.teams} eq`;
+      label.textContent = ribbonLabel(row, width);
       svg.append(label);
     }
-    if (row.from > 1) {
+    if (row.from > from) {
       svg.append(
         svgEl('line', {
           x1: x,
@@ -872,7 +915,8 @@ function renderChart(result) {
           y1: CHART.top,
           y2: ribbonY + 18,
           stroke: '#8a5a12',
-          'stroke-dasharray': '3 3',
+          'stroke-dasharray': structural ? '3 3' : '2 4',
+          'stroke-opacity': structural ? 0.9 : 0.28,
         }),
       );
     }
@@ -899,17 +943,16 @@ function renderChart(result) {
   line.dataset.testid = 'cost-line';
   svg.append(line);
 
-  const selected = chartPoints[Math.min(199, Math.max(0, result.robots - 1))];
-  svg.append(
-    svgEl('circle', {
-      cx: xOf(selected.robots),
-      cy: yOf(selected.perRobotRounded),
-      r: 5,
-      fill: '#0f5c4c',
-      stroke: '#fffdf8',
-      'stroke-width': 2,
-    }),
-  );
+  const current = svgEl('circle', {
+    cx: 0,
+    cy: 0,
+    r: 5,
+    fill: '#0f5c4c',
+    stroke: '#fffdf8',
+    'stroke-width': 2,
+  });
+  current.id = 'chart-current';
+  svg.append(current);
   const guide = svgEl('line', {
     x1: 0,
     x2: 0,
@@ -932,26 +975,42 @@ function renderChart(result) {
 
   const table = document.getElementById('plateaus');
   table.replaceChildren();
-  table.append(el('caption', null, 'Degraus de equipe, composição e coordenação'));
+  table.append(el('caption', null, 'Degraus de equipe, composição, coordenação e gerência'));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  for (const label of ['Robôs', 'Equipes', 'Composição', 'Coordenadores', 'R$/robô no início', 'R$/robô no fim']) {
+  for (const label of ['Robôs', 'Equipes', 'Composição', 'Coordenadores', 'Gerentes', 'R$/robô no início', 'R$/robô no fim']) {
     hr.append(el('th', label === 'Robôs' || label === 'Composição' ? null : 'num', label));
   }
   head.append(hr);
   const body = document.createElement('tbody');
   for (const row of rows) {
     const tr = document.createElement('tr');
-    tr.append(el('th', null, row.from === row.to ? String(row.from) : `${row.from}–${row.to}`));
+    tr.append(el('th', null, row.from === row.to ? formatFlex(row.from) : `${formatFlex(row.from)}–${formatFlex(row.to)}`));
     tr.append(el('td', 'num', formatFlex(row.teams)));
     tr.append(el('td', null, row.peopleOnTeam === 1 ? 'Sênior' : 'Sênior + Pleno'));
     tr.append(el('td', 'num', formatFlex(row.coordinators)));
+    tr.append(el('td', 'num', formatFlex(row.managers)));
     tr.append(el('td', 'num', formatBRL(row.perRobotAtStart)));
     tr.append(el('td', 'num', formatBRL(row.perRobotAtEnd)));
     body.append(tr);
   }
   table.append(head, body);
-  setProbe(probe);
+}
+
+function ribbonLabel(row, width) {
+  if (width < 32) return formatFlex(row.teams);
+  if (row.peopleOnTeam === 1) return `${formatFlex(row.teams)}×sênior`;
+  if (row.managers > 0) return `${formatFlex(row.teams)} eq · ${formatFlex(row.managers)} g`;
+  if (row.coordinators > 0) return `${formatFlex(row.teams)} eq · ${formatFlex(row.coordinators)} c`;
+  return `${formatFlex(row.teams)} eq`;
+}
+
+function placeCurrent(result) {
+  const node = document.getElementById('chart-current');
+  const point = pointAt(result.robots);
+  if (!node || !point || !chartScale) return;
+  node.setAttribute('cx', String(chartScale.xOf(point.robots)));
+  node.setAttribute('cy', String(chartScale.yOf(point.perRobotRounded)));
 }
 
 function svgEl(name, attrs) {
@@ -974,8 +1033,9 @@ function onChartPointer(event) {
   const rect = svg.getBoundingClientRect();
   const x = ((event.clientX - rect.left) / rect.width) * CHART.w;
   if (x < CHART.left || x > CHART.w - CHART.right) return;
-  const robots = Math.round(1 + ((x - CHART.left) / (CHART.w - CHART.left - CHART.right)) * 199);
-  setProbe(Math.min(200, Math.max(1, robots)));
+  const plotW = CHART.w - CHART.left - CHART.right;
+  const robots = Math.round(chartScale.from + ((x - CHART.left) / plotW) * (chartScale.to - chartScale.from));
+  setProbe(Math.min(chartScale.to, Math.max(chartScale.from, robots)));
 }
 
 function setProbe(robots) {
@@ -983,7 +1043,7 @@ function setProbe(robots) {
   const guide = document.getElementById('chart-guide');
   const dot = document.getElementById('chart-probe');
   const readout = document.getElementById('chart-readout');
-  const point = robots ? chartPoints[robots - 1] : chartPoints[(state.robots || 1) - 1];
+  const point = pointAt(robots || state.robots || 1);
   if (!point || !readout) return;
   readout.textContent = describePoint(point, !robots || point.robots === state.robots);
   if (!guide || !dot || !chartScale) return;

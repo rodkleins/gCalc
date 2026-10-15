@@ -9,6 +9,7 @@ import {
   coordinatorCount,
   headcountLabel,
   managerCount,
+  FLEET_MAX,
   costSeries,
   explain,
   formatBRL,
@@ -236,7 +237,8 @@ describe('custo de manutenção dos robôs', () => {
 
   it('desenha degraus no custo por robô quando a equipe muda', () => {
     const series = costSeries();
-    assert.equal(series.length, 200);
+    assert.equal(FLEET_MAX, 1000);
+    assert.equal(series.length, 1000);
     assert.equal(series[0].robots, 1);
     assert.equal(series[4].teams, 1);
     assert.equal(series[4].peopleOnTeam, 1);
@@ -248,6 +250,10 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(series[199].teams, 7);
     assert.equal(series[199].coordinators, 2);
     assert.equal(series[199].managers, 0);
+    assert.equal(series[999].robots, 1000);
+    assert.equal(series[999].teams, 33);
+    assert.equal(series[999].coordinators, 9);
+    assert.equal(series[999].managers, 3);
     const steps = plateaus(series);
     assert.equal(steps[0].from, 1);
     assert.equal(steps[0].to, 5);
@@ -322,6 +328,41 @@ describe('custo de manutenção dos robôs', () => {
     assert.equal(fleet.managers, 0);
     assert.equal(headcountLabel(fleet), '7 Sênior · 7 Pleno · 2 coordenadores');
     assert.match(textOf(fleet), /Gerentes = 0, porque 2 coordenadores ficam abaixo de 3/);
+    const beforeManager = calculate({ robots: 242 });
+    const firstManager = calculate({ robots: 243 });
+    assert.equal(beforeManager.teams, 8);
+    assert.equal(beforeManager.coordinators, 2);
+    assert.equal(beforeManager.managers, 0);
+    assert.equal(firstManager.teams, 9);
+    assert.equal(firstManager.coordinators, 3);
+    assert.equal(firstManager.managers, 1);
+    assert.equal(headcountLabel(firstManager), '9 Sênior · 9 Pleno · 3 coordenadores · 1 gerente');
+    assert.equal(calculate({ robots: 364 }).managers, 1);
+    assert.equal(calculate({ robots: 365 }).managers, 2);
+    assert.equal(calculate({ robots: 728 }).managers, 2);
+    assert.equal(calculate({ robots: 729 }).managers, 3);
+    const fiveHundred = calculate({ robots: 500 });
+    assert.equal(fiveHundred.visitsYear, 3000);
+    assert.equal(fiveHundred.teams, 17);
+    assert.equal(fiveHundred.coordinators, 5);
+    assert.equal(fiveHundred.managers, 2);
+    assert.equal(headcountLabel(fiveHundred), '17 Sênior · 17 Pleno · 5 coordenadores · 2 gerentes');
+    assert.equal(cents(fiveHundred.monthlyRounded), 109573257);
+    assert.equal(cents(fiveHundred.annualRounded), 1314879084);
+    assert.equal(cents(fiveHundred.perRobotRounded), 219147);
+    const thousand = calculate({ robots: 1000 });
+    assert.equal(thousand.visitsYear, 6000);
+    assert.equal(thousand.teams, 33);
+    assert.equal(thousand.coordinators, 9);
+    assert.equal(thousand.managers, 3);
+    assert.equal(headcountLabel(thousand), '33 Sênior · 33 Pleno · 9 coordenadores · 3 gerentes');
+    assert.equal(cents(thousand.monthlyRounded), 210150406);
+    assert.equal(cents(thousand.annualRounded), 2521804872);
+    assert.equal(cents(thousand.perRobotRounded), 210150);
+    const stepsToThousand = plateaus(costSeries());
+    const managerStep = stepsToThousand.find((row) => row.managers === 1);
+    assert.equal(managerStep.from, 243);
+    assert.equal(managerStep.coordinators, 3);
     const withManagers = calculate({ robots: 200, teamsPerCoordinator: 1 });
     assert.equal(withManagers.teams, 7);
     assert.equal(withManagers.coordinators, 7);
@@ -404,6 +445,11 @@ describe('página interna isolada', () => {
     assert.match(app, /Provisão de rescisão/);
     assert.match(app, /Coordenadores por gerente/);
     assert.match(app, /dock-crew/);
+    assert.match(app, /max: FLEET_MAX/);
+    assert.match(app, /step: 1/);
+    assert.match(app, /costSeries\(input, 1, FLEET_MAX\)/);
+    assert.match(calc, /export const FLEET_MAX = 1000/);
+    assert.match(page, /De 1 a 1\.000 robôs/);
     assert.match(app, /restoreCorrectivesPerYear/);
     assert.match(calc, /managerCount/);
     assert.match(page, /id="dock-crew"/);

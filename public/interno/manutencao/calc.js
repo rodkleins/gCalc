@@ -1,6 +1,7 @@
 /** Conta pura da manutenção interna. Sem DOM. */
 
 export const MAX_PEOPLE_PER_TEAM = 2;
+export const FLEET_MAX = 1000;
 
 export const CHARGE_LINES = [
   { key: 'inss', label: 'INSS patronal', percent: 20 },
@@ -426,7 +427,7 @@ export function calculate(raw = {}) {
   };
 }
 
-export function costSeries(raw = {}, from = 1, to = 200) {
+export function costSeries(raw = {}, from = 1, to = FLEET_MAX) {
   const points = [];
   for (let robots = Math.ceil(from); robots <= Math.floor(to); robots += 1) {
     const result = calculate({ ...raw, robots });
@@ -449,12 +450,19 @@ export function plateaus(points) {
   const rows = [];
   for (const point of points) {
     const last = rows[rows.length - 1];
-    if (!last || last.teams !== point.teams || last.coordinators !== point.coordinators || last.peopleOnTeam !== point.peopleOnTeam) {
+    if (
+      !last ||
+      last.teams !== point.teams ||
+      last.coordinators !== point.coordinators ||
+      last.managers !== point.managers ||
+      last.peopleOnTeam !== point.peopleOnTeam
+    ) {
       rows.push({
         from: point.robots,
         to: point.robots,
         teams: point.teams,
         coordinators: point.coordinators,
+        managers: point.managers,
         peopleOnTeam: point.peopleOnTeam,
         compositionLabel: point.compositionLabel,
         perRobotAtStart: point.perRobotRounded,
