@@ -29,7 +29,10 @@ export function checkRelativeBuild(distDir) {
     if (ext === '.js' && /["'`]\/(?:assets\/|favicon\.svg)/.test(text)) {
       problems.push(`${rel} usa caminho absoluto de asset`);
     }
-    if (ext === '.html' || ext === '.css') {
+    // /interno/ cita fontes de pesquisa (https). O restante do site continua
+    // sem host absoluto, fora de fonts.googleapis.com e fonts.gstatic.com.
+    // Domínio antigo, prefixo /gCalc/ e caminho absoluto de asset seguem proibidos.
+    if ((ext === '.html' || ext === '.css') && !rel.startsWith('interno/')) {
       for (const match of text.matchAll(/https?:\/\/[^\s"'`<>)]+/g)) {
         const url = match[0].replace(/[.,;]+$/, '');
         let host = '';
