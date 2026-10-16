@@ -9,7 +9,7 @@ import {
   paybackLabel,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.locacao.interno.v2';
+const STORAGE_KEY = 'gcalc.locacao.interno.v3';
 
 const SECTIONS = [
   {
@@ -52,7 +52,7 @@ const SECTIONS = [
   {
     id: 'investimento',
     title: 'Investimento por robô',
-    intro: 'O desembolso cai no mês da instalação. O crédito de impostos abate nesse mesmo mês. O estoque de peças é o da manutenção: investimento, não custo mensal.',
+    intro: 'O desembolso cai no mês da instalação. O crédito de impostos abate nesse mesmo mês. O estoque de peças é investimento, não custo mensal.',
     fields: [
       {
         key: 'robotPrice',
@@ -123,14 +123,14 @@ const SECTIONS = [
         label: 'Estoque de peças por robô',
         prefix: 'R$',
         min: 0,
-        tooltip: 'Nasce em zero, como o campo em branco da manutenção. Entra na compra e fica fora do custo mensal.',
+        tooltip: 'Nasce em zero. Entra na compra e fica fora do custo mensal.',
       },
     ],
   },
   {
     id: 'receita',
     title: 'Receita',
-    intro: 'A loja paga um aluguel só: parcela do robô mais parcela da manutenção. No repasse, esse total é um percentual da economia mensal e a loja fica com o resto. O campo manual só vale com o repasse desligado. A mínima sugerida não preenche o campo.',
+    intro: 'No repasse, o aluguel é um percentual da economia mensal e a loja fica com o resto. O campo manual só vale com o repasse desligado. A mínima sugerida não preenche o campo. A manutenção terceirizada é custo à parte, não uma parcela desse preço.',
     fields: [
       {
         key: 'passThroughOn',
@@ -234,8 +234,16 @@ const SECTIONS = [
   {
     id: 'outros',
     title: 'Outros custos por robô/mês',
-    intro: 'Seguro e monitoramento são caixa, por robô em campo, além da manutenção. Nascem em zero.',
+    intro: 'A manutenção é feita por outra empresa e custa um valor por robô alugado, no mesmo mês do aluguel. Seguro e monitoramento são por robô em campo e nascem em zero.',
     fields: [
+      {
+        key: 'maintenancePerRobot',
+        label: 'Manutenção terceirizada (R$/robô/mês)',
+        prefix: 'R$',
+        min: 0,
+        wide: true,
+        tooltip: 'Outra empresa faz a manutenção. O custo entra por robô que está alugado, a partir do mês seguinte à instalação, o mesmo mês em que o aluguel começa. Padrão: R$ 3.500.',
+      },
       {
         key: 'insurancePerRobot',
         label: 'Seguro',
@@ -499,6 +507,11 @@ function renderField(field) {
     hint.id = 'saving-hint';
     wrap.append(hint);
   }
+  if (field.key === 'maintenancePerRobot') {
+    const hint = el('p', 'hint');
+    hint.id = 'maintenance-hint';
+    wrap.append(hint);
+  }
   controls.set(field.key, { field, text, slider, wrap });
   return wrap;
 }
@@ -526,37 +539,6 @@ function buildForm() {
     card.append(fields);
     form.append(card);
   }
-  const maintenance = el('section', 'card');
-  const note = el('p', 'readout');
-  note.id = 'maintenance-note';
-  const markupFields = el('div', 'fields');
-  markupFields.append(
-    renderField({
-      key: 'maintenanceMarkupPct',
-      label: 'Markup da manutenção',
-      suffix: '%',
-      min: 0,
-      max: 100,
-      step: 1,
-      integer: true,
-      slider: true,
-      wide: true,
-      tooltip: 'A parcela de manutenção no aluguel é o custo de calculate() vezes (1 + este percentual). Padrão: 30%. O total pago pela loja não muda: o que sobra é a parcela do robô.',
-    }),
-  );
-  maintenance.append(
-    el('h2', null, 'Manutenção'),
-    el(
-      'p',
-      'intro',
-      'A manutenção entra dentro do aluguel, com markup. O custo do mês vem da calculadora de manutenção para os robôs em campo, com as premissas padrão de lá: equipe de até 2, furgão Fiorino, encargos, coordenador, gerente, 0,6% do fabricante, absenteísmo, férias e turnover. Esta página não edita essas premissas.',
-    ),
-    markupFields,
-    note,
-  );
-  const outros = [...form.children].find((node) => node.querySelector('#lbl-insurancePerRobot'));
-  if (outros) form.insertBefore(maintenance, outros);
-  else form.append(maintenance);
 }
 
 function fillControls() {
@@ -612,22 +594,7 @@ function renderKpis(result) {
     ['minimum', 'Mensalidade mínima sugerida', result.suggestedRent == null ? '—' : formatBRL(result.suggestedRent), false],
     ['rent-used', 'Aluguel na conta', formatBRL(result.rentUsed), false],
     ['saving', 'Saving líquido da loja', formatBRL(result.storeNetSaving), false],
-    [
-      'split',
-      'Parcela do robô + manutenção',
-      result.rentRobot == null
-        ? '—'
-        : `${formatBRL(result.rentRobot)} + ${formatBRL(result.rentMaintenance)}`,
-      false,
-    ],
-    ['maint-margin', 'Margem de manutenção', formatBRL(result.maintenanceMargin), false],
-    [
-      'coverage',
-      'Cobertura da operação',
-      result.coverage == null ? 'Nada a cobrir' : `${formatFixed(result.coverage * 100, 1)}%`,
-      false,
-    ],
-    ['fleet', 'Frota no fim', `${formatFlex(result.finalFleet)} ${result.finalFleet === 1 ? 'robô' : 'robôs'} · ${formatFlex(result.months.at(-1)?.teams ?? 0)} ${result.months.at(-1)?.teams === 1 ? 'equipe' : 'equipes'}`, false],
+    ['fleet', 'Frota no fim', `${formatFlex(result.finalFleet)} ${result.finalFleet === 1 ? 'robô' : 'robôs'}`, false],
   ];
   host.replaceChildren();
   for (const [id, label, value, main] of cards) {
@@ -658,6 +625,10 @@ function renderKpis(result) {
   if (saving) {
     saving.textContent = `Saving líquido da loja = ${formatBRL(result.storeSaving)} − ${formatBRL(result.rentUsed)} = ${formatBRL(result.storeNetSaving)}. O reajuste anual reduz esse líquido depois do primeiro ano.`;
   }
+  const maintenanceHint = document.getElementById('maintenance-hint');
+  if (maintenanceHint) {
+    maintenanceHint.textContent = `${formatBRL(result.maintenancePerRobot)} por robô alugado, no mesmo mês do aluguel. No mês da instalação o custo é zero.`;
+  }
   const note = document.getElementById('funding-note');
   const parts = result.tranches.map((tranche) => `${money(tranche.cents)} no mês ${formatFlex(tranche.month)}`);
   note.textContent = result.twoTranches
@@ -666,21 +637,6 @@ function renderKpis(result) {
   document.getElementById('dock-payback').textContent = paybackLabel(result).replace(/\.$/, '');
   document.getElementById('dock-raise').textContent = formatBRL(result.raise);
   document.getElementById('dock-saving').textContent = formatBRL(result.storeNetSaving);
-  const maintenance = document.getElementById('maintenance-note');
-  if (maintenance) {
-    const now = result.opening;
-    const average =
-      result.rentRobot == null
-        ? ''
-        : ` Na média do horizonte, a parcela do robô é ${formatBRL(result.rentRobot)} e a da manutenção é ${formatBRL(result.rentMaintenance)}.`;
-    const cover =
-      result.coverage == null
-        ? ` Margem de manutenção no caixa: ${formatBRL(result.maintenanceMargin)}. Frete, peças, seguro e monitoramento estão em zero, então não há implantação nem operação para cobrir.`
-        : ` Margem de manutenção no caixa: ${formatBRL(result.maintenanceMargin)}, o bastante para ${formatFixed(result.coverage * 100, 1)}% de frete, peças, seguro e monitoramento (${formatBRL(result.implantAndOperation)}).`;
-    maintenance.textContent = now
-      ? `No mês ${formatFlex(now.month)} a manutenção custa ${money(now.maintenanceCents)} para ${formatFlex(now.inField)} robôs em campo (${formatFlex(now.teams)} ${now.teams === 1 ? 'equipe' : 'equipes'}). Com markup de ${formatFlex(result.maintenanceMarkupPct)}%, a parcela cobrada nesse mês é ${formatBRL(now.maintGross)} e a parcela do robô é ${formatBRL(now.robotGross)}.${average}${cover}`
-      : cover.trim();
-  }
   renderContract(result);
 }
 
@@ -704,7 +660,7 @@ function renderContract(result) {
     host.append(card);
   }
   if (note) {
-    note.textContent = `Um robô no preço de tabela, contrato de ${formatFlex(result.contractMonths)} meses, sem renovação e sem recolocação. A manutenção é a média da frota, ${formatBRL(contract.maintenanceMonthly)} por robô em campo, não uma equipe só para ele. O aluguel cobre ${formatFlex(contract.billingMonths)} meses.`;
+    note.textContent = `Um robô no preço de tabela, contrato de ${formatFlex(result.contractMonths)} meses, sem renovação e sem recolocação. A manutenção terceirizada é ${formatBRL(contract.maintenanceMonthly)} por robô alugado, no mesmo mês do aluguel. O aluguel cobre ${formatFlex(contract.billingMonths)} meses.`;
   }
 }
 
@@ -728,35 +684,6 @@ function renderYears(result) {
     tr.append(el('td', 'num', money(year.capexCents)));
     tr.append(el('td', 'num', money(year.netCents)));
     tr.append(el('td', 'num', money(year.cumulativeCents)));
-    body.append(tr);
-  }
-  table.append(head, body);
-}
-
-function composition(step) {
-  if (!step.teams) return '—';
-  return step.peopleOnTeam === 1 ? 'Sênior' : 'Sênior + Pleno';
-}
-
-function renderSteps(result) {
-  const table = document.getElementById('steps');
-  table.replaceChildren();
-  table.append(el('caption', null, 'Degraus da equipe de manutenção'));
-  const head = document.createElement('thead');
-  const hr = document.createElement('tr');
-  for (const label of ['Meses', 'Equipes', 'Composição', 'Coordenadores', 'Gerentes', 'Manutenção no início']) {
-    hr.append(el('th', label === 'Meses' || label === 'Composição' ? null : 'num', label));
-  }
-  head.append(hr);
-  const body = document.createElement('tbody');
-  for (const step of result.steps) {
-    const tr = document.createElement('tr');
-    tr.append(el('th', null, step.from === step.to ? formatFlex(step.from) : `${formatFlex(step.from)}–${formatFlex(step.to)}`));
-    tr.append(el('td', 'num', formatFlex(step.teams)));
-    tr.append(el('td', null, composition(step)));
-    tr.append(el('td', 'num', formatFlex(step.coordinators)));
-    tr.append(el('td', 'num', formatFlex(step.managers)));
-    tr.append(el('td', 'num', formatBRL(step.maintenance)));
     body.append(tr);
   }
   table.append(head, body);
@@ -846,18 +773,6 @@ function drawChart(result) {
         fill: value < 0 ? '#9a3b2f' : '#0f5c4c',
       }),
     );
-    if (row.step) {
-      svg.append(
-        svgEl('line', {
-          x1: xAt(index),
-          x2: xAt(index),
-          y1: top,
-          y2: top + plotH,
-          stroke: '#8a5a12',
-          'stroke-dasharray': '3 3',
-        }),
-      );
-    }
   });
 
   const line = rows
@@ -905,8 +820,7 @@ function drawChart(result) {
   host.replaceChildren(svg);
   const describe = (index) => {
     const row = rows[index];
-    const team = row.step ? ' Degrau de equipe.' : '';
-    readout.textContent = `Mês ${formatFlex(row.month)}: caixa ${money(row.operatingCents)}, acumulado ${money(row.cumulativeCents)}, ${formatFlex(row.inField)} robôs em campo, ${formatFlex(row.teams)} equipes.${team}`;
+    readout.textContent = `Mês ${formatFlex(row.month)}: caixa ${money(row.operatingCents)}, acumulado ${money(row.cumulativeCents)}, ${formatFlex(row.inField)} robôs em campo, ${formatFlex(row.billing)} alugados, manutenção ${money(row.maintenanceCents)}.`;
   };
   describe(rows.length - 1);
   svg.addEventListener('pointermove', (event) => {
@@ -922,7 +836,6 @@ function render() {
   syncLocks();
   renderKpis(result);
   renderYears(result);
-  renderSteps(result);
   renderMemory(result);
   drawChart(result);
   const stamp = document.getElementById('print-date');
