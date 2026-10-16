@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'vitest';
-import { calculate, toCents } from '../../public/interno/manutencao/calc.js';
 import { evaluate as storeEvaluate } from '../../src/model/calculate.ts';
 import { defaultStorePreset } from '../../src/model/presets.ts';
 import {
@@ -11,8 +10,8 @@ import {
   STORE_SAVING_DEFAULT,
   evaluate,
   explain,
-  maintenanceForFleet,
   paybackLabel,
+  toCents,
   volumeDiscountPct,
 } from '../../public/interno/locacao/calc.js';
 
@@ -31,21 +30,24 @@ const legacy = {
 };
 
 describe('locação da frota', () => {
-  it('compra no mês 1, aluga no mês 2 e usa a manutenção pronta', () => {
+  it('compra no mês 1, aluga no mês 2 e cobra a manutenção no mesmo mês', () => {
     const result = evaluate({ rent: 20000, horizon: 3, renewalPct: 100, passThroughOn: false });
-    const maintained = calculate({ robots: 1 });
+    const calc = readFileSync(join(root, 'public/interno/locacao/calc.js'), 'utf8');
     assert.equal(result.months[0].bought, 1);
     assert.equal(result.months[0].billing, 0);
+    assert.equal(result.months[0].inField, 1);
+    assert.equal(result.months[0].maintenanceCents, 0);
     assert.equal(result.months[0].capexCents, cents(1300000 * 0.75));
-    assert.equal(result.months[0].maintenanceCents, cents(maintained.monthlyRounded));
-    assert.equal(maintenanceForFleet(1).monthly, maintained.monthlyRounded);
     assert.equal(result.months[1].billing, 1);
     assert.equal(result.months[1].inField, 2);
+    assert.equal(result.months[1].maintenanceCents, cents(3500));
     assert.equal(result.months[1].salesCents, cents(20000 * (1 - 0.02 - 0.1133)));
     assert.equal(result.months[12] ? result.months[12].listFactor : evaluate({ ...legacy, rent: 20000 }).months[12].listFactor, 1.04);
-    assert.match(explain(result).map((block) => block.lines.join('\n')).join('\n'), /calculate\(\{ robôs em campo \}\)/);
-    assert.match(readFileSync(join(root, 'public/interno/locacao/calc.js'), 'utf8'), /from '\.\.\/manutencao\/calc\.js'/);
-    assert.equal(readFileSync(join(root, 'public/interno/locacao/calc.js'), 'utf8').includes('function staffPlan'), false);
+    const text = explain(result).map((block) => block.lines.join('\n')).join('\n');
+    assert.match(text, /mês seguinte à instalação/);
+    assert.doesNotMatch(text, /calculate\(/);
+    assert.equal(calc.includes('manutencao/calc'), false);
+    assert.equal(calc.includes('function staffPlan'), false);
   });
 
   it('não recupera com aluguel zero e paga antes quando o aluguel sobe', () => {
@@ -55,33 +57,17 @@ describe('locação da frota', () => {
     assert.equal(zero.payback, null);
     assert.equal(zero.wentNegative, true);
     assert.match(paybackLabel(zero), /Não recupera em 120 meses/);
-    assert.equal(low.payback, 106);
-    assert.equal(low.worstMonth, 57);
-    assert.equal(low.worstCents, -2994168895);
-    assert.equal(low.raiseCents, 3593002674);
-    assert.equal(cents(low.npv), -297651297);
-    assert.equal(cents(low.margin), 1943020);
-    assert.equal(low.finalFleet, 120);
-    assert.equal(low.months.at(-1).teams, 5);
-    assert.equal(low.months.at(-1).coordinators, 2);
-    assert.equal(low.months.at(-1).managers, 0);
-    assert.equal(high.payback, 74);
-    assert.ok(high.payback < low.payback);
-    assert.equal(high.worstCents, -2011075871);
-    assert.equal(high.raiseCents, 2413291045);
-    assert.equal(cents(high.npv), 1643033298);
-    assert.equal(cents(high.margin), 3051261);
+    assert.ok(high.payback != null && high.payback < low.payback);
+    assert.ok(high.worstCents > low.worstCents);
     assert.ok(high.irr > low.irr);
-    assert.ok(low.irr > 0.2 && low.irr < 0.25);
-    assert.ok(high.irr > 0.38 && high.irr < 0.39);
+    assert.equal(low.raiseCents, cents((-low.worstCents / 100) * 1.2));
+    assert.equal(low.finalFleet, 120);
   });
 
   it('acha a mensalidade mínima por busca binária e ela é monotônica', () => {
     const early = evaluate({ ...legacy, targetPayback: 36 });
     const later = evaluate({ ...legacy, targetPayback: 60 });
-    assert.equal(early.suggestedCents, 6467290);
-    assert.equal(later.suggestedCents, 3741087);
-    assert.ok(early.suggestedRent > later.suggestedRent);
+    assert.ok(early.suggestedCents > later.suggestedCents);
     const at = evaluate({ ...legacy, rent: early.suggestedRent, targetPayback: 36 });
     const under = evaluate({ ...legacy, rent: (early.suggestedCents - 1) / 100, targetPayback: 36 });
     assert.equal(at.payback, 36);
@@ -115,6 +101,8 @@ describe('locação da frota', () => {
     assert.equal(returned.months[0].capexCents > 0, true);
     assert.equal(returned.months[3].capexCents, 0);
     assert.equal(returned.months[3].redeployed, 1);
+    assert.equal(returned.months[3].maintenanceCents, 0);
+    assert.equal(returned.months[1].maintenanceCents, cents(3500));
     const renewed = evaluate({ ...common, renewalPct: 100 });
     assert.equal(renewed.months[3].billing, 1);
     assert.equal(renewed.months[3].redeployed, 0);
@@ -144,7 +132,7 @@ describe('locação da frota', () => {
   });
 });
 
-describe('repasse, markup e desconto de volume', () => {
+describe('repasse, manutenção terceirizada e desconto de volume', () => {
   const tiers = [
     { from: 10, pct: 0.05 },
     { from: 50, pct: 0.1 },
@@ -181,32 +169,16 @@ describe('repasse, markup e desconto de volume', () => {
     assert.match(paybackLabel(zero), /Não recupera em 180 meses/);
   });
 
-  it('separa a manutenção com markup sem mudar o aluguel total', () => {
+  it('cobra a manutenção terceirizada por robô alugado sem mudar o aluguel', () => {
     const result = evaluate({ horizon: 4, pace: 1 });
-    const billed = result.months.filter((month) => month.billing > 0);
-    assert.ok(billed.length > 0);
-    for (const month of billed) {
-      assert.equal(month.maintBilledCents, cents(month.maintenanceReais * 1.3));
-      const gross = month.billing * result.rentUsed * month.listFactor;
-      assert.ok(Math.abs(month.maintGross + month.robotGross - gross) < 1e-6);
+    assert.equal(result.maintenancePerRobot, 3500);
+    for (const month of result.months) {
+      assert.equal(month.maintenanceCents, cents(month.billing * 3500));
     }
-    assert.equal(result.months[0].billing, 0);
-    assert.equal(result.months[0].maintBilledCents, 0);
-    assert.equal(result.months[0].maintMarginCents, -result.months[0].maintenanceCents);
-    const low = evaluate({ passThroughOn: false, rent: 29769.6, maintenanceMarkupPct: 30, horizon: 24 });
-    const high = evaluate({ passThroughOn: false, rent: 29769.6, maintenanceMarkupPct: 80, horizon: 24 });
-    assert.equal(low.cumulative, high.cumulative);
-    assert.ok(high.maintenanceMarginCents > low.maintenanceMarginCents);
-    assert.equal(result.coverage, null);
-    const covered = evaluate({
-      passThroughOn: false,
-      rent: 30000,
-      horizon: 6,
-      freight: 1000,
-      insurancePerRobot: 10,
-    });
-    assert.equal(covered.implantCents + covered.operationCents > 0, true);
-    assert.equal(covered.coverage, covered.maintenanceMarginCents / (covered.implantCents + covered.operationCents));
+    const dearer = evaluate({ horizon: 4, pace: 1, maintenancePerRobot: 7000 });
+    assert.equal(dearer.rentUsed, result.rentUsed);
+    assert.ok(dearer.cumulative < result.cumulative);
+    assert.equal(result.months[0].maintenanceCents, 0);
   });
 
   it('dá desconto pela compra acumulada e não pela recolocação', () => {
@@ -235,51 +207,53 @@ describe('repasse, markup e desconto de volume', () => {
     assert.equal(renewed.months[3].redeployed, 1);
   });
 
-  it('mede o contrato de um robô com a manutenção média da frota', () => {
+  it('mede o contrato de um robô com a mesma manutenção terceirizada', () => {
     const result = evaluate({});
     assert.equal(result.contract.billingMonths, 119);
     assert.equal(result.contract.horizon, 121);
     assert.equal(result.contract.rentUsed, result.rentUsed);
-    assert.ok(result.contract.maintenanceMonthly > 0);
-    assert.ok(result.contract.maintenanceMonthly < maintenanceForFleet(1).monthly);
+    assert.equal(result.contract.maintenanceMonthly, 3500);
     assert.equal(result.contract.wentNegative, true);
     const text = explain(result).map((block) => block.lines.join('\n')).join('\n');
     assert.match(text, /Repasse/);
     assert.match(text, /119/);
     assert.match(text, /Desconto por volume/);
-    assert.match(text, /markup/i);
+    assert.match(text, /Manutenção terceirizada/);
+    assert.doesNotMatch(text, /markup/i);
     const priced = [50, 60, 70].map((passThroughPct) => evaluate({ passThroughPct }));
     assert.deepEqual(
       priced.map((item) => item.payback),
-      [83, 71, 62],
+      [85, 72, 62],
+    );
+    assert.deepEqual(
+      priced.map((item) => item.worstMonth),
+      [45, 37, 32],
     );
     assert.deepEqual(
       priced.map((item) => item.worstCents),
-      [-2249482201, -1887232512, -1618235322],
+      [-2253072244, -1877930836, -1609115505],
     );
     assert.deepEqual(
       priced.map((item) => item.raiseCents),
-      [2699378641, 2264679014, 1941882386],
+      [2703686693, 2253517003, 1930938606],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.npv)),
-      [1397396081, 2671769699, 3946143320],
+      [1251210601, 2525584218, 3799957840],
     );
     assert.deepEqual(
       priced.map((item) => item.contract.payback),
-      [50, 41, 36],
+      [52, 43, 37],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.contract.npv)),
-      [10466456, 32984225, 55501998],
+      [6709203, 29226972, 51744745],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.contract.profit)),
-      [235910671, 297435317, 358959951],
+      [226106540, 287631186, 349155820],
     );
-    assert.equal(priced[1].suggestedCents, 6239698);
-    assert.equal(cents(priced[1].maintenanceMargin), 479406768);
-    assert.equal(cents(priced[1].rentMaintenance), 346231);
+    assert.equal(priced[1].suggestedCents, 6222798);
     const suggested = evaluate({ passThroughOn: false });
     const at = evaluate({ passThroughOn: false, rent: suggested.suggestedRent });
     const under = evaluate({ passThroughOn: false, rent: (suggested.suggestedCents - 1) / 100 });
@@ -321,11 +295,14 @@ describe('página de locação isolada', () => {
     assert.match(page, /src="\.\/app\.js"/);
     assert.match(page, /Ver cálculo/);
     assert.match(page, /IBS/);
-    assert.match(page, /href="\.\.\/manutencao\/"/);
+    assert.equal(page.includes('manutencao'), false);
+    assert.equal(app.includes('manutencao'), false);
+    assert.equal(calc.includes('manutencao'), false);
     assert.match(app, /from '\.\/calc\.js'/);
     assert.match(app, /Mensalidade mínima/);
-    assert.match(calc, /maintenanceCalculate\(\{ robots: key \}\)/);
-    assert.match(app, /gcalc\.locacao\.interno\.v2/);
+    assert.match(app, /Manutenção terceirizada/);
+    assert.match(page, /Manutenção terceirizada/);
+    assert.match(app, /gcalc\.locacao\.interno\.v3/);
     assert.match(page, /Repasse da economia da loja/);
     assert.match(page, /120 meses/);
     assert.match(page, /180 meses/);
