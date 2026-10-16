@@ -13,124 +13,10 @@ const STORAGE_KEY = 'gcalc.locacao.interno.v3';
 
 const SECTIONS = [
   {
-    id: 'ritmo',
-    title: 'Ritmo',
-    intro: 'A frota cresce todo mês até o horizonte. A frota máxima, se preenchida, trava as compras novas. Recolocação não conta como compra.',
-    fields: [
-      {
-        key: 'pace',
-        label: 'Robôs instalados por mês',
-        min: 0,
-        max: 20,
-        step: 1,
-        integer: true,
-        slider: true,
-        tooltip: 'Compras novas por mês. Padrão: 1. A recolocação de quem não renovou é extra e não usa essa cota.',
-      },
-      {
-        key: 'horizon',
-        label: 'Horizonte',
-        suffix: 'meses',
-        min: 1,
-        max: 360,
-        step: 1,
-        integer: true,
-        slider: true,
-        tooltip: 'Quantos meses o fluxo da frota acompanha. Padrão: 180, para cobrir o contrato de 10 anos e mais 60 meses. O controle vai até 360.',
-      },
-      {
-        key: 'maxFleet',
-        label: 'Frota máxima',
-        allowEmpty: true,
-        placeholder: 'sem limite',
-        min: 0,
-        integer: true,
-        tooltip: 'Opcional. Em branco, a compra segue o ritmo até o fim do horizonte.',
-      },
-    ],
-  },
-  {
-    id: 'investimento',
-    title: 'Investimento por robô',
-    intro: 'O desembolso cai no mês da instalação. O crédito de impostos abate nesse mesmo mês. O estoque de peças é investimento, não custo mensal.',
-    fields: [
-      {
-        key: 'robotPrice',
-        label: 'Preço do robô',
-        prefix: 'R$',
-        min: 0,
-        tooltip: 'Premissa de R$ 1.300.000, o mesmo valor médio usado na taxa do fabricante. O desconto de volume abate este preço.',
-      },
-      {
-        key: 'tier1From',
-        label: '1ª faixa a partir do robô',
-        min: 1,
-        max: 500,
-        step: 1,
-        integer: true,
-        slider: true,
-        tooltip: 'Compra acumulada em que começa o primeiro desconto. Padrão: o 10º robô. Recolocação não conta.',
-      },
-      {
-        key: 'tier1Pct',
-        label: 'Desconto da 1ª faixa',
-        suffix: '%',
-        min: 0,
-        max: 50,
-        step: 1,
-        slider: true,
-        tooltip: 'Desconto sobre o preço de tabela a partir da 1ª faixa. Padrão: 5%.',
-      },
-      {
-        key: 'tier2From',
-        label: '2ª faixa a partir do robô',
-        min: 1,
-        max: 500,
-        step: 1,
-        integer: true,
-        slider: true,
-        tooltip: 'Compra acumulada em que começa o segundo desconto. Padrão: o 50º robô. Vale o maior patamar atingido.',
-      },
-      {
-        key: 'tier2Pct',
-        label: 'Desconto da 2ª faixa',
-        suffix: '%',
-        min: 0,
-        max: 50,
-        step: 1,
-        slider: true,
-        tooltip: 'Desconto sobre o preço de tabela a partir da 2ª faixa. Padrão: 10%.',
-      },
-      {
-        key: 'taxCreditPct',
-        label: 'Créditos de impostos recuperáveis',
-        suffix: '%',
-        min: 0,
-        max: 100,
-        step: 1,
-        slider: true,
-        tooltip: 'Abatem o preço no mês da compra. Premissa de 25%. Confirme com o contador o que de fato vira crédito.',
-      },
-      {
-        key: 'freight',
-        label: 'Frete e instalação',
-        prefix: 'R$',
-        min: 0,
-        tooltip: 'Por robô, no mês da compra. Padrão zero. Não se repete na recolocação.',
-      },
-      {
-        key: 'partsPerRobot',
-        label: 'Estoque de peças por robô',
-        prefix: 'R$',
-        min: 0,
-        tooltip: 'Nasce em zero. Entra na compra e fica fora do custo mensal.',
-      },
-    ],
-  },
-  {
-    id: 'receita',
-    title: 'Receita',
-    intro: 'No repasse, o aluguel é um percentual da economia mensal e a loja fica com o resto. O campo manual só vale com o repasse desligado. A mínima sugerida não preenche o campo. A manutenção terceirizada é custo à parte, não uma parcela desse preço.',
+    id: 'repasse',
+    title: 'Repasse e aluguel',
+    open: true,
+    intro: 'No repasse, o aluguel é um percentual da economia mensal e a loja fica com o resto. O campo manual só vale com o repasse desligado. A manutenção terceirizada é custo à parte.',
     fields: [
       {
         key: 'passThroughOn',
@@ -169,17 +55,84 @@ const SECTIONS = [
         wide: true,
         tooltip: 'Preço mensal por robô alugado, usado só com o repasse desligado. Vazio: o resultado usa a mensalidade mínima sugerida.',
       },
+    ],
+  },
+  {
+    id: 'terceirizada',
+    title: 'Manutenção',
+    open: true,
+    intro: 'Outra empresa faz a manutenção. O custo entra por robô alugado, no mesmo mês do aluguel.',
+    fields: [
       {
-        key: 'targetPayback',
-        label: 'Payback alvo da mínima',
+        key: 'maintenancePerRobot',
+        label: 'Manutenção terceirizada (R$/robô/mês)',
+        prefix: 'R$',
+        min: 0,
+        wide: true,
+        tooltip: 'O custo entra por robô que está alugado, a partir do mês seguinte à instalação, o mesmo mês em que o aluguel começa. Padrão: R$ 3.500.',
+      },
+    ],
+  },
+  {
+    id: 'preco',
+    title: 'Preço do robô',
+    open: true,
+    intro: 'O preço sai inteiro no mês da instalação. O crédito de impostos não abate essa compra: volta em parcelas, no avançado.',
+    fields: [
+      {
+        key: 'robotPrice',
+        label: 'Preço do robô',
+        prefix: 'R$',
+        min: 0,
+        wide: true,
+        tooltip: 'Premissa de R$ 1.300.000. O desconto de volume abate este preço.',
+      },
+    ],
+  },
+  {
+    id: 'ritmo',
+    title: 'Ritmo',
+    open: true,
+    intro: 'A frota cresce todo mês até o horizonte. A frota máxima, se preenchida, trava as compras novas. Recolocação não conta como compra.',
+    fields: [
+      {
+        key: 'pace',
+        label: 'Robôs instalados por mês',
+        min: 0,
+        max: 20,
+        step: 1,
+        integer: true,
+        slider: true,
+        tooltip: 'Compras novas por mês. Padrão: 1. A recolocação de quem não renovou é extra e não usa essa cota.',
+      },
+      {
+        key: 'horizon',
+        label: 'Horizonte',
         suffix: 'meses',
         min: 1,
         max: 360,
         step: 1,
         integer: true,
         slider: true,
-        tooltip: 'A mensalidade mínima é o menor aluguel que faz o caixa acumulado voltar a zero até este mês. Padrão: 36.',
+        tooltip: 'Quantos meses o fluxo da frota acompanha. Padrão: 180, para cobrir o contrato de 10 anos e mais 60 meses. O controle vai até 360.',
       },
+      {
+        key: 'maxFleet',
+        label: 'Frota máxima',
+        allowEmpty: true,
+        placeholder: 'sem limite',
+        min: 0,
+        integer: true,
+        tooltip: 'Opcional. Em branco, a compra segue o ritmo até o fim do horizonte.',
+      },
+    ],
+  },
+  {
+    id: 'contrato',
+    title: 'Contrato',
+    open: true,
+    intro: 'O prazo padrão é 10 anos. A instalação conta na vida útil e o aluguel começa no mês seguinte.',
+    fields: [
       {
         key: 'contractMonths',
         label: 'Prazo do contrato',
@@ -189,164 +142,256 @@ const SECTIONS = [
         step: 1,
         integer: true,
         slider: true,
+        wide: true,
         tooltip: 'Meses de calendário de cada contrato, contando a instalação na vida útil. Padrão: 120, dez anos.',
       },
-      {
-        key: 'annualAdjustmentPct',
-        label: 'Reajuste anual',
-        suffix: '%',
-        min: 0,
-        max: 30,
-        step: 0.5,
-        slider: true,
-        tooltip: 'A tabela inteira sobe esse percentual a cada 12 meses de calendário. Padrão: 4%.',
-      },
-      {
-        key: 'setupFee',
-        label: 'Taxa de setup por robô',
-        prefix: 'R$',
-        min: 0,
-        tooltip: 'Cobrada na instalação e na recolocação, líquida do imposto sobre receita. Renovação não cobra. Padrão zero.',
-      },
-      {
-        key: 'delinquencyPct',
-        label: 'Inadimplência',
-        suffix: '%',
-        min: 0,
-        max: 100,
-        step: 0.5,
-        slider: true,
-        tooltip: 'Reduz o que entra no caixa. Não reduz o imposto, que incide sobre o faturado. Padrão: 2%.',
-      },
-      {
-        key: 'revenueTaxPct',
-        label: 'Impostos sobre a receita',
-        suffix: '%',
-        min: 0,
-        max: 40,
-        step: 0.01,
-        digits: 2,
-        slider: true,
-        tooltip: 'Premissa editável. 11,33% é um exemplo para a conta, não uma alíquota fechada. Confirme com o contador, inclusive na transição do IBS e da CBS.',
-      },
     ],
   },
   {
-    id: 'outros',
-    title: 'Outros custos por robô/mês',
-    intro: 'A manutenção é feita por outra empresa e custa um valor por robô alugado, no mesmo mês do aluguel. Seguro e monitoramento são por robô em campo e nascem em zero.',
-    fields: [
+    id: 'avancado',
+    title: 'Avançado',
+    open: false,
+    intro: 'Desconto de volume, impostos, custos extras, fim de contrato e captação.',
+    groups: [
       {
-        key: 'maintenancePerRobot',
-        label: 'Manutenção terceirizada (R$/robô/mês)',
-        prefix: 'R$',
-        min: 0,
-        wide: true,
-        tooltip: 'Outra empresa faz a manutenção. O custo entra por robô que está alugado, a partir do mês seguinte à instalação, o mesmo mês em que o aluguel começa. Padrão: R$ 3.500.',
+        title: 'Compra',
+        fields: [
+          {
+            key: 'tier1From',
+            label: '1ª faixa a partir do robô',
+            min: 1,
+            max: 500,
+            step: 1,
+            integer: true,
+            slider: true,
+            tooltip: 'Compra acumulada em que começa o primeiro desconto. Padrão: o 10º robô. Recolocação não conta.',
+          },
+          {
+            key: 'tier1Pct',
+            label: 'Desconto da 1ª faixa',
+            suffix: '%',
+            min: 0,
+            max: 50,
+            step: 1,
+            slider: true,
+            tooltip: 'Desconto sobre o preço de tabela a partir da 1ª faixa. Padrão: 5%.',
+          },
+          {
+            key: 'tier2From',
+            label: '2ª faixa a partir do robô',
+            min: 1,
+            max: 500,
+            step: 1,
+            integer: true,
+            slider: true,
+            tooltip: 'Compra acumulada em que começa o segundo desconto. Padrão: o 50º robô. Vale o maior patamar atingido.',
+          },
+          {
+            key: 'tier2Pct',
+            label: 'Desconto da 2ª faixa',
+            suffix: '%',
+            min: 0,
+            max: 50,
+            step: 1,
+            slider: true,
+            tooltip: 'Desconto sobre o preço de tabela a partir da 2ª faixa. Padrão: 10%.',
+          },
+          {
+            key: 'taxCreditPct',
+            label: 'Créditos de impostos recuperáveis',
+            suffix: '%',
+            min: 0,
+            max: 100,
+            step: 1,
+            slider: true,
+            tooltip: 'Percentual do preço do robô, já com desconto de volume. Frete e peças ficam de fora. Não abate o mês da compra: o crédito volta em parcelas a partir do mês seguinte. Padrão: 25%. Confirme com o contador o que de fato vira crédito.',
+          },
+          {
+            key: 'creditMonths',
+            label: 'Meses para recuperar o crédito',
+            suffix: 'meses',
+            min: 1,
+            max: 360,
+            step: 1,
+            integer: true,
+            slider: true,
+            wide: true,
+            tooltip: 'Parcelas mensais iguais, a partir do mês seguinte à compra. Padrão: 48. A divisão é em centavos e as primeiras parcelas levam o que sobra. A recuperação segue mesmo se o robô sair de campo. Recolocação não gera crédito novo.',
+          },
+          {
+            key: 'freight',
+            label: 'Frete e instalação',
+            prefix: 'R$',
+            min: 0,
+            tooltip: 'Por robô, no mês da compra. Padrão zero. Não se repete na recolocação.',
+          },
+          {
+            key: 'partsPerRobot',
+            label: 'Estoque de peças por robô',
+            prefix: 'R$',
+            min: 0,
+            tooltip: 'Nasce em zero. Entra na compra e fica fora do custo mensal.',
+          },
+        ],
       },
       {
-        key: 'insurancePerRobot',
-        label: 'Seguro',
-        prefix: 'R$',
-        min: 0,
-        tooltip: 'Por robô em campo, por mês. Padrão zero.',
+        title: 'Receita',
+        fields: [
+          {
+            key: 'targetPayback',
+            label: 'Payback alvo da mínima',
+            suffix: 'meses',
+            min: 1,
+            max: 360,
+            step: 1,
+            integer: true,
+            slider: true,
+            tooltip: 'A mensalidade mínima é o menor aluguel que faz o caixa acumulado voltar a zero até este mês. Padrão: 36.',
+          },
+          {
+            key: 'annualAdjustmentPct',
+            label: 'Reajuste anual',
+            suffix: '%',
+            min: 0,
+            max: 30,
+            step: 0.5,
+            slider: true,
+            tooltip: 'A tabela inteira sobe esse percentual a cada 12 meses de calendário. Padrão: 4%.',
+          },
+          {
+            key: 'setupFee',
+            label: 'Taxa de setup por robô',
+            prefix: 'R$',
+            min: 0,
+            tooltip: 'Cobrada na instalação e na recolocação, líquida do imposto sobre receita. Renovação não cobra. Padrão zero.',
+          },
+          {
+            key: 'delinquencyPct',
+            label: 'Inadimplência',
+            suffix: '%',
+            min: 0,
+            max: 100,
+            step: 0.5,
+            slider: true,
+            tooltip: 'Reduz o que entra no caixa. Não reduz o imposto, que incide sobre o faturado. Padrão: 2%.',
+          },
+          {
+            key: 'revenueTaxPct',
+            label: 'Impostos sobre a receita',
+            suffix: '%',
+            min: 0,
+            max: 40,
+            step: 0.01,
+            digits: 2,
+            slider: true,
+            tooltip: 'Premissa editável. 11,33% é um exemplo para a conta, não uma alíquota fechada. Confirme com o contador, inclusive na transição do IBS e da CBS.',
+          },
+        ],
       },
       {
-        key: 'monitoringPerRobot',
-        label: 'Monitoramento',
-        prefix: 'R$',
-        min: 0,
-        tooltip: 'Por robô em campo, por mês. Padrão zero.',
-      },
-    ],
-  },
-  {
-    id: 'fim',
-    title: 'Fim de contrato',
-    intro: 'Quem renova segue no cliente. Quem não renova volta e é reinstalado no mesmo mês, sem compra nova, e fica um mês sem aluguel.',
-    fields: [
-      {
-        key: 'usefulLifeYears',
-        label: 'Vida útil',
-        suffix: 'anos',
-        min: 1,
-        max: 40,
-        step: 1,
-        slider: true,
-        tooltip: 'Base da depreciação linear, em anos. Padrão: 10. Vira meses arredondados.',
+        title: 'Outros custos',
+        fields: [
+          {
+            key: 'insurancePerRobot',
+            label: 'Seguro',
+            prefix: 'R$',
+            min: 0,
+            tooltip: 'Por robô em campo, por mês. Padrão zero.',
+          },
+          {
+            key: 'monitoringPerRobot',
+            label: 'Monitoramento',
+            prefix: 'R$',
+            min: 0,
+            tooltip: 'Por robô em campo, por mês. Padrão zero.',
+          },
+        ],
       },
       {
-        key: 'residualPct',
-        label: 'Valor residual',
-        suffix: '%',
-        min: 0,
-        max: 100,
-        step: 1,
-        slider: true,
-        tooltip: 'Percentual do preço do robô que entra no caixa no fim da vida. Frete e peças vão a zero. Padrão: 20%.',
+        title: 'Fim de contrato',
+        fields: [
+          {
+            key: 'usefulLifeYears',
+            label: 'Vida útil',
+            suffix: 'anos',
+            min: 1,
+            max: 40,
+            step: 1,
+            slider: true,
+            tooltip: 'Base da depreciação linear, em anos. Padrão: 10. Vira meses arredondados.',
+          },
+          {
+            key: 'residualPct',
+            label: 'Valor residual',
+            suffix: '%',
+            min: 0,
+            max: 100,
+            step: 1,
+            slider: true,
+            tooltip: 'Percentual do preço do robô que entra no caixa no fim da vida. Frete e peças vão a zero. Padrão: 20%.',
+          },
+          {
+            key: 'renewalPct',
+            label: 'Taxa de renovação',
+            suffix: '%',
+            min: 0,
+            max: 100,
+            step: 1,
+            slider: true,
+            tooltip: 'Parcela que continua alugada, sem setup. O restante é reinstalado no mesmo mês. Padrão: 80%.',
+          },
+        ],
       },
       {
-        key: 'renewalPct',
-        label: 'Taxa de renovação',
-        suffix: '%',
-        min: 0,
-        max: 100,
-        step: 1,
-        slider: true,
-        tooltip: 'Parcela que continua alugada, sem setup. O restante é reinstalado no mesmo mês. Padrão: 80%.',
-      },
-    ],
-  },
-  {
-    id: 'captacao',
-    title: 'Captação',
-    intro: 'O pico de caixa vezes a margem de segurança é o aporte. Valuation vazio deixa a diluição em branco. Duas tranches só repartem esse aporte.',
-    fields: [
-      {
-        key: 'safetyMarginPct',
-        label: 'Margem de segurança',
-        suffix: '%',
-        min: 0,
-        max: 100,
-        step: 1,
-        slider: true,
-        tooltip: 'Captação = pico do caixa negativo × (1 + esta margem). Padrão: 20%.',
-      },
-      {
-        key: 'preMoney',
-        label: 'Valuation pre-money',
-        prefix: 'R$',
-        allowEmpty: true,
-        placeholder: 'em branco',
-        min: 0,
-        tooltip: 'Valor da empresa antes do aporte. Diluição = captação ÷ (pre-money + captação).',
-      },
-      {
-        key: 'discountPct',
-        label: 'Taxa de desconto do investidor',
-        suffix: '% a.a.',
-        min: 0,
-        max: 80,
-        step: 1,
-        slider: true,
-        tooltip: 'Taxa efetiva ao ano do VPL. A taxa mensal é (1 + anual) ^ (1 ÷ 12) − 1. Padrão: 25%.',
-      },
-      {
-        key: 'twoTranches',
-        label: 'Dividir o aporte',
-        kind: 'check',
-        checkLabel: 'Duas tranches',
-        tooltip: 'A soma continua igual à captação. Nenhuma tranche entra na TIR nem no payback.',
-      },
-      {
-        key: 'tranche2Month',
-        label: 'Mês da segunda tranche',
-        min: 2,
-        max: 360,
-        step: 1,
-        integer: true,
-        slider: true,
-        tooltip: 'A primeira tranche cobre o pico até o mês anterior, com a mesma margem. O resto entra aqui.',
+        title: 'Captação',
+        fields: [
+          {
+            key: 'safetyMarginPct',
+            label: 'Margem de segurança',
+            suffix: '%',
+            min: 0,
+            max: 100,
+            step: 1,
+            slider: true,
+            tooltip: 'Captação = pico do caixa negativo × (1 + esta margem). Padrão: 20%.',
+          },
+          {
+            key: 'preMoney',
+            label: 'Valuation pre-money',
+            prefix: 'R$',
+            allowEmpty: true,
+            placeholder: 'em branco',
+            min: 0,
+            tooltip: 'Valor da empresa antes do aporte. Diluição = captação ÷ (pre-money + captação).',
+          },
+          {
+            key: 'discountPct',
+            label: 'Taxa de desconto do investidor',
+            suffix: '% a.a.',
+            min: 0,
+            max: 80,
+            step: 1,
+            slider: true,
+            tooltip: 'Taxa efetiva ao ano do VPL. A taxa mensal é (1 + anual) ^ (1 ÷ 12) − 1. Padrão: 25%.',
+          },
+          {
+            key: 'twoTranches',
+            label: 'Dividir o aporte',
+            kind: 'check',
+            checkLabel: 'Duas tranches',
+            tooltip: 'A soma continua igual à captação. Nenhuma tranche entra na TIR nem no payback.',
+          },
+          {
+            key: 'tranche2Month',
+            label: 'Mês da segunda tranche',
+            min: 2,
+            max: 360,
+            step: 1,
+            integer: true,
+            slider: true,
+            tooltip: 'A primeira tranche cobre o pico até o mês anterior, com a mesma margem. O resto entra aqui.',
+          },
+        ],
       },
     ],
   },
@@ -528,15 +573,30 @@ function toggleTip(button, tip) {
   }
 }
 
+function appendFields(parent, fields) {
+  const grid = el('div', 'fields');
+  for (const field of fields) grid.append(renderField(field));
+  parent.append(grid);
+}
+
 function buildForm() {
   const form = document.getElementById('form');
   form.replaceChildren();
   for (const section of SECTIONS) {
-    const card = el('section', 'card');
-    card.append(el('h2', null, section.title), el('p', 'intro', section.intro));
-    const fields = el('div', 'fields');
-    for (const field of section.fields) fields.append(renderField(field));
-    card.append(fields);
+    const card = el('details', 'card fold');
+    if (section.open) card.open = true;
+    const summary = el('summary');
+    summary.append(el('span', 'fold-title', section.title));
+    const body = el('div', 'fold-body');
+    body.append(el('p', 'intro', section.intro));
+    if (section.fields) appendFields(body, section.fields);
+    for (const group of section.groups || []) {
+      const block = el('div', 'fold-group');
+      block.append(el('h3', null, group.title));
+      appendFields(block, group.fields);
+      body.append(block);
+    }
+    card.append(summary, body);
     form.append(card);
   }
 }
@@ -575,33 +635,85 @@ function compact(value) {
     style: 'currency',
     currency: 'BRL',
     notation: 'compact',
+    minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(value);
 }
 
+function compactBRL(value) {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return compact(value);
+}
+
+function paybackView(result) {
+  if (!result.wentNegative) return { value: 'Sem desembolso', sub: 'no horizonte' };
+  if (result.payback == null) return { value: 'Não recupera', sub: `em ${formatFlex(result.horizon)} meses` };
+  return { value: `Mês ${formatFlex(result.payback)}`, sub: null };
+}
+
+function renderKpi(host, spec) {
+  const card = el('article', spec.hero ? 'kpi kpi-hero' : 'kpi');
+  card.dataset.testid = spec.id;
+  if (spec.title) card.title = spec.title;
+  card.append(el('p', 'kpi-label', spec.label));
+  card.append(el('p', 'kpi-value', spec.value));
+  if (spec.sub) card.append(el('p', 'kpi-sub', spec.sub));
+  if (spec.exact && spec.exact !== spec.value) card.append(el('p', 'kpi-exact', spec.exact));
+  host.append(card);
+}
+
+function moneyKpi(id, label, amount, extra = {}) {
+  return {
+    id,
+    label,
+    value: compactBRL(amount),
+    exact: formatBRL(amount),
+    title: formatBRL(amount),
+    ...extra,
+  };
+}
+
 function renderKpis(result) {
+  const hero = document.getElementById('hero-kpis');
   const host = document.getElementById('kpis');
-  const dilution = result.dilution == null ? '—' : `${formatFixed(result.dilution * 100, 2)}%`;
+  const payback = paybackView(result);
+  hero.replaceChildren();
+  renderKpi(hero, {
+    id: 'payback',
+    label: 'Payback da frota',
+    value: payback.value,
+    sub: payback.sub,
+    title: paybackLabel(result),
+    hero: true,
+  });
+  renderKpi(hero, moneyKpi('raise', 'Captação necessária', result.raise, { hero: true }));
+  renderKpi(hero, moneyKpi('saving', 'Saving líquido da loja', result.storeNetSaving, { hero: true }));
+  renderKpi(hero, moneyKpi('rent-used', 'Aluguel', result.rentUsed, { hero: true }));
+
+  const fleet = document.getElementById('fleet-note');
+  if (fleet) {
+    fleet.textContent = `Frota no fim: ${formatFlex(result.finalFleet)} ${result.finalFleet === 1 ? 'robô' : 'robôs'}.`;
+  }
+  const dilutionHint = document.getElementById('dilution-hint');
+  if (dilutionHint) dilutionHint.hidden = result.dilution != null;
+
   const irr = result.irr == null ? '—' : `${formatFixed(result.irr * 100, 2)}% a.a.`;
-  const cards = [
-    ['payback', 'Payback', paybackLabel(result), true],
-    ['worst', 'Pior ponto do caixa', `${formatBRL(result.worst)} · mês ${formatFlex(result.worstMonth)}`, false],
-    ['raise', 'Captação necessária', formatBRL(result.raise), false],
-    ['dilution', 'Diluição', dilution, false],
-    ['irr', 'TIR anual', irr, false],
-    ['npv', 'VPL', formatBRL(result.npv), false],
-    ['margin', 'Margem por robô/mês', result.margin == null ? '—' : formatBRL(result.margin), false],
-    ['minimum', 'Mensalidade mínima sugerida', result.suggestedRent == null ? '—' : formatBRL(result.suggestedRent), false],
-    ['rent-used', 'Aluguel na conta', formatBRL(result.rentUsed), false],
-    ['saving', 'Saving líquido da loja', formatBRL(result.storeNetSaving), false],
-    ['fleet', 'Frota no fim', `${formatFlex(result.finalFleet)} ${result.finalFleet === 1 ? 'robô' : 'robôs'}`, false],
-  ];
   host.replaceChildren();
-  for (const [id, label, value, main] of cards) {
-    const card = el('article', main ? 'kpi kpi-main' : 'kpi');
-    card.dataset.testid = id;
-    card.append(el('p', 'kpi-label', label), el('p', 'kpi-value', value));
-    host.append(card);
+  renderKpi(host, { id: 'irr', label: 'TIR', value: irr, title: irr });
+  renderKpi(host, moneyKpi('npv', 'VPL', result.npv));
+  renderKpi(
+    host,
+    moneyKpi('worst', 'Pior caixa', result.worst, { sub: `mês ${formatFlex(result.worstMonth)}` }),
+  );
+  renderKpi(host, result.margin == null
+    ? { id: 'margin', label: 'Margem/robô', value: '—', title: 'Sem robô alugado' }
+    : moneyKpi('margin', 'Margem/robô', result.margin));
+  renderKpi(host, result.suggestedRent == null
+    ? { id: 'minimum', label: 'Mensalidade mínima', value: '—', title: 'Sem mensalidade que devolva o caixa' }
+    : moneyKpi('minimum', 'Mensalidade mínima', result.suggestedRent));
+  if (result.dilution != null) {
+    const dilution = `${formatFixed(result.dilution * 100, 2)}%`;
+    renderKpi(host, { id: 'dilution', label: 'Diluição', value: dilution, title: dilution });
   }
   const banner = document.getElementById('rent-banner');
   if (result.passThroughOn) {
@@ -634,9 +746,9 @@ function renderKpis(result) {
   note.textContent = result.twoTranches
     ? `Tranches do aporte, fora da TIR: ${parts.join(' e ')}.`
     : `Aporte único no mês 1, fora da TIR: ${parts[0]}.`;
-  document.getElementById('dock-payback').textContent = paybackLabel(result).replace(/\.$/, '');
-  document.getElementById('dock-raise').textContent = formatBRL(result.raise);
-  document.getElementById('dock-saving').textContent = formatBRL(result.storeNetSaving);
+  document.getElementById('dock-payback').textContent = payback.value;
+  document.getElementById('dock-raise').textContent = compactBRL(result.raise);
+  document.getElementById('dock-saving').textContent = compactBRL(result.storeNetSaving);
   renderContract(result);
 }
 
@@ -646,19 +758,18 @@ function renderContract(result) {
   const contract = result.contract;
   if (!host || !contract) return;
   const irr = contract.irr == null ? '—' : `${formatFixed(contract.irr * 100, 2)}% a.a.`;
-  const cards = [
-    ['contract-payback', 'Payback', contract.label, true],
-    ['contract-irr', 'TIR anual', irr, false],
-    ['contract-npv', 'VPL', formatBRL(contract.npv), false],
-    ['contract-profit', 'Lucro total', formatBRL(contract.profit), false],
-  ];
+  const contractPayback = paybackView(contract);
   host.replaceChildren();
-  for (const [id, label, value, main] of cards) {
-    const card = el('article', main ? 'kpi kpi-main' : 'kpi');
-    card.dataset.testid = id;
-    card.append(el('p', 'kpi-label', label), el('p', 'kpi-value', value));
-    host.append(card);
-  }
+  renderKpi(host, {
+    id: 'contract-payback',
+    label: 'Payback',
+    value: contractPayback.value,
+    sub: contractPayback.sub,
+    title: contract.label,
+  });
+  renderKpi(host, { id: 'contract-irr', label: 'TIR', value: irr, title: irr });
+  renderKpi(host, moneyKpi('contract-npv', 'VPL', contract.npv));
+  renderKpi(host, moneyKpi('contract-profit', 'Lucro total', contract.profit));
   if (note) {
     note.textContent = `Um robô no preço de tabela, contrato de ${formatFlex(result.contractMonths)} meses, sem renovação e sem recolocação. A manutenção terceirizada é ${formatBRL(contract.maintenanceMonthly)} por robô alugado, no mesmo mês do aluguel. O aluguel cobre ${formatFlex(contract.billingMonths)} meses.`;
   }

@@ -48,11 +48,14 @@
         </div>
         <p class="print-only" id="print-date"></p>
         <p id="rent-banner" class="banner" hidden></p>
-        <div id="kpis" class="kpis"></div>
+        <div id="hero-kpis" class="kpis kpis-hero"></div>
+        <p id="fleet-note" class="fine"></p>
+        <p id="dilution-hint" class="fine dilution-hint" hidden>Informe o valuation pre-money</p>
+        <div id="kpis" class="kpis kpis-secondary"></div>
+        <p id="funding-note" class="fine"></p>
         <h3 class="block-title" id="contract-title">Contrato de um robô</h3>
         <p class="fine" id="contract-note"></p>
-        <div id="contract-kpis" class="kpis"></div>
-        <p id="funding-note" class="fine"></p>
+        <div id="contract-kpis" class="kpis kpis-contract"></div>
         <div class="chart-card">
           <h3 id="chart-title">Caixa do projeto</h3>
           <p>
@@ -85,7 +88,7 @@
             <p><span class="tag">Premissa</span> Funding 100% capital próprio, em uma ou duas tranches. Aporte não entra na TIR, no VPL nem no payback. Não há campo de dívida nem de juros.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Preço do robô R$ 1.300.000. Crédito de impostos recuperáveis de 25% abate no mês da compra. Frete e instalação nascem em zero.</p>
+            <p><span class="tag">Premissa</span> Preço do robô R$ 1.300.000. O desembolso do mês da compra é o preço cheio, mais frete e instalação se houver. O crédito de impostos recuperáveis, padrão 25% do preço com desconto, volta em 48 parcelas mensais iguais a partir do mês seguinte. Frete e instalação nascem em zero.</p>
           </li>
           <li>
             <p>Estoque de peças por robô nasce em zero e entra só na compra. A manutenção mensal não mistura esse estoque.</p>
@@ -100,7 +103,7 @@
             <p><span class="tag">Premissa</span> Repasse da economia da loja, padrão 60%. A economia padrão é a da loja de R$ 2 milhões no cenário base, mês 60: R$ 68.720 sem robô menos R$ 19.104 com robô = R$ 49.616. O campo pode ser editado. Saving líquido da loja = economia − aluguel. O aluguel manual, em R$/mês, só vale com o repasse desligado.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Desconto de volume na compra do robô, pela contagem acumulada: 5% a partir do 10º e 10% a partir do 50º. Vale o maior patamar. Recolocação não conta. O crédito de impostos e o residual usam o preço com desconto.</p>
+            <p><span class="tag">Premissa</span> Desconto de volume na compra do robô, pela contagem acumulada: 5% a partir do 10º e 10% a partir do 50º. Vale o maior patamar. Recolocação não conta. O crédito de impostos e o residual usam o preço do robô com desconto. O crédito não reduz a compra: é recuperado em parcelas.</p>
           </li>
           <li>
             <p>O contrato de um robô usa o mesmo aluguel e a mesma manutenção terceirizada, sem desconto de volume. Mostra payback, TIR, VPL e lucro total ao lado do resultado da frota.</p>
@@ -112,7 +115,7 @@
             <p><span class="tag">Premissa</span> Renovação de 80%. Quem não renova é reinstalado no mesmo mês, sem compra nova e sem frete de novo, fica esse mês sem aluguel e volta a faturar no seguinte. Setup, se houver, cobra na instalação e na recolocação, não na renovação.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Vida útil de 10 anos. Depreciação linear até 20% do preço do robô. No fim da vida esse residual entra no caixa. No último mês do horizonte, o que ainda não completou a vida entra pelo valor de livro. Frete e peças depreciam até zero. O crédito de impostos não é depreciado.</p>
+            <p><span class="tag">Premissa</span> Vida útil de 10 anos. Depreciação linear até 20% do preço do robô. No fim da vida esse residual entra no caixa. No último mês do horizonte, o que ainda não completou a vida entra pelo valor de livro. Frete e peças depreciam até zero. O crédito de impostos não é depreciado e não reduz o mês da compra.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Margem de segurança da captação: 20% sobre o pico de caixa. Captação = pico × 1,20. Diluição = captação ÷ (pre-money + captação), se o valuation estiver preenchido. Taxa do investidor: 25% ao ano, efetiva.</p>

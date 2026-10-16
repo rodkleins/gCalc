@@ -71,6 +71,7 @@ export const DEFAULTS = {
   maxFleet: null,
   robotPrice: 1300000,
   taxCreditPct: 25,
+  creditMonths: 48,
   freight: 0,
   partsPerRobot: 0,
   rent: null,
@@ -120,6 +121,7 @@ export function sanitize(raw = {}) {
   }
   input.robotPrice = Math.max(0, num(raw.robotPrice, DEFAULTS.robotPrice));
   input.taxCreditPct = clamp(num(raw.taxCreditPct, DEFAULTS.taxCreditPct), 0, 100);
+  input.creditMonths = Math.round(clamp(num(raw.creditMonths, DEFAULTS.creditMonths), 1, 360));
   input.freight = Math.max(0, num(raw.freight, DEFAULTS.freight));
   input.partsPerRobot = Math.max(0, num(raw.partsPerRobot, DEFAULTS.partsPerRobot));
   if (raw.rent == null || raw.rent === '') input.rent = null;
@@ -198,6 +200,14 @@ function purchaseLots(bought, purchasedBefore, tiers, listPrice) {
   return lots;
 }
 
+/** Parcela index (0-based) de um crédito dividido em centavos iguais. As primeiras levam o resto. */
+function creditInstallmentCents(totalCents, months, index) {
+  if (!(totalCents > 0) || months < 1 || index < 0 || index >= months) return 0;
+  const base = Math.floor(totalCents / months);
+  const extra = totalCents % months;
+  return base + (index < extra ? 1 : 0);
+}
+
 function buildSchedule(input, options = {}) {
   const lifeMonths = lifeMonthsOf(input.usefulLifeYears);
   const contract = input.contractMonths;
@@ -212,6 +222,7 @@ function buildSchedule(input, options = {}) {
   const tiers = tiersOf(input);
   const singleContract = options.singleContract === true;
   let cohorts = [];
+  let credits = [];
   let purchased = 0;
   const months = [];
 
@@ -265,7 +276,11 @@ function buildSchedule(input, options = {}) {
       const lastLife = month + lifeMonths - 1;
       const lots = purchaseLots(bought, purchased, tiers, input.robotPrice);
       for (const lot of lots) {
-        capex += lot.count * (lot.unitPrice * (1 - credit) + extras);
+        capex += lot.count * (lot.unitPrice + extras);
+        const creditTotal = toCents(lot.count * lot.unitPrice * credit);
+        if (creditTotal > 0) {
+          credits.push({ startMonth: month + 1, totalCents: creditTotal, months: input.creditMonths });
+        }
         cohorts.push({
           count: lot.count,
           unitPrice: lot.unitPrice,
@@ -291,6 +306,11 @@ function buildSchedule(input, options = {}) {
       else if (month === input.horizon) terminal += book;
     }
 
+    let creditCents = 0;
+    for (const item of credits) {
+      creditCents += creditInstallmentCents(item.totalCents, item.months, month - item.startMonth);
+    }
+
     const listFactor = (1 + adjustment) ** Math.floor((month - 1) / 12);
     const capexCents = toCents(capex);
     const setupCents = toCents((bought + redeployed) * input.setupFee * (1 - tax));
@@ -307,6 +327,7 @@ function buildSchedule(input, options = {}) {
       billing,
       inField,
       capexCents,
+      creditCents,
       setupCents,
       maintenanceCents,
       otherCents,
@@ -316,8 +337,8 @@ function buildSchedule(input, options = {}) {
       releaseCents,
       listFactor,
       revenuePerReal: billing * listFactor * netFactor,
-      fixedCents: -capexCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents + terminalCents,
-      operatingFixedCents: -capexCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents,
+      fixedCents: -capexCents + creditCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents + terminalCents,
+      operatingFixedCents: -capexCents + creditCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents,
     });
   }
 
@@ -326,7 +347,7 @@ function buildSchedule(input, options = {}) {
     months,
     netFactor,
     lifeMonths,
-    unitCapex: input.robotPrice * (1 - credit) + extras,
+    unitCapex: input.robotPrice + extras,
   };
 }
 
@@ -609,15 +630,15 @@ export function explain(result) {
         'O robô comprado no mês t começa a alugar no mês t+1. O contrato vale em meses de calendário a partir da compra, e o mês da instalação entra na vida útil. Com vida e contrato de 120 meses, o aluguel vai do mês 2 ao mês 120: 119 mensalidades. No mês 120 também entra o residual.',
         `Renovação de ${formatFlex(result.renewalPct)}%. Quem renova segue alugado, sem compra nova e sem taxa de setup. Quem não renova é reinstalado no mesmo mês, fica esse mês sem aluguel e volta a faturar no mês seguinte. Não há segunda compra, nem frete de novo.`,
         `Vida útil de ${formatFlex(result.usefulLifeYears)} anos (${formatFlex(result.lifeMonths)} meses). No último mês de vida o caixa recebe ${formatFlex(result.residualPct)}% do preço pago naquele robô, já com o desconto de volume. No fim do horizonte, o que ainda não completou a vida entra pelo valor de livro: esse preço deprecia em linha reta até o residual; frete e estoque de peças depreciam até zero.`,
-        'O crédito de impostos não entra na depreciação: ele já reduziu o caixa no mês da compra.',
+        'O crédito de impostos não entra na depreciação nem reduz o caixa do mês da compra. Ele volta em parcelas mensais iguais a partir do mês seguinte.',
       ],
     },
     {
       title: 'Investimento',
       lines: [
-        `Compra de um robô no preço de tabela = ${money(result.robotPrice)} × (1 − ${formatFlex(result.taxCreditPct)}%) + ${money(result.freight)} de frete e instalação + ${money(result.partsPerRobot)} de estoque de peças = ${money(result.unitCapex)}.`,
-        `Desconto por volume, pela compra acumulada: ${formatFlex(result.tier1Pct)}% a partir do ${formatFlex(result.tier1From)}º robô e ${formatFlex(result.tier2Pct)}% a partir do ${formatFlex(result.tier2From)}º. Vale o maior patamar já atingido. Recolocação não conta. O crédito incide sobre o preço com desconto.`,
-        'O crédito é premissa e abate no próprio mês da compra. O estoque de peças nasce em zero e é investimento, não custo mensal.',
+        `Compra de um robô no preço de tabela = ${money(result.robotPrice)} + ${money(result.freight)} de frete e instalação + ${money(result.partsPerRobot)} de estoque de peças = ${money(result.unitCapex)}. Esse valor sai inteiro no mês da compra.`,
+        `Desconto por volume, pela compra acumulada: ${formatFlex(result.tier1Pct)}% a partir do ${formatFlex(result.tier1From)}º robô e ${formatFlex(result.tier2Pct)}% a partir do ${formatFlex(result.tier2From)}º. Vale o maior patamar já atingido. Recolocação não conta. O crédito e o residual incidem sobre o preço do robô com desconto, sem frete nem peças.`,
+        `Crédito de impostos recuperáveis = ${formatFlex(result.taxCreditPct)}% do preço do robô. Não abate o mês da compra. Volta em ${formatFlex(result.creditMonths)} parcelas mensais iguais, começando no mês seguinte. A divisão é em centavos e as primeiras parcelas levam o centavo que sobra. A recuperação continua mesmo se o robô sair de campo. Recolocação não gera crédito novo. O estoque de peças nasce em zero e é investimento, não custo mensal.`,
         first
           ? `Mês 1: compra ${formatFlex(first.bought)} ${first.bought === 1 ? 'robô' : 'robôs'}, desembolso ${money(first.capexCents / 100)}. Robôs alugados nesse mês: ${formatFlex(first.billing)}.`
           : 'Horizonte vazio.',
@@ -661,7 +682,7 @@ export function explain(result) {
     {
       title: 'Payback, captação e retorno',
       lines: [
-        'O caixa do mês soma compra, receita, setup, manutenção, seguro, monitoramento, sucata no fim da vida e, só no último mês, o valor de livro do que ainda não depreciou até o fim. Não entra aporte, dívida nem juros: o funding é capital próprio.',
+        'O caixa do mês soma compra, crédito de impostos recuperado, receita, setup, manutenção, seguro, monitoramento, sucata no fim da vida e, só no último mês, o valor de livro do que ainda não depreciou até o fim. Não entra aporte, dívida nem juros: o funding é capital próprio.',
         `Payback da frota: ${monthLabel(result)} É o primeiro mês em que o acumulado volta a ficar maior ou igual a zero depois de ter ficado negativo.`,
         `Pior ponto = ${money(result.worst)} no mês ${formatFlex(result.worstMonth)}. Captação = pico × (1 + ${formatFlex(result.safetyMarginPct)}%) = ${money(result.raise)}.`,
         result.twoTranches
