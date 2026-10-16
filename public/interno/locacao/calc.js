@@ -9,16 +9,29 @@ import {
   toCents,
 } from '../manutencao/calc.js';
 
+/** Loja de R$ 2 milhões, cenário base, mês 60: sem robô menos com robô. Travado pelo teste da calculadora de compra. */
+export const STORE_COST_WITHOUT = 68720;
+export const STORE_COST_WITH = 19104;
+export const STORE_SAVING_DEFAULT = STORE_COST_WITHOUT - STORE_COST_WITH;
+
 export const DEFAULTS = {
   pace: 1,
-  horizon: 120,
+  horizon: 180,
   maxFleet: null,
   robotPrice: 1300000,
   taxCreditPct: 25,
   freight: 0,
   partsPerRobot: 0,
   rent: null,
-  contractMonths: 60,
+  passThroughOn: true,
+  passThroughPct: 60,
+  storeSaving: STORE_SAVING_DEFAULT,
+  maintenanceMarkupPct: 30,
+  tier1From: 10,
+  tier1Pct: 5,
+  tier2From: 50,
+  tier2Pct: 10,
+  contractMonths: 120,
   annualAdjustmentPct: 4,
   setupFee: 0,
   delinquencyPct: 2,
@@ -47,10 +60,6 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function percent(value, fallback) {
-  return clamp(num(value, fallback), 0, 100) / 100;
-}
-
 export function sanitize(raw = {}) {
   const input = { ...DEFAULTS };
   if (!raw || typeof raw !== 'object') return input;
@@ -66,6 +75,14 @@ export function sanitize(raw = {}) {
   input.partsPerRobot = Math.max(0, num(raw.partsPerRobot, DEFAULTS.partsPerRobot));
   if (raw.rent == null || raw.rent === '') input.rent = null;
   else if (typeof raw.rent === 'number' && Number.isFinite(raw.rent)) input.rent = Math.max(0, raw.rent);
+  if (typeof raw.passThroughOn === 'boolean') input.passThroughOn = raw.passThroughOn;
+  input.passThroughPct = clamp(num(raw.passThroughPct, DEFAULTS.passThroughPct), 0, 100);
+  input.storeSaving = Math.max(0, num(raw.storeSaving, DEFAULTS.storeSaving));
+  input.maintenanceMarkupPct = clamp(num(raw.maintenanceMarkupPct, DEFAULTS.maintenanceMarkupPct), 0, 300);
+  input.tier1From = Math.round(clamp(num(raw.tier1From, DEFAULTS.tier1From), 1, 100000));
+  input.tier1Pct = clamp(num(raw.tier1Pct, DEFAULTS.tier1Pct), 0, 100);
+  input.tier2From = Math.round(clamp(num(raw.tier2From, DEFAULTS.tier2From), 1, 100000));
+  input.tier2Pct = clamp(num(raw.tier2Pct, DEFAULTS.tier2Pct), 0, 100);
   input.contractMonths = Math.round(clamp(num(raw.contractMonths, DEFAULTS.contractMonths), 1, 360));
   input.annualAdjustmentPct = clamp(num(raw.annualAdjustmentPct, DEFAULTS.annualAdjustmentPct), 0, 100);
   input.setupFee = Math.max(0, num(raw.setupFee, DEFAULTS.setupFee));
@@ -115,7 +132,44 @@ function unitBook(price, extras, residualRate, ageMonths, lifeMonths) {
   return price * (residualRate + (1 - residualRate) * (1 - t)) + extras * (1 - t);
 }
 
-function buildSchedule(input) {
+function tiersOf(input) {
+  return [
+    { from: input.tier1From, pct: input.tier1Pct / 100 },
+    { from: input.tier2From, pct: input.tier2Pct / 100 },
+  ];
+}
+
+/** Desconto da compra de índice 1-based. Vale o maior patamar cujo início já foi atingido. */
+export function volumeDiscountPct(index, tiers) {
+  let pct = 0;
+  const ordered = [...tiers].sort((a, b) => a.from - b.from);
+  for (const tier of ordered) {
+    if (index + 1e-9 >= tier.from) pct = tier.pct;
+  }
+  return pct;
+}
+
+function purchaseLots(bought, purchasedBefore, tiers, listPrice) {
+  const lots = [];
+  const push = (count, unitPrice) => {
+    const last = lots[lots.length - 1];
+    if (last && Math.abs(last.unitPrice - unitPrice) < 1e-6) last.count += count;
+    else lots.push({ count, unitPrice });
+  };
+  const whole = Math.floor(bought + 1e-9);
+  const fraction = bought - whole;
+  for (let step = 1; step <= whole; step += 1) {
+    const discount = volumeDiscountPct(purchasedBefore + step, tiers);
+    push(1, listPrice * (1 - discount));
+  }
+  if (fraction > 1e-8) {
+    const discount = volumeDiscountPct(purchasedBefore + whole + 1, tiers);
+    push(fraction, listPrice * (1 - discount));
+  }
+  return lots;
+}
+
+function buildSchedule(input, options = {}) {
   const lifeMonths = lifeMonthsOf(input.usefulLifeYears);
   const contract = input.contractMonths;
   const renewal = input.renewalPct / 100;
@@ -126,15 +180,18 @@ function buildSchedule(input) {
   const netFactor = 1 - delinquency - tax;
   const adjustment = input.annualAdjustmentPct / 100;
   const extras = input.freight + input.partsPerRobot;
-  const unitCapex = input.robotPrice * (1 - credit) + extras;
-  const otherPerRobot = input.insurancePerRobot + input.monitoringPerRobot;
+  const tiers = tiersOf(input);
+  const maintenanceOf = options.maintenanceOf || maintenanceForFleet;
+  const singleContract = options.singleContract === true;
   let cohorts = [];
+  let purchased = 0;
   const months = [];
   let previousKey = '0';
 
   for (let month = 1; month <= input.horizon; month += 1) {
     const active = [];
     let redeployed = 0;
+    let release = 0;
     for (const cohort of cohorts) {
       const lastLife = cohort.purchaseMonth + lifeMonths - 1;
       if (month > lastLife) continue;
@@ -143,11 +200,17 @@ function buildSchedule(input) {
         active.push(cohort);
         continue;
       }
+      if (singleContract) {
+        const age = month - cohort.purchaseMonth + 1;
+        release += unitBook(cohort.unitPrice, extras, residualRate, age, lifeMonths) * cohort.count;
+        continue;
+      }
       const keep = cohort.count * renewal;
       const back = cohort.count - keep;
       if (keep > 1e-8) {
         active.push({
           count: keep,
+          unitPrice: cohort.unitPrice,
           purchaseMonth: cohort.purchaseMonth,
           billStart: month,
           billEnd: Math.min(month + contract - 1, lastLife),
@@ -157,6 +220,7 @@ function buildSchedule(input) {
         const billStart = month + 1;
         active.push({
           count: back,
+          unitPrice: cohort.unitPrice,
           purchaseMonth: cohort.purchaseMonth,
           billStart,
           billEnd: Math.min(billStart + contract - 1, lastLife),
@@ -169,14 +233,21 @@ function buildSchedule(input) {
     const inFieldBefore = cohorts.reduce((sum, cohort) => sum + cohort.count, 0);
     const room = input.maxFleet == null ? Infinity : Math.max(0, input.maxFleet - inFieldBefore);
     const bought = Math.min(input.pace, room);
+    let capex = 0;
     if (bought > 1e-8) {
       const lastLife = month + lifeMonths - 1;
-      cohorts.push({
-        count: bought,
-        purchaseMonth: month,
-        billStart: month + 1,
-        billEnd: Math.min(month + contract, lastLife),
-      });
+      const lots = purchaseLots(bought, purchased, tiers, input.robotPrice);
+      for (const lot of lots) {
+        capex += lot.count * (lot.unitPrice * (1 - credit) + extras);
+        cohorts.push({
+          count: lot.count,
+          unitPrice: lot.unitPrice,
+          purchaseMonth: month,
+          billStart: month + 1,
+          billEnd: Math.min(month + contract, lastLife),
+        });
+      }
+      purchased += bought;
     }
 
     let billing = 0;
@@ -188,22 +259,25 @@ function buildSchedule(input) {
       const age = month - cohort.purchaseMonth + 1;
       inField += cohort.count;
       if (month >= cohort.billStart && month <= cohort.billEnd) billing += cohort.count;
-      const book = unitBook(input.robotPrice, extras, residualRate, age, lifeMonths) * cohort.count;
-      if (month === lastLife) scrap += input.robotPrice * residualRate * cohort.count;
+      const book = unitBook(cohort.unitPrice, extras, residualRate, age, lifeMonths) * cohort.count;
+      if (month === lastLife) scrap += cohort.unitPrice * residualRate * cohort.count;
       else if (month === input.horizon) terminal += book;
     }
 
-    const service = maintenanceForFleet(inField);
+    const service = maintenanceOf(inField);
     const stepKey = `${service.teams}|${service.coordinators}|${service.managers}|${service.peopleOnTeam}`;
     const step = stepKey !== previousKey;
     previousKey = stepKey;
     const listFactor = (1 + adjustment) ** Math.floor((month - 1) / 12);
-    const capexCents = toCents(bought * unitCapex);
+    const capexCents = toCents(capex);
     const setupCents = toCents((bought + redeployed) * input.setupFee * (1 - tax));
-    const maintenanceCents = toCents(service.monthly);
-    const otherCents = toCents(inField * otherPerRobot);
+    const maintenanceReais = service.monthly;
+    const maintenanceCents = toCents(maintenanceReais);
+    const otherCents = toCents(inField * (input.insurancePerRobot + input.monitoringPerRobot));
+    const implantCents = toCents(bought * extras);
     const scrapCents = toCents(scrap);
     const terminalCents = toCents(terminal);
+    const releaseCents = toCents(release);
     months.push({
       month,
       bought,
@@ -212,14 +286,17 @@ function buildSchedule(input) {
       inField,
       capexCents,
       setupCents,
+      maintenanceReais,
       maintenanceCents,
       otherCents,
+      implantCents,
       scrapCents,
       terminalCents,
+      releaseCents,
       listFactor,
       revenuePerReal: billing * listFactor * netFactor,
-      fixedCents: -capexCents + setupCents - maintenanceCents - otherCents + scrapCents + terminalCents,
-      operatingFixedCents: -capexCents + setupCents - maintenanceCents - otherCents + scrapCents,
+      fixedCents: -capexCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents + terminalCents,
+      operatingFixedCents: -capexCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents,
       teams: service.teams,
       coordinators: service.coordinators,
       managers: service.managers,
@@ -233,11 +310,13 @@ function buildSchedule(input) {
     months,
     netFactor,
     lifeMonths,
-    unitCapex,
+    unitCapex: input.robotPrice * (1 - credit) + extras,
   };
 }
 
 function simulate(schedule, rent) {
+  const markup = schedule.input.maintenanceMarkupPct / 100;
+  const netFactor = schedule.netFactor;
   let cumulative = 0;
   let worstCents = 0;
   let worstMonth = 0;
@@ -246,10 +325,21 @@ function simulate(schedule, rent) {
   let revenueCents = 0;
   let contributionCents = 0;
   let robotMonths = 0;
+  let maintGrossSum = 0;
+  let robotGrossSum = 0;
+  let maintenanceMarginCents = 0;
+  let implantCents = 0;
+  let operationCents = 0;
+  let opening = null;
   const rows = [];
 
   for (const month of schedule.months) {
     const salesCents = toCents(month.revenuePerReal * rent);
+    const grossRent = month.billing * rent * month.listFactor;
+    const maintGross = month.billing > 0 ? month.maintenanceReais * (1 + markup) : 0;
+    const robotGross = grossRent - maintGross;
+    const maintBilledCents = toCents(maintGross);
+    const maintMarginCents = toCents(maintGross * netFactor) - month.maintenanceCents;
     const netCents = month.fixedCents + salesCents;
     const operatingCents = month.operatingFixedCents + salesCents;
     cumulative += netCents;
@@ -262,16 +352,28 @@ function simulate(schedule, rent) {
     revenueCents += salesCents;
     contributionCents += salesCents + month.setupCents - month.maintenanceCents - month.otherCents;
     robotMonths += month.billing;
-    rows.push({
+    maintGrossSum += maintGross;
+    robotGrossSum += robotGross;
+    maintenanceMarginCents += maintMarginCents;
+    implantCents += month.implantCents;
+    operationCents += month.otherCents;
+    const row = {
       ...month,
       salesCents,
+      maintGross,
+      robotGross,
+      maintBilledCents,
+      maintMarginCents,
       netCents,
       operatingCents,
       cumulativeCents: cumulative,
-    });
+    };
+    if (!opening && month.billing > 0) opening = row;
+    rows.push(row);
   }
 
   if (!wentNegative) payback = 0;
+  const coverCents = implantCents + operationCents;
 
   return {
     rows,
@@ -283,6 +385,13 @@ function simulate(schedule, rent) {
     revenueCents,
     contributionCents,
     robotMonths,
+    rentMaintenance: robotMonths > 0 ? maintGrossSum / robotMonths : null,
+    rentRobot: robotMonths > 0 ? robotGrossSum / robotMonths : null,
+    maintenanceMarginCents,
+    implantCents,
+    operationCents,
+    coverage: coverCents > 0 ? maintenanceMarginCents / coverCents : null,
+    opening,
   };
 }
 
@@ -421,13 +530,59 @@ function yearsOf(rows) {
   return years;
 }
 
+function contractOf(input, fleetMonths, rentUsed) {
+  let maintCents = 0;
+  let inFieldMonths = 0;
+  for (const month of fleetMonths) {
+    maintCents += month.maintenanceCents;
+    inFieldMonths += month.inField;
+  }
+  const perRobot = inFieldMonths > 0 ? maintCents / inFieldMonths / 100 : 0;
+  const lifeMonths = lifeMonthsOf(input.usefulLifeYears);
+  const horizon = Math.min(360, Math.max(input.contractMonths + 1, lifeMonths));
+  const unitInput = sanitize({
+    ...input,
+    pace: 1,
+    horizon,
+    maxFleet: 1,
+    renewalPct: 0,
+    tier1Pct: 0,
+    tier2Pct: 0,
+    targetPayback: Math.min(input.targetPayback, horizon),
+  });
+  const schedule = buildSchedule(unitInput, {
+    singleContract: true,
+    maintenanceOf(robots) {
+      if (!(robots > 0)) return { monthly: 0, teams: 0, coordinators: 0, managers: 0, peopleOnTeam: 0 };
+      return { monthly: perRobot * robots, teams: 0, coordinators: 0, managers: 0, peopleOnTeam: 0 };
+    },
+  });
+  const flow = simulate(schedule, rentUsed);
+  const view = {
+    horizon,
+    payback: flow.payback,
+    wentNegative: flow.wentNegative,
+    profit: flow.cumulativeCents / 100,
+    billingMonths: flow.robotMonths,
+    maintenanceMonthly: perRobot,
+    rentUsed,
+  };
+  return {
+    ...view,
+    npv: npvOf(flow.rows, input.discountPct / 100),
+    irr: irrAnnual(flow.rows),
+    label: monthLabel(view),
+  };
+}
+
 export function evaluate(raw = {}) {
   const input = sanitize(raw);
   const schedule = buildSchedule(input);
   const suggestedCents = minimumRentCents(schedule);
   const suggestedRent = suggestedCents == null ? null : suggestedCents / 100;
-  const usedSuggestion = input.rent == null;
-  const rentUsed = usedSuggestion ? (suggestedRent ?? 0) : input.rent;
+  const passThroughRent = toCents(input.storeSaving * (input.passThroughPct / 100)) / 100;
+  const usedSuggestion = !input.passThroughOn && input.rent == null;
+  const rentUsed = input.passThroughOn ? passThroughRent : usedSuggestion ? (suggestedRent ?? 0) : input.rent;
   const flow = simulate(schedule, rentUsed);
   const raiseCents = flow.worstCents < 0 ? toCents((-flow.worstCents / 100) * (1 + input.safetyMarginPct / 100)) : 0;
   const preMoney = input.preMoney;
@@ -435,12 +590,15 @@ export function evaluate(raw = {}) {
   const discount = input.discountPct / 100;
   const margin = flow.robotMonths > 0 ? flow.contributionCents / 100 / flow.robotMonths : null;
   const rows = flow.rows;
+  const coverCents = flow.implantCents + flow.operationCents;
   return {
     ...input,
     rentUsed,
     usedSuggestion,
     suggestedRent,
     suggestedCents,
+    passThroughRent,
+    storeNetSaving: toCents(input.storeSaving - rentUsed) / 100,
     netFactor: schedule.netFactor,
     lifeMonths: schedule.lifeMonths,
     unitCapex: schedule.unitCapex,
@@ -460,8 +618,18 @@ export function evaluate(raw = {}) {
     npv: npvOf(rows, discount),
     irr: irrAnnual(rows),
     margin,
+    rentMaintenance: flow.rentMaintenance,
+    rentRobot: flow.rentRobot,
+    maintenanceMarginCents: flow.maintenanceMarginCents,
+    maintenanceMargin: flow.maintenanceMarginCents / 100,
+    implantCents: flow.implantCents,
+    operationCents: flow.operationCents,
+    implantAndOperation: coverCents / 100,
+    coverage: flow.coverage,
+    opening: flow.opening,
     finalFleet: rows.length ? rows[rows.length - 1].inField : 0,
     revenue: flow.revenueCents / 100,
+    contract: contractOf(input, schedule.months, rentUsed),
   };
 }
 
@@ -480,7 +648,7 @@ export function paybackLabel(result) {
 }
 
 export function explain(result) {
-  const sample = result.months[1] || result.months[0];
+  const sample = result.opening || result.months[1] || result.months[0];
   const first = result.months[0];
   const netFactor = formatFixed(result.netFactor, 4);
   const listAt = (month) => result.rentUsed * (1 + result.annualAdjustmentPct / 100) ** Math.floor((month - 1) / 12);
@@ -488,33 +656,46 @@ export function explain(result) {
     .map((tranche) => `mês ${formatFlex(tranche.month)}: ${money(tranche.cents / 100)}`)
     .join('; ');
   const irrText = result.irr == null ? 'A busca não achou uma taxa que zere o VPL.' : `${formatFixed(result.irr * 100, 2)}% ao ano.`;
+  const contractIrr =
+    result.contract.irr == null ? 'A busca não achou uma taxa que zere o VPL.' : `${formatFixed(result.contract.irr * 100, 2)}% ao ano.`;
   const dilutionText =
     result.dilution == null
       ? 'Diluição fica em branco sem o valuation pre-money.'
       : `Diluição = ${money(result.raise)} ÷ (${money(result.preMoney)} + ${money(result.raise)}) = ${formatFixed(result.dilution * 100, 2)}%.`;
-  const rentText = result.usedSuggestion
-    ? `O campo de aluguel está vazio. A conta usa a mensalidade mínima sugerida, ${money(result.rentUsed)}.`
-    : `Aluguel informado = ${money(result.rentUsed)}. A mínima sugerida, ${result.suggestedRent == null ? 'inexistente neste horizonte' : money(result.suggestedRent)}, é só referência.`;
+  const rentText = result.passThroughOn
+    ? `Repasse ligado: aluguel = ${formatFlex(result.passThroughPct)}% × ${money(result.storeSaving)} = ${money(result.rentUsed)}. A economia padrão é a da loja de R$ 2 milhões no cenário base, mês 60: ${money(STORE_COST_WITHOUT)} sem robô − ${money(STORE_COST_WITH)} com robô = ${money(STORE_SAVING_DEFAULT)}. O campo aceita outro valor.`
+    : result.usedSuggestion
+      ? `Repasse desligado e aluguel vazio. A conta usa a mensalidade mínima sugerida, ${money(result.rentUsed)}.`
+      : `Repasse desligado. Aluguel informado = ${money(result.rentUsed)}.`;
   const paceLine =
     result.pace === 1
       ? 'Todo mês entra 1 robô novo'
       : `Todo mês entram ${formatFlex(result.pace)} robôs novos`;
+  const coverageText =
+    result.coverage == null
+      ? `Margem de manutenção no caixa = ${money(result.maintenanceMargin)}. Frete, peças, seguro e monitoramento estão em zero, então não há implantação nem operação para essa margem cobrir.`
+      : `Margem de manutenção no caixa = ${money(result.maintenanceMargin)}. Isso cobre ${formatFixed(result.coverage * 100, 1)}% de frete, peças, seguro e monitoramento (${money(result.implantAndOperation)}).`;
+  const splitText =
+    result.rentMaintenance == null
+      ? 'Não há robô alugado para repartir o aluguel.'
+      : `Na média dos robôs-mês alugados, a parcela da manutenção é ${money(result.rentMaintenance)} e a parcela do robô é ${money(result.rentRobot)}. A soma é o aluguel da tabela, já com o reajuste. A loja paga só esse total.`;
 
   return [
     {
       title: 'Frota',
       lines: [
-        `${paceLine}, até o mês ${formatFlex(result.horizon)}${result.maxFleet == null ? ', sem teto de frota' : `, limitado a ${formatFlex(result.maxFleet)} robôs`}.`,
-        'O robô comprado no mês t começa a alugar no mês t+1. O contrato vale em meses de aluguel, não no mês da instalação.',
+        `${paceLine}, até o mês ${formatFlex(result.horizon)}${result.maxFleet == null ? ', sem teto de frota' : `, limitado a ${formatFlex(result.maxFleet)} robôs`}. O padrão do horizonte é 180 meses, para o gráfico passar do fim do contrato de ${formatFlex(result.contractMonths)} meses.`,
+        'O robô comprado no mês t começa a alugar no mês t+1. O contrato vale em meses de calendário a partir da compra, e o mês da instalação entra na vida útil. Com vida e contrato de 120 meses, o aluguel vai do mês 2 ao mês 120: 119 mensalidades. No mês 120 também entra o residual.',
         `Renovação de ${formatFlex(result.renewalPct)}%. Quem renova segue alugado, sem compra nova e sem taxa de setup. Quem não renova é reinstalado no mesmo mês, fica esse mês sem aluguel e volta a faturar no mês seguinte. Não há segunda compra, nem frete de novo.`,
-        `Vida útil de ${formatFlex(result.usefulLifeYears)} anos (${formatFlex(result.lifeMonths)} meses). No último mês de vida o caixa recebe ${formatFlex(result.residualPct)}% do preço do robô. No fim do horizonte, o que ainda não completou a vida entra pelo valor de livro: preço deprecia em linha reta até esse residual; frete e estoque de peças depreciam até zero.`,
+        `Vida útil de ${formatFlex(result.usefulLifeYears)} anos (${formatFlex(result.lifeMonths)} meses). No último mês de vida o caixa recebe ${formatFlex(result.residualPct)}% do preço pago naquele robô, já com o desconto de volume. No fim do horizonte, o que ainda não completou a vida entra pelo valor de livro: esse preço deprecia em linha reta até o residual; frete e estoque de peças depreciam até zero.`,
         'O crédito de impostos não entra na depreciação: ele já reduziu o caixa no mês da compra.',
       ],
     },
     {
       title: 'Investimento',
       lines: [
-        `Compra de um robô = ${money(result.robotPrice)} × (1 − ${formatFlex(result.taxCreditPct)}%) + ${money(result.freight)} de frete e instalação + ${money(result.partsPerRobot)} de estoque de peças = ${money(result.unitCapex)}.`,
+        `Compra de um robô no preço de tabela = ${money(result.robotPrice)} × (1 − ${formatFlex(result.taxCreditPct)}%) + ${money(result.freight)} de frete e instalação + ${money(result.partsPerRobot)} de estoque de peças = ${money(result.unitCapex)}.`,
+        `Desconto por volume, pela compra acumulada: ${formatFlex(result.tier1Pct)}% a partir do ${formatFlex(result.tier1From)}º robô e ${formatFlex(result.tier2Pct)}% a partir do ${formatFlex(result.tier2From)}º. Vale o maior patamar já atingido. Recolocação não conta. O crédito incide sobre o preço com desconto.`,
         'O crédito é premissa e abate no próprio mês da compra. O estoque de peças segue o padrão da manutenção, hoje zero, e é investimento, não custo mensal.',
         first
           ? `Mês 1: compra ${formatFlex(first.bought)} ${first.bought === 1 ? 'robô' : 'robôs'}, desembolso ${money(first.capexCents / 100)}. Robôs alugados nesse mês: ${formatFlex(first.billing)}.`
@@ -525,8 +706,10 @@ export function explain(result) {
       title: 'Receita',
       lines: [
         rentText,
-        `Tabela do mês m = aluguel × (1 + ${formatFlex(result.annualAdjustmentPct)}%) ^ piso((m − 1) ÷ 12). O reajuste é da tabela, no calendário, para quem está alugado naquele mês.`,
-        `Caixa da mensalidade = faturamento × (1 − ${formatFlex(result.delinquencyPct)}% de inadimplência − ${formatFlex(result.revenueTaxPct)}% de impostos) = faturamento × ${netFactor}. O imposto incide sobre o bruto; a inadimplência não o reduz.`,
+        `Saving líquido da loja = ${money(result.storeSaving)} − ${money(result.rentUsed)} = ${money(result.storeNetSaving)}, no primeiro ano. O robô não entra no balanço da loja. No lucro real o aluguel é despesa dedutível. O reajuste anual aumenta o aluguel e reduz esse líquido nos anos seguintes.`,
+        splitText,
+        `Tabela do mês m = aluguel × (1 + ${formatFlex(result.annualAdjustmentPct)}%) ^ piso((m − 1) ÷ 12). O reajuste fica na parcela do robô. A parcela da manutenção é custo mais markup e não sobe com a tabela.`,
+        `Caixa da mensalidade = faturamento × (1 − ${formatFlex(result.delinquencyPct)}% de inadimplência − ${formatFlex(result.revenueTaxPct)}% de impostos) = faturamento × ${netFactor}. O imposto incide sobre o bruto; a inadimplência não o reduz. A comparação com a economia da loja usa o aluguel cheio, um total só.`,
         `Taxa de setup = ${money(result.setupFee)} por instalação nova ou recolocação, no mês do evento, líquida do mesmo imposto e sem inadimplência. Renovação não cobra setup.`,
         sample
           ? `Exemplo no mês ${formatFlex(sample.month)}: tabela ${money(listAt(sample.month))}, robôs alugados ${formatFlex(sample.billing)}, receita no caixa ${money(sample.salesCents / 100)}.`
@@ -536,22 +719,32 @@ export function explain(result) {
     {
       title: 'Manutenção e outros custos',
       lines: [
-        'A mensalidade inclui a manutenção. O custo do mês é o custo mensal de calculate({ robôs em campo }) da calculadora de manutenção, com as premissas padrão de lá: equipe de até 2 pessoas, Fiorino, encargos, gerente, 0,6% do fabricante, absenteísmo, férias e turnover.',
+        'O aluguel inclui a manutenção. O custo do mês é o custo mensal de calculate({ robôs em campo }) da calculadora de manutenção, com as premissas padrão de lá: equipe de até 2 pessoas, Fiorino, encargos, gerente, 0,6% do fabricante, absenteísmo, férias e turnover.',
+        `A parcela de manutenção no aluguel, quando há alguém alugando, é esse custo × (1 + markup de ${formatFlex(result.maintenanceMarkupPct)}%). Quem já paga absorve os robôs que ainda estão no mês de instalação. Sem robô alugado, a parcela cobrada é zero e o custo continua no caixa.`,
+        coverageText,
         'Robô nenhum em campo custa zero. A partir do primeiro, vale a equipe que a outra conta monta para aquela quantidade.',
         sample
-          ? `Mês ${formatFlex(sample.month)}: ${formatFlex(sample.inField)} robôs em campo, ${formatFlex(sample.teams)} equipes, manutenção ${money(sample.maintenanceCents / 100)}.`
+          ? `Mês ${formatFlex(sample.month)}: ${formatFlex(sample.inField)} robôs em campo, ${formatFlex(sample.teams)} equipes, custo de manutenção ${money(sample.maintenanceCents / 100)}, parcela cobrada ${money(sample.maintGross)}.`
           : 'Sem manutenção no horizonte.',
-        `Seguro + monitoramento = (${money(result.insurancePerRobot)} + ${money(result.monitoringPerRobot)}) × robôs em campo.`,
+        `Seguro + monitoramento = (${money(result.insurancePerRobot)} + ${money(result.monitoringPerRobot)}) × robôs em campo. Junto com frete e peças, é o que a margem de manutenção pode cobrir. O preço do robô fica na parcela do robô, fora dessa cobertura.`,
         result.margin == null
           ? 'Não há robô-mês alugado, então não há margem por robô.'
           : `Margem média por robô/mês = (receita no caixa + setup − manutenção − seguro − monitoramento) ÷ robôs-mês alugados = ${money(result.margin)}. Fica de fora a compra e o valor de livro.`,
       ],
     },
     {
+      title: 'Contrato de um robô',
+      lines: [
+        `A conta de um robô usa o mesmo aluguel da frota, ${money(result.contract.rentUsed)}, sem desconto de volume, sem renovação e sem recolocação. O horizonte desse contrato é ${formatFlex(result.contract.horizon)} meses.`,
+        `A manutenção é a média da frota por robô em campo, ${money(result.contract.maintenanceMonthly)} ao mês, não o custo de uma equipe só para ele. Meses de aluguel: ${formatFlex(result.contract.billingMonths)}.`,
+        `Payback do contrato: ${result.contract.label} TIR: ${contractIrr} VPL a ${formatFlex(result.discountPct)}% ao ano: ${money(result.contract.npv)}. Lucro total, com residual ou valor de saída: ${money(result.contract.profit)}.`,
+      ],
+    },
+    {
       title: 'Payback, captação e retorno',
       lines: [
         'O caixa do mês soma compra, receita, setup, manutenção, seguro, monitoramento, sucata no fim da vida e, só no último mês, o valor de livro do que ainda não depreciou até o fim. Não entra aporte, dívida nem juros: o funding é capital próprio.',
-        `Payback: ${monthLabel(result)} É o primeiro mês em que o acumulado volta a ficar maior ou igual a zero depois de ter ficado negativo.`,
+        `Payback da frota: ${monthLabel(result)} É o primeiro mês em que o acumulado volta a ficar maior ou igual a zero depois de ter ficado negativo.`,
         `Pior ponto = ${money(result.worst)} no mês ${formatFlex(result.worstMonth)}. Captação = pico × (1 + ${formatFlex(result.safetyMarginPct)}%) = ${money(result.raise)}.`,
         result.twoTranches
           ? `Duas tranches, somando a captação: ${trancheText}. A primeira cobre o pico até o mês anterior à segunda, com a mesma margem. Tranches não entram na TIR nem no payback.`
@@ -561,7 +754,7 @@ export function explain(result) {
         `TIR anual: ${irrText} É a taxa efetiva ao ano que zera esse VPL. O fluxo compra robô todo mês, então pode haver mais de uma raiz; a conta fica com a raiz que a busca encontra quando o VPL troca de sinal.`,
         result.suggestedRent == null
           ? `Não há mensalidade que devolva o caixa até o mês ${formatFlex(result.targetPayback)}. Com o fator líquido da receita em ${netFactor}, aumentar o aluguel não adianta.`
-          : `Mensalidade mínima sugerida = menor valor, em centavos, cujo payback cai até o mês ${formatFlex(result.targetPayback)}: ${money(result.suggestedRent)}. A busca é binária. Ela não escreve no campo de aluguel.`,
+          : `Mensalidade mínima sugerida = menor valor, em centavos, cujo payback cai até o mês ${formatFlex(result.targetPayback)}: ${money(result.suggestedRent)}. A busca é binária. Ela não escreve no campo de aluguel. No repasse, o resultado usa o percentual da economia, não esse mínimo.`,
       ],
     },
   ];

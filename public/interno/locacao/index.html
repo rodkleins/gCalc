@@ -25,8 +25,10 @@
       <p class="kicker">Uso interno · não indexar</p>
       <h1>Locação de robôs Gollmann</h1>
       <p class="lede">
-        Fluxo de caixa mês a mês de uma frota alugada, financiada só com capital próprio. O aluguel já inclui a
-        manutenção. Não há dívida nem juros. A manutenção é a conta padrão da outra calculadora interna.
+        Fluxo de caixa mês a mês de uma frota alugada, financiada só com capital próprio. O robô não entra no
+        balanço da loja: no lucro real o aluguel é despesa dedutível. A loja paga menos do que economiza e fica
+        com o saving líquido. O contrato padrão dura 10 anos. O aluguel junta a parcela do robô e a manutenção,
+        com markup. Não há dívida nem juros.
       </p>
       <div class="actions no-print">
         <button type="button" id="print">Imprimir em A4</button>
@@ -46,7 +48,10 @@
         </div>
         <p class="print-only" id="print-date"></p>
         <p id="rent-banner" class="banner" hidden></p>
-        <div id="kpis"></div>
+        <div id="kpis" class="kpis"></div>
+        <h3 class="block-title" id="contract-title">Contrato de um robô</h3>
+        <p class="fine" id="contract-note"></p>
+        <div id="contract-kpis" class="kpis"></div>
         <p id="funding-note" class="fine"></p>
         <div class="chart-card">
           <h3 id="chart-title">Caixa do projeto</h3>
@@ -94,7 +99,19 @@
             <p>Manutenção do mês = custo mensal de calculate({ robôs em campo }) com as premissas padrão de lá: equipe de até 2, furgão Fiorino, encargos com rescisão, coordenador, gerente, 0,6% ao ano do fabricante, absenteísmo, cobertura de férias e turnover.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Aluguel é o preço que o usuário define. A receita começa no mês seguinte à instalação. Reajuste de 4% ao ano na tabela, a cada 12 meses de calendário. Contrato de 60 meses. Inadimplência de 2%.</p>
+            <p><span class="tag">Premissa</span> Contrato de 120 meses. O horizonte nasce em 180 meses para o gráfico passar do fim do contrato, e pode ser editado. A receita começa no mês seguinte à instalação. A vida útil consome o mês da instalação: com 120 meses de vida e de contrato, o aluguel cobre 119 meses, do 2 ao 120. Reajuste de 4% ao ano na tabela. Inadimplência de 2%.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Repasse da economia da loja, padrão 60%. A economia padrão é a da loja de R$ 2 milhões no cenário base, mês 60: R$ 68.720 sem robô menos R$ 19.104 com robô = R$ 49.616. O campo pode ser editado. Saving líquido da loja = economia − aluguel. O aluguel manual, em R$/mês, só vale com o repasse desligado.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> A manutenção é cobrada dentro do aluguel: custo de calculate() mais markup de 30%. A margem dessa parcela, já líquida de imposto e inadimplência, aparece à parte e diz quanto cobre de frete, peças, seguro e monitoramento. O preço do robô fica na outra parcela. A loja paga um total só.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Desconto de volume na compra do robô, pela contagem acumulada: 5% a partir do 10º e 10% a partir do 50º. Vale o maior patamar. Recolocação não conta. O crédito de impostos e o residual usam o preço com desconto.</p>
+          </li>
+          <li>
+            <p>O contrato de um robô usa a manutenção média por robô da frota, não uma equipe só para ele. Mostra payback, TIR, VPL e lucro total ao lado do resultado da frota.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Impostos sobre a receita: 11,33% é exemplo editável, não alíquota fechada. O imposto incide sobre o faturamento bruto; a inadimplência não reduz a base. Confirme com o contador, inclusive na transição do IBS e da CBS.</p>
@@ -109,7 +126,7 @@
             <p><span class="tag">Premissa</span> Margem de segurança da captação: 20% sobre o pico de caixa. Captação = pico × 1,20. Diluição = captação ÷ (pre-money + captação), se o valuation estiver preenchido. Taxa do investidor: 25% ao ano, efetiva.</p>
           </li>
           <li>
-            <p>Mensalidade mínima sugerida é o menor aluguel, em centavos, que faz o payback cair até o mês escolhido (padrão 36). Aparece ao lado do campo e não o preenche. Se o aluguel estiver vazio, o resultado usa esse mínimo para a conta aparecer.</p>
+            <p>Mensalidade mínima sugerida é o menor aluguel, em centavos, que faz o payback da frota cair até o mês escolhido (padrão 36). Aparece ao lado do campo e não o preenche. Com o repasse desligado e o aluguel vazio, o resultado usa esse mínimo.</p>
           </li>
         </ul>
       </section>
@@ -124,8 +141,8 @@
         <strong id="dock-raise">—</strong>
       </div>
       <div>
-        <span>Aluguel na conta</span>
-        <strong id="dock-rent">—</strong>
+        <span>Saving líquido</span>
+        <strong id="dock-saving">—</strong>
       </div>
     </div>
     <noscript>
