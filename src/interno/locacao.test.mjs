@@ -37,7 +37,8 @@ describe('locação da frota', () => {
     assert.equal(result.months[0].billing, 0);
     assert.equal(result.months[0].inField, 1);
     assert.equal(result.months[0].maintenanceCents, 0);
-    assert.equal(result.months[0].capexCents, cents(1300000 * 0.75));
+    assert.equal(result.months[0].capexCents, cents(1300000));
+    assert.equal(result.months[0].creditCents, 0);
     assert.equal(result.months[1].billing, 1);
     assert.equal(result.months[1].inField, 2);
     assert.equal(result.months[1].maintenanceCents, cents(3500));
@@ -128,7 +129,8 @@ describe('locação da frota', () => {
     const open = evaluate({ ...legacy, rent: 20000, preMoney: null });
     assert.equal(open.dilution, null);
     const stocked = evaluate({ passThroughOn: false, rent: 20000, horizon: 1, partsPerRobot: 1000, freight: 500 });
-    assert.equal(stocked.months[0].capexCents, cents(1300000 * 0.75 + 1500));
+    assert.equal(stocked.months[0].capexCents, cents(1300000 + 1500));
+    assert.equal(stocked.months[0].creditCents, 0);
   });
 });
 
@@ -187,12 +189,12 @@ describe('repasse, manutenção terceirizada e desconto de volume', () => {
     assert.equal(volumeDiscountPct(49, tiers), 0.05);
     assert.equal(volumeDiscountPct(50, tiers), 0.1);
     const fleet = evaluate({ passThroughOn: false, rent: 1, horizon: 50, pace: 1 });
-    assert.equal(fleet.months[0].capexCents, cents(1300000 * 0.75));
-    assert.equal(fleet.months[8].capexCents, cents(1300000 * 0.75));
-    assert.equal(fleet.months[9].capexCents, cents(1300000 * 0.95 * 0.75));
-    assert.equal(fleet.months[49].capexCents, cents(1300000 * 0.9 * 0.75));
+    assert.equal(fleet.months[0].capexCents, cents(1300000));
+    assert.equal(fleet.months[8].capexCents, cents(1300000));
+    assert.equal(fleet.months[9].capexCents, cents(1300000 * 0.95));
+    assert.equal(fleet.months[49].capexCents, cents(1300000 * 0.9));
     const batch = evaluate({ passThroughOn: false, rent: 1, horizon: 1, pace: 12 });
-    assert.equal(batch.months[0].capexCents, cents(9 * 1300000 * 0.75 + 3 * 1300000 * 0.95 * 0.75));
+    assert.equal(batch.months[0].capexCents, cents(9 * 1300000 + 3 * 1300000 * 0.95));
     const renewed = evaluate({
       passThroughOn: false,
       rent: 1,
@@ -202,7 +204,7 @@ describe('repasse, manutenção terceirizada e desconto de volume', () => {
       contractMonths: 2,
       renewalPct: 0,
     });
-    assert.equal(renewed.months[0].capexCents, cents(1300000 * 0.75));
+    assert.equal(renewed.months[0].capexCents, cents(1300000));
     assert.equal(renewed.months[3].capexCents, 0);
     assert.equal(renewed.months[3].redeployed, 1);
   });
@@ -219,46 +221,92 @@ describe('repasse, manutenção terceirizada e desconto de volume', () => {
     assert.match(text, /119/);
     assert.match(text, /Desconto por volume/);
     assert.match(text, /Manutenção terceirizada/);
+    assert.match(text, /parcelas mensais iguais/);
+    assert.match(text, /48/);
     assert.doesNotMatch(text, /markup/i);
+    assert.doesNotMatch(text, /abate no próprio mês/);
+    assert.doesNotMatch(text, /já reduziu o caixa/);
     const priced = [50, 60, 70].map((passThroughPct) => evaluate({ passThroughPct }));
     assert.deepEqual(
       priced.map((item) => item.payback),
-      [85, 72, 62],
+      [90, 78, 68],
     );
     assert.deepEqual(
       priced.map((item) => item.worstMonth),
-      [45, 37, 32],
+      [46, 39, 35],
     );
     assert.deepEqual(
       priced.map((item) => item.worstCents),
-      [-2253072244, -1877930836, -1609115505],
+      [-3009251571, -2603516220, -2302705976],
     );
     assert.deepEqual(
       priced.map((item) => item.raiseCents),
-      [2703686693, 2253517003, 1930938606],
+      [3611101885, 3124219464, 2763247171],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.npv)),
-      [1251210601, 2525584218, 3799957840],
+      [691630255, 1966003873, 3240377494],
     );
     assert.deepEqual(
       priced.map((item) => item.contract.payback),
-      [52, 43, 37],
+      [52, 44, 39],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.contract.npv)),
-      [6709203, 29226972, 51744745],
+      [-7711669, 14806100, 37323873],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.contract.profit)),
-      [226106540, 287631186, 349155820],
+      [193606540, 255131186, 316655820],
     );
-    assert.equal(priced[1].suggestedCents, 6222798);
+    assert.equal(priced[1].suggestedCents, 7452955);
+    assert.equal(priced[1].creditMonths, 48);
     const suggested = evaluate({ passThroughOn: false });
     const at = evaluate({ passThroughOn: false, rent: suggested.suggestedRent });
     const under = evaluate({ passThroughOn: false, rent: (suggested.suggestedCents - 1) / 100 });
     assert.equal(at.payback, 36);
     assert.ok(under.payback == null || under.payback > 36);
+  });
+
+  it('recupera o crédito em parcelas iguais a partir do mês seguinte', () => {
+    const total = cents(1300000 * 0.25);
+    const single = evaluate({
+      passThroughOn: false,
+      rent: 1,
+      horizon: 49,
+      pace: 1,
+      maxFleet: 1,
+      creditMonths: 48,
+      tier1Pct: 0,
+      tier2Pct: 0,
+    });
+    assert.equal(single.months[0].creditCents, 0);
+    assert.equal(single.months[0].capexCents, cents(1300000));
+    const paid = single.months.slice(1).reduce((sum, month) => sum + month.creditCents, 0);
+    assert.equal(paid, total);
+    const base = Math.floor(total / 48);
+    const extra = total % 48;
+    assert.equal(single.months[1].creditCents, base + 1);
+    assert.equal(single.months[1 + extra].creditCents, base);
+    const redeployed = evaluate({
+      passThroughOn: false,
+      rent: 1,
+      horizon: 6,
+      pace: 1,
+      maxFleet: 1,
+      contractMonths: 2,
+      renewalPct: 0,
+      creditMonths: 4,
+      tier1Pct: 0,
+      tier2Pct: 0,
+    });
+    assert.equal(redeployed.months[3].redeployed, 1);
+    assert.equal(redeployed.months[3].capexCents, 0);
+    assert.equal(
+      redeployed.months.reduce((sum, month) => sum + month.creditCents, 0),
+      total,
+    );
+    assert.equal(redeployed.months[3].creditCents, Math.floor(total / 4));
   });
 });
 
@@ -307,6 +355,11 @@ describe('página de locação isolada', () => {
     assert.match(page, /120 meses/);
     assert.match(page, /180 meses/);
     assert.match(app, /Saving líquido da loja/);
+    assert.match(app, /Meses para recuperar o crédito/);
+    assert.match(page, /Informe o valuation pre-money/);
+    assert.match(page, /48 parcelas mensais iguais/);
+    assert.match(page, /id="hero-kpis"/);
+    assert.doesNotMatch(page, /abate no mês da compra/);
     assert.equal(page.includes('gcalc.t2software.co'), false);
     assert.equal(app.includes('gcalc.t2software.co'), false);
     assert.equal(calc.includes('gcalc.t2software.co'), false);
