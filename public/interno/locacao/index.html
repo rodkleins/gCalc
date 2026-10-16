@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="description"
+      content="Avaliação interna da locação de robôs Gollmann. Uso interno, fora de índice."
+    />
+    <meta name="theme-color" content="#0b3d34" />
+    <title>Locação de robôs (interno)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f5c4c'/%3E%3Cpath d='M8 22h16M11 10h3l2 5 2-5h3' stroke='%23fff' stroke-width='2' fill='none'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,560;8..60,650&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#resultados">Ir para o resultado</a>
+    <header class="site-header wrap">
+      <p class="kicker">Uso interno · não indexar</p>
+      <h1>Locação de robôs Gollmann</h1>
+      <p class="lede">
+        Fluxo de caixa mês a mês de uma frota alugada, financiada só com capital próprio. O aluguel já inclui a
+        manutenção. Não há dívida nem juros. A manutenção é a conta padrão da outra calculadora interna.
+      </p>
+      <div class="actions no-print">
+        <button type="button" id="print">Imprimir em A4</button>
+        <button type="button" id="reset">Restaurar premissas</button>
+      </div>
+    </header>
+    <main class="layout wrap">
+      <form id="form" autocomplete="off">
+        <p id="boot">Carregando a conta…</p>
+      </form>
+      <section class="results" id="resultados" aria-label="Resultado">
+        <div class="results-head">
+          <h2>Resultado</h2>
+          <button type="button" id="ver-calculo" class="no-print" aria-expanded="false" aria-controls="memoria">
+            Ver cálculo
+          </button>
+        </div>
+        <p class="print-only" id="print-date"></p>
+        <p id="rent-banner" class="banner" hidden></p>
+        <div id="kpis"></div>
+        <p id="funding-note" class="fine"></p>
+        <div class="chart-card">
+          <h3 id="chart-title">Caixa do projeto</h3>
+          <p>
+            Barras: caixa do mês, sem o valor de livro marcado só no fechamento. Linha: caixa acumulado, já com
+            esse valor. Os traços marcam quando a equipe de manutenção muda.
+          </p>
+          <div class="chart-legend">
+            <span><i class="swatch swatch-in"></i> Caixa positivo</span>
+            <span><i class="swatch swatch-out"></i> Caixa negativo</span>
+            <span><i class="swatch swatch-line"></i> Acumulado</span>
+            <span><i class="swatch swatch-step"></i> Degrau de equipe</span>
+          </div>
+          <p id="chart-readout"></p>
+          <div id="chart" data-testid="chart"></div>
+        </div>
+        <div class="table-wrap">
+          <table id="years"></table>
+        </div>
+        <div class="table-wrap chart-card">
+          <table id="steps"></table>
+        </div>
+        <div id="memoria" class="memory is-collapsed"></div>
+      </section>
+      <section class="sources" id="fontes">
+        <div class="sources-head">
+          <h2>Premissas</h2>
+        </div>
+        <p class="lede">
+          A memória de cálculo usa o que estiver nos campos. Onde a pesquisa não fechou o número, o campo nasce
+          como premissa e pode ser editado.
+        </p>
+        <ul class="source-group">
+          <li>
+            <p><span class="tag">Premissa</span> Funding 100% capital próprio, em uma ou duas tranches. Aporte não entra na TIR, no VPL nem no payback. Não há campo de dívida nem de juros.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Preço do robô R$ 1.300.000, o mesmo valor médio da manutenção. Crédito de impostos recuperáveis de 25% abate no mês da compra. Frete e instalação nascem em zero.</p>
+          </li>
+          <li>
+            <p>Estoque de peças por robô nasce em zero, como o campo em branco da manutenção, e entra só na compra. O custo mensal de manutenção não mistura esse estoque.</p>
+            <p class="source"><a href="../manutencao/">Calculadora de manutenção</a></p>
+          </li>
+          <li>
+            <p>Manutenção do mês = custo mensal de calculate({ robôs em campo }) com as premissas padrão de lá: equipe de até 2, furgão Fiorino, encargos com rescisão, coordenador, gerente, 0,6% ao ano do fabricante, absenteísmo, cobertura de férias e turnover.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Aluguel é o preço que o usuário define. A receita começa no mês seguinte à instalação. Reajuste de 4% ao ano na tabela, a cada 12 meses de calendário. Contrato de 60 meses. Inadimplência de 2%.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Impostos sobre a receita: 11,33% é exemplo editável, não alíquota fechada. O imposto incide sobre o faturamento bruto; a inadimplência não reduz a base. Confirme com o contador, inclusive na transição do IBS e da CBS.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Renovação de 80%. Quem não renova é reinstalado no mesmo mês, sem compra nova e sem frete de novo, fica esse mês sem aluguel e volta a faturar no seguinte. Setup, se houver, cobra na instalação e na recolocação, não na renovação.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Vida útil de 10 anos. Depreciação linear até 20% do preço do robô. No fim da vida esse residual entra no caixa. No último mês do horizonte, o que ainda não completou a vida entra pelo valor de livro. Frete e peças depreciam até zero. O crédito de impostos não é depreciado.</p>
+          </li>
+          <li>
+            <p><span class="tag">Premissa</span> Margem de segurança da captação: 20% sobre o pico de caixa. Captação = pico × 1,20. Diluição = captação ÷ (pre-money + captação), se o valuation estiver preenchido. Taxa do investidor: 25% ao ano, efetiva.</p>
+          </li>
+          <li>
+            <p>Mensalidade mínima sugerida é o menor aluguel, em centavos, que faz o payback cair até o mês escolhido (padrão 36). Aparece ao lado do campo e não o preenche. Se o aluguel estiver vazio, o resultado usa esse mínimo para a conta aparecer.</p>
+          </li>
+        </ul>
+      </section>
+    </main>
+    <div class="dock no-print" aria-hidden="false">
+      <div class="dock-crew">
+        <span>Payback</span>
+        <strong id="dock-payback">—</strong>
+      </div>
+      <div>
+        <span>Captação</span>
+        <strong id="dock-raise">—</strong>
+      </div>
+      <div>
+        <span>Aluguel na conta</span>
+        <strong id="dock-rent">—</strong>
+      </div>
+    </div>
+    <noscript>
+      <p class="wrap">Esta página precisa de JavaScript para calcular. As premissas acima continuam visíveis.</p>
+    </noscript>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
