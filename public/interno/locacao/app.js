@@ -7,6 +7,7 @@ import {
   formatFlex,
   parseBr,
   paybackLabel,
+  taxNote,
 } from './calc.js';
 
 const STORAGE_KEY = 'gcalc.locacao.interno.v3';
@@ -184,7 +185,7 @@ const SECTIONS = [
             step: 1,
             integer: true,
             slider: true,
-            tooltip: 'Compra acumulada em que começa o segundo desconto. Padrão: o 50º robô. Vale o maior patamar atingido.',
+            tooltip: 'Compra acumulada em que começa o segundo desconto. Padrão: o 50º robô. Vale o maior patamar atingido. Precisa ser maior que a 1ª faixa: se não for, a conta usa a 1ª faixa + 1.',
           },
           {
             key: 'tier2Pct',
@@ -204,7 +205,7 @@ const SECTIONS = [
             max: 100,
             step: 1,
             slider: true,
-            tooltip: 'Percentual do preço do robô, já com desconto de volume. Frete e peças ficam de fora. Não abate o mês da compra: o crédito volta em parcelas a partir do mês seguinte. Padrão: 25%. Confirme com o contador o que de fato vira crédito.',
+            tooltip: 'Percentual do preço do robô, já com desconto de volume. Frete e peças ficam de fora. Não abate o mês da compra: é liberado em parcelas a partir do mês seguinte e só abate débitos de PIS/COFINS; o saldo passa para os meses seguintes. Padrão: 25%. Confirme com o contador o que de fato vira crédito.',
           },
           {
             key: 'creditMonths',
@@ -263,7 +264,7 @@ const SECTIONS = [
             label: 'Taxa de setup por robô',
             prefix: 'R$',
             min: 0,
-            tooltip: 'Cobrada na instalação e na recolocação, líquida do imposto sobre receita. Renovação não cobra. Padrão zero.',
+            tooltip: 'Cobrada na instalação e na recolocação. Entra na base do PIS/COFINS e do IR. Renovação não cobra. Padrão zero.',
           },
           {
             key: 'delinquencyPct',
@@ -273,18 +274,7 @@ const SECTIONS = [
             max: 100,
             step: 0.5,
             slider: true,
-            tooltip: 'Reduz o que entra no caixa. Não reduz o imposto, que incide sobre o faturado. Padrão: 2%.',
-          },
-          {
-            key: 'revenueTaxPct',
-            label: 'Impostos sobre a receita',
-            suffix: '%',
-            min: 0,
-            max: 40,
-            step: 0.01,
-            digits: 2,
-            slider: true,
-            tooltip: 'Premissa editável. 11,33% é um exemplo para a conta, não uma alíquota fechada. Confirme com o contador, inclusive na transição do IBS e da CBS.',
+            tooltip: 'Reduz o que entra no caixa. Não reduz o PIS/COFINS, que incide sobre o faturado; entra no IR como perda do mês. Padrão: 2%.',
           },
         ],
       },
@@ -460,7 +450,7 @@ function toDisplay(field, value) {
 
 function fromDisplay(field, raw) {
   if (field.allowEmpty && String(raw).trim() === '') return null;
-  const parsed = parseBr(raw);
+  const parsed = parseBr(raw, { decimalDot: String(field.suffix ?? '').includes('%') });
   if (parsed == null) return undefined;
   return clampField(field, parsed);
 }
@@ -708,6 +698,13 @@ function renderKpis(result) {
   renderKpi(host, result.margin == null
     ? { id: 'margin', label: 'Margem/robô', value: '—', title: 'Sem robô alugado' }
     : moneyKpi('margin', 'Margem/robô', result.margin));
+  renderKpi(
+    host,
+    moneyKpi('terminal', 'Valor terminal', result.terminal, {
+      sub: `livro no mês ${formatFlex(result.horizon)}, à parte`,
+    }),
+  );
+  renderKpi(host, moneyKpi('income-tax', 'IR/CSLL no horizonte', result.incomeTax));
   renderKpi(host, result.suggestedRent == null
     ? { id: 'minimum', label: 'Mensalidade mínima', value: '—', title: 'Sem mensalidade que devolva o caixa' }
     : moneyKpi('minimum', 'Mensalidade mínima', result.suggestedRent));
@@ -741,6 +738,8 @@ function renderKpis(result) {
   if (maintenanceHint) {
     maintenanceHint.textContent = `${formatBRL(result.maintenancePerRobot)} por robô alugado, no mesmo mês do aluguel. No mês da instalação o custo é zero.`;
   }
+  const tax = document.getElementById('tax-note');
+  if (tax) tax.textContent = taxNote(result);
   const note = document.getElementById('funding-note');
   const parts = result.tranches.map((tranche) => `${money(tranche.cents)} no mês ${formatFlex(tranche.month)}`);
   note.textContent = result.twoTranches
@@ -771,7 +770,7 @@ function renderContract(result) {
   renderKpi(host, moneyKpi('contract-npv', 'VPL', contract.npv));
   renderKpi(host, moneyKpi('contract-profit', 'Lucro total', contract.profit));
   if (note) {
-    note.textContent = `Um robô no preço de tabela, contrato de ${formatFlex(result.contractMonths)} meses, sem renovação e sem recolocação. A manutenção terceirizada é ${formatBRL(contract.maintenanceMonthly)} por robô alugado, no mesmo mês do aluguel. O aluguel cobre ${formatFlex(contract.billingMonths)} meses.`;
+    note.textContent = `Um robô no preço de tabela, contrato de ${formatFlex(result.contractMonths)} meses, sem renovação e sem recolocação. A manutenção terceirizada é ${formatBRL(contract.maintenanceMonthly)} por robô alugado, no mesmo mês do aluguel. O aluguel cobre ${formatFlex(contract.billingMonths)} meses. Uma compra só, sem segundo robô. Valores depois do PIS/COFINS e do IR/CSLL.`;
   }
 }
 
@@ -781,7 +780,7 @@ function renderYears(result) {
   table.append(el('caption', null, 'Caixa por ano'));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  for (const label of ['Ano', 'Robôs no fim', 'Receita no caixa', 'Manutenção', 'Compra', 'Caixa do ano', 'Acumulado']) {
+  for (const label of ['Ano', 'Robôs no fim', 'Receita no caixa', 'Manutenção', 'PIS/COFINS', 'IR/CSLL', 'Compra', 'Caixa do ano', 'Acumulado']) {
     hr.append(el('th', label === 'Ano' ? null : 'num', label));
   }
   head.append(hr);
@@ -792,6 +791,8 @@ function renderYears(result) {
     tr.append(el('td', 'num', formatFlex(year.inField)));
     tr.append(el('td', 'num', money(year.salesCents)));
     tr.append(el('td', 'num', money(year.maintenanceCents)));
+    tr.append(el('td', 'num', money(year.pisCofinsCents)));
+    tr.append(el('td', 'num', money(year.incomeTaxCents)));
     tr.append(el('td', 'num', money(year.capexCents)));
     tr.append(el('td', 'num', money(year.netCents)));
     tr.append(el('td', 'num', money(year.cumulativeCents)));
@@ -931,7 +932,7 @@ function drawChart(result) {
   host.replaceChildren(svg);
   const describe = (index) => {
     const row = rows[index];
-    readout.textContent = `Mês ${formatFlex(row.month)}: caixa ${money(row.operatingCents)}, acumulado ${money(row.cumulativeCents)}, ${formatFlex(row.inField)} robôs em campo, ${formatFlex(row.billing)} alugados, manutenção ${money(row.maintenanceCents)}.`;
+    readout.textContent = `Mês ${formatFlex(row.month)}: caixa ${money(row.operatingCents)}, acumulado ${money(row.cumulativeCents)}, ${formatFlex(row.inField)} robôs em campo, ${formatFlex(row.billing)} alugados, manutenção ${money(row.maintenanceCents)}, PIS/COFINS ${money(row.pisCofinsCents)}, IR/CSLL ${money(row.incomeTaxCents)}.`;
   };
   describe(rows.length - 1);
   svg.addEventListener('pointermove', (event) => {
@@ -955,12 +956,8 @@ function render() {
   }
 }
 
+/** Não mexe em outras premissas: o calc limita o payback alvo e a 2ª tranche ao horizonte só na conta. */
 function commit() {
-  if (state.targetPayback > state.horizon) state.targetPayback = state.horizon;
-  if (state.tranche2Month > state.horizon) state.tranche2Month = state.horizon;
-  const target = controls.get('targetPayback');
-  if (target?.text && document.activeElement !== target.text) target.text.value = toDisplay(target.field, state.targetPayback);
-  if (target?.slider) target.slider.value = String(state.targetPayback);
   render();
   persist();
 }

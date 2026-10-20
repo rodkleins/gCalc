@@ -53,14 +53,15 @@
         <p id="dilution-hint" class="fine dilution-hint" hidden>Informe o valuation pre-money</p>
         <div id="kpis" class="kpis kpis-secondary"></div>
         <p id="funding-note" class="fine"></p>
+        <p id="tax-note" class="fine"></p>
         <h3 class="block-title" id="contract-title">Contrato de um robô</h3>
         <p class="fine" id="contract-note"></p>
         <div id="contract-kpis" class="kpis kpis-contract"></div>
         <div class="chart-card">
           <h3 id="chart-title">Caixa do projeto</h3>
           <p>
-            Barras: caixa do mês, sem o valor de livro marcado só no fechamento. Linha: caixa acumulado, já com
-            esse valor.
+            Barras: caixa do mês, depois dos impostos. Linha: caixa acumulado. Os dois ficam sem o valor de livro
+            terminal, que aparece à parte nos indicadores.
           </p>
           <div class="chart-legend">
             <span><i class="swatch swatch-in"></i> Caixa positivo</span>
@@ -109,19 +110,19 @@
             <p>O contrato de um robô usa o mesmo aluguel e a mesma manutenção terceirizada, sem desconto de volume. Mostra payback, TIR, VPL e lucro total ao lado do resultado da frota.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Impostos sobre a receita: 11,33% é exemplo editável, não alíquota fechada. O imposto incide sobre o faturamento bruto; a inadimplência não reduz a base. Confirme com o contador, inclusive na transição do IBS e da CBS.</p>
+            <p><span class="tag">Premissa</span> Regime fixo em lucro real, apurado mês a mês de forma simplificada. PIS/COFINS não cumulativo de 9,25% sobre o aluguel faturado, com crédito de 9,25% sobre a manutenção terceirizada; a inadimplência não reduz essa base. O crédito da compra só abate esse débito, e o saldo passa para os meses seguintes. IR/CSLL de 34% (15% + adicional de 10% acima de R$ 20 mil/mês + 9%) sobre o lucro depois da depreciação linear, com compensação de prejuízo até 30% do lucro do mês. As alíquotas ficam na constante LUCRO_REAL do calc.js. Confirme com o contador, inclusive na transição do IBS e da CBS.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Renovação de 80%. Quem não renova é reinstalado no mesmo mês, sem compra nova e sem frete de novo, fica esse mês sem aluguel e volta a faturar no seguinte. Setup, se houver, cobra na instalação e na recolocação, não na renovação.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Vida útil de 10 anos. Depreciação linear até 20% do preço do robô. No fim da vida esse residual entra no caixa. No último mês do horizonte, o que ainda não completou a vida entra pelo valor de livro. Frete e peças depreciam até zero. O crédito de impostos não é depreciado e não reduz o mês da compra.</p>
+            <p><span class="tag">Premissa</span> Vida útil de 10 anos. Depreciação linear até 20% do preço do robô. No fim da vida esse residual entra no caixa. O que ainda não completou a vida no último mês do horizonte tem um valor de livro terminal, mostrado à parte: entra no VPL e na TIR, mas não no payback, no pior caixa nem na mensalidade mínima. Frete e peças depreciam até zero. Na depreciação fiscal, o preço sai sem o crédito recuperável.</p>
           </li>
           <li>
             <p><span class="tag">Premissa</span> Margem de segurança da captação: 20% sobre o pico de caixa. Captação = pico × 1,20. Diluição = captação ÷ (pre-money + captação), se o valuation estiver preenchido. Taxa do investidor: 25% ao ano, efetiva.</p>
           </li>
           <li>
-            <p>Mensalidade mínima sugerida é o menor aluguel, em centavos, que faz o payback da frota cair até o mês escolhido (padrão 36). Aparece ao lado do campo e não o preenche. Com o repasse desligado e o aluguel vazio, o resultado usa esse mínimo.</p>
+            <p>Mensalidade mínima sugerida é o menor aluguel, em centavos, que faz o payback da frota, sem o valor terminal, cair até o mês escolhido (padrão 36). Aparece ao lado do campo e não o preenche. Com o repasse desligado e o aluguel vazio, o resultado usa esse mínimo.</p>
           </li>
         </ul>
       </section>

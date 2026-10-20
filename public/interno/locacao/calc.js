@@ -1,6 +1,11 @@
 /** Fluxo de caixa da locação. A manutenção é um valor terceirizado por robô alugado, sem a conta de equipes. */
 
-export function parseBr(raw) {
+/**
+ * Lê número no formato brasileiro. Com um ponto só e três dígitos depois, o ponto é milhar ("1.500"),
+ * exceto se a parte inteira começa com zero ("0.250" = 0,25). Com decimalDot, um ponto só é sempre
+ * decimal: é o caso dos campos de percentual.
+ */
+export function parseBr(raw, options = {}) {
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
   if (raw == null) return null;
   const text = String(raw)
@@ -16,7 +21,7 @@ export function parseBr(raw) {
   else if (dots > 1) normalized = text.replace(/\./g, '');
   else if (dots === 1) {
     const [head, tail] = text.split('.');
-    if (/^\d+$/.test(head) && /^\d{3}$/.test(tail)) normalized = head + tail;
+    if (!options.decimalDot && /^-?[1-9]\d{0,2}$/.test(head) && /^\d{3}$/.test(tail)) normalized = head + tail;
   }
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
@@ -65,6 +70,23 @@ export const STORE_COST_WITHOUT = 68720;
 export const STORE_COST_WITH = 19104;
 export const STORE_SAVING_DEFAULT = STORE_COST_WITHOUT - STORE_COST_WITH;
 
+/**
+ * Regime fixo: lucro real, apurado mês a mês de forma simplificada. Edite aqui as alíquotas.
+ * - PIS/COFINS não cumulativo sobre o aluguel faturado e o setup, com crédito sobre a manutenção terceirizada.
+ * - O crédito de impostos recuperáveis da compra abate só débitos de PIS/COFINS; o que sobra fica para os meses seguintes.
+ * - IRPJ + adicional acima do limite mensal + CSLL sobre o lucro tributável, com compensação de prejuízo
+ *   limitada a um percentual do lucro do mês.
+ */
+export const LUCRO_REAL = {
+  pisCofinsPct: 9.25,
+  maintenanceCreditPct: 9.25,
+  irpjPct: 15,
+  irpjSurchargePct: 10,
+  irpjSurchargeThreshold: 20000,
+  csllPct: 9,
+  lossOffsetCapPct: 30,
+};
+
 export const DEFAULTS = {
   pace: 1,
   horizon: 180,
@@ -86,7 +108,6 @@ export const DEFAULTS = {
   annualAdjustmentPct: 4,
   setupFee: 0,
   delinquencyPct: 2,
-  revenueTaxPct: 11.33,
   insurancePerRobot: 0,
   monitoringPerRobot: 0,
   maintenancePerRobot: 3500,
@@ -132,13 +153,12 @@ export function sanitize(raw = {}) {
   input.maintenancePerRobot = Math.max(0, num(raw.maintenancePerRobot, DEFAULTS.maintenancePerRobot));
   input.tier1From = Math.round(clamp(num(raw.tier1From, DEFAULTS.tier1From), 1, 100000));
   input.tier1Pct = clamp(num(raw.tier1Pct, DEFAULTS.tier1Pct), 0, 100);
-  input.tier2From = Math.round(clamp(num(raw.tier2From, DEFAULTS.tier2From), 1, 100000));
+  input.tier2From = Math.max(input.tier1From + 1, Math.round(clamp(num(raw.tier2From, DEFAULTS.tier2From), 1, 100000)));
   input.tier2Pct = clamp(num(raw.tier2Pct, DEFAULTS.tier2Pct), 0, 100);
   input.contractMonths = Math.round(clamp(num(raw.contractMonths, DEFAULTS.contractMonths), 1, 360));
   input.annualAdjustmentPct = clamp(num(raw.annualAdjustmentPct, DEFAULTS.annualAdjustmentPct), 0, 100);
   input.setupFee = Math.max(0, num(raw.setupFee, DEFAULTS.setupFee));
   input.delinquencyPct = clamp(num(raw.delinquencyPct, DEFAULTS.delinquencyPct), 0, 100);
-  input.revenueTaxPct = clamp(num(raw.revenueTaxPct, DEFAULTS.revenueTaxPct), 0, 100);
   input.insurancePerRobot = Math.max(0, num(raw.insurancePerRobot, DEFAULTS.insurancePerRobot));
   input.monitoringPerRobot = Math.max(0, num(raw.monitoringPerRobot, DEFAULTS.monitoringPerRobot));
   input.usefulLifeYears = clamp(num(raw.usefulLifeYears, DEFAULTS.usefulLifeYears), 1, 40);
@@ -214,13 +234,15 @@ function buildSchedule(input, options = {}) {
   const renewal = input.renewalPct / 100;
   const credit = input.taxCreditPct / 100;
   const residualRate = input.residualPct / 100;
-  const tax = input.revenueTaxPct / 100;
   const delinquency = input.delinquencyPct / 100;
-  const netFactor = 1 - delinquency - tax;
+  const netFactor = 1 - delinquency - LUCRO_REAL.pisCofinsPct / 100;
   const adjustment = input.annualAdjustmentPct / 100;
   const extras = input.freight + input.partsPerRobot;
   const tiers = tiersOf(input);
   const singleContract = options.singleContract === true;
+  const singlePurchase = options.singlePurchase === true;
+  // Depreciação fiscal: o custo exclui o crédito recuperável; o robô vai até o residual, frete e peças até zero.
+  const depreciableOf = (unitPrice) => Math.max(0, unitPrice * (1 - credit - residualRate)) + extras;
   let cohorts = [];
   let credits = [];
   let purchased = 0;
@@ -270,7 +292,7 @@ function buildSchedule(input, options = {}) {
 
     const inFieldBefore = cohorts.reduce((sum, cohort) => sum + cohort.count, 0);
     const room = input.maxFleet == null ? Infinity : Math.max(0, input.maxFleet - inFieldBefore);
-    const bought = Math.min(input.pace, room);
+    const bought = singlePurchase && purchased > 0 ? 0 : Math.min(input.pace, room);
     let capex = 0;
     if (bought > 1e-8) {
       const lastLife = month + lifeMonths - 1;
@@ -296,10 +318,12 @@ function buildSchedule(input, options = {}) {
     let inField = 0;
     let scrap = 0;
     let terminal = 0;
+    let depreciation = 0;
     for (const cohort of cohorts) {
       const lastLife = cohort.purchaseMonth + lifeMonths - 1;
       const age = month - cohort.purchaseMonth + 1;
       inField += cohort.count;
+      depreciation += (cohort.count * depreciableOf(cohort.unitPrice)) / lifeMonths;
       if (month >= cohort.billStart && month <= cohort.billEnd) billing += cohort.count;
       const book = unitBook(cohort.unitPrice, extras, residualRate, age, lifeMonths) * cohort.count;
       if (month === lastLife) scrap += cohort.unitPrice * residualRate * cohort.count;
@@ -313,10 +337,11 @@ function buildSchedule(input, options = {}) {
 
     const listFactor = (1 + adjustment) ** Math.floor((month - 1) / 12);
     const capexCents = toCents(capex);
-    const setupCents = toCents((bought + redeployed) * input.setupFee * (1 - tax));
+    const setupCents = toCents((bought + redeployed) * input.setupFee);
     const maintenanceCents = toCents(billing * input.maintenancePerRobot);
+    const maintenanceCreditCents = Math.round(maintenanceCents * (LUCRO_REAL.maintenanceCreditPct / 100));
     const otherCents = toCents(inField * (input.insurancePerRobot + input.monitoringPerRobot));
-    const implantCents = toCents(bought * extras);
+    const depreciationCents = toCents(depreciation);
     const scrapCents = toCents(scrap);
     const terminalCents = toCents(terminal);
     const releaseCents = toCents(release);
@@ -330,15 +355,15 @@ function buildSchedule(input, options = {}) {
       creditCents,
       setupCents,
       maintenanceCents,
+      maintenanceCreditCents,
       otherCents,
-      implantCents,
+      depreciationCents,
       scrapCents,
       terminalCents,
       releaseCents,
       listFactor,
-      revenuePerReal: billing * listFactor * netFactor,
-      fixedCents: -capexCents + creditCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents + terminalCents,
-      operatingFixedCents: -capexCents + creditCents + setupCents - maintenanceCents - otherCents + scrapCents + releaseCents,
+      revenuePerReal: billing * listFactor,
+      operatingFixedCents: -capexCents - maintenanceCents - otherCents + scrapCents + releaseCents,
     });
   }
 
@@ -346,12 +371,29 @@ function buildSchedule(input, options = {}) {
     input,
     months,
     netFactor,
+    delinquency,
     lifeMonths,
     unitCapex: input.robotPrice + extras,
   };
 }
 
+/** IRPJ + adicional + CSLL de um mês, em centavos, sobre a base já compensada. */
+function incomeTaxCents(baseCents) {
+  if (!(baseCents > 0)) return 0;
+  const flat = (LUCRO_REAL.irpjPct + LUCRO_REAL.csllPct) / 100;
+  const over = Math.max(0, baseCents - toCents(LUCRO_REAL.irpjSurchargeThreshold));
+  return Math.round(baseCents * flat + over * (LUCRO_REAL.irpjSurchargePct / 100));
+}
+
+/**
+ * Caixa mês a mês para um aluguel. Os impostos dependem do aluguel, então a apuração mora aqui:
+ * créditos de PIS/COFINS limitados ao débito do mês, com saldo carregado, e IR/CSLL com prejuízo
+ * compensado até o teto do lucro do mês. O payback e o pior caixa usam o acumulado sem o valor de livro
+ * terminal, que fica à parte.
+ */
 function simulate(schedule, rent) {
+  const pisCofins = LUCRO_REAL.pisCofinsPct / 100;
+  const lossCap = LUCRO_REAL.lossOffsetCapPct / 100;
   let cumulative = 0;
   let worstCents = 0;
   let worstMonth = 0;
@@ -360,13 +402,42 @@ function simulate(schedule, rent) {
   let revenueCents = 0;
   let contributionCents = 0;
   let robotMonths = 0;
+  let creditPool = 0;
+  let lossCarry = 0;
+  let pisCofinsTotal = 0;
+  let incomeTaxTotal = 0;
+  let terminalTotal = 0;
   const rows = [];
 
   for (const month of schedule.months) {
-    const salesCents = toCents(month.revenuePerReal * rent);
-    const netCents = month.fixedCents + salesCents;
-    const operatingCents = month.operatingFixedCents + salesCents;
-    cumulative += netCents;
+    const grossCents = toCents(month.revenuePerReal * rent);
+    const lossCents = Math.round(grossCents * schedule.delinquency);
+    const salesCents = grossCents - lossCents;
+    const debitCents = Math.round((grossCents + month.setupCents) * pisCofins);
+    creditPool += month.creditCents + month.maintenanceCreditCents;
+    const creditUsedCents = Math.min(creditPool, debitCents);
+    creditPool -= creditUsedCents;
+    const pisCofinsCents = debitCents - creditUsedCents;
+
+    const taxableCents =
+      grossCents +
+      month.setupCents -
+      debitCents -
+      lossCents -
+      (month.maintenanceCents - month.maintenanceCreditCents) -
+      month.otherCents -
+      month.depreciationCents;
+    let lossOffsetCents = 0;
+    if (taxableCents < 0) lossCarry -= taxableCents;
+    else {
+      lossOffsetCents = Math.min(lossCarry, Math.floor(taxableCents * lossCap));
+      lossCarry -= lossOffsetCents;
+    }
+    const incomeTaxCentsOfMonth = incomeTaxCents(taxableCents - lossOffsetCents);
+
+    const operatingCents = month.operatingFixedCents + salesCents + month.setupCents - pisCofinsCents - incomeTaxCentsOfMonth;
+    const netCents = operatingCents + month.terminalCents;
+    cumulative += operatingCents;
     if (cumulative < worstCents) {
       worstCents = cumulative;
       worstMonth = month.month;
@@ -374,11 +445,25 @@ function simulate(schedule, rent) {
     if (cumulative < 0) wentNegative = true;
     else if (wentNegative && payback == null) payback = month.month;
     revenueCents += salesCents;
-    contributionCents += salesCents + month.setupCents - month.maintenanceCents - month.otherCents;
+    contributionCents +=
+      salesCents + month.setupCents - debitCents + month.maintenanceCreditCents - month.maintenanceCents - month.otherCents;
     robotMonths += month.billing;
+    pisCofinsTotal += pisCofinsCents;
+    incomeTaxTotal += incomeTaxCentsOfMonth;
+    terminalTotal += month.terminalCents;
     rows.push({
       ...month,
+      grossCents,
+      lossCents,
       salesCents,
+      debitCents,
+      creditUsedCents,
+      creditBalanceCents: creditPool,
+      pisCofinsCents,
+      taxableCents,
+      lossOffsetCents,
+      lossCarryCents: lossCarry,
+      incomeTaxCents: incomeTaxCentsOfMonth,
       netCents,
       operatingCents,
       cumulativeCents: cumulative,
@@ -390,6 +475,7 @@ function simulate(schedule, rent) {
   return {
     rows,
     cumulativeCents: cumulative,
+    terminalCents: terminalTotal,
     worstCents,
     worstMonth,
     wentNegative,
@@ -397,6 +483,10 @@ function simulate(schedule, rent) {
     revenueCents,
     contributionCents,
     robotMonths,
+    pisCofinsCents: pisCofinsTotal,
+    incomeTaxCents: incomeTaxTotal,
+    creditBalanceCents: creditPool,
+    lossCarryCents: lossCarry,
   };
 }
 
@@ -488,6 +578,8 @@ function yearsOf(rows) {
         salesCents: 0,
         maintenanceCents: 0,
         capexCents: 0,
+        pisCofinsCents: 0,
+        incomeTaxCents: 0,
         netCents: 0,
         inField: row.inField,
         cumulativeCents: row.cumulativeCents,
@@ -498,7 +590,9 @@ function yearsOf(rows) {
     year.salesCents += row.salesCents;
     year.maintenanceCents += row.maintenanceCents;
     year.capexCents += row.capexCents;
-    year.netCents += row.netCents;
+    year.pisCofinsCents += row.pisCofinsCents;
+    year.incomeTaxCents += row.incomeTaxCents;
+    year.netCents += row.operatingCents;
     year.inField = row.inField;
     year.cumulativeCents = row.cumulativeCents;
   }
@@ -518,13 +612,16 @@ function contractOf(input, rentUsed) {
     tier2Pct: 0,
     targetPayback: Math.min(input.targetPayback, horizon),
   });
-  const schedule = buildSchedule(unitInput, { singleContract: true });
+  const schedule = buildSchedule(unitInput, { singleContract: true, singlePurchase: true });
   const flow = simulate(schedule, rentUsed);
   const view = {
     horizon,
     payback: flow.payback,
     wentNegative: flow.wentNegative,
-    profit: flow.cumulativeCents / 100,
+    profit: (flow.cumulativeCents + flow.terminalCents) / 100,
+    terminal: flow.terminalCents / 100,
+    incomeTax: flow.incomeTaxCents / 100,
+    pisCofins: flow.pisCofinsCents / 100,
     billingMonths: flow.robotMonths,
     maintenanceMonthly: input.maintenancePerRobot,
     rentUsed,
@@ -571,6 +668,14 @@ export function evaluate(raw = {}) {
     worstMonth: flow.worstMonth,
     worst: flow.worstCents / 100,
     cumulative: flow.cumulativeCents / 100,
+    terminalCents: flow.terminalCents,
+    terminal: flow.terminalCents / 100,
+    cumulativeWithTerminal: (flow.cumulativeCents + flow.terminalCents) / 100,
+    pisCofins: flow.pisCofinsCents / 100,
+    incomeTax: flow.incomeTaxCents / 100,
+    creditBalance: flow.creditBalanceCents / 100,
+    lossCarry: flow.lossCarryCents / 100,
+    taxRules: { ...LUCRO_REAL },
     raiseCents,
     raise: raiseCents / 100,
     tranches: tranchesOf(input, rows, raiseCents),
@@ -596,6 +701,29 @@ function monthLabel(result) {
 
 export function paybackLabel(result) {
   return monthLabel(result);
+}
+
+/** Nota curta das premissas tributárias, para a tela. */
+export function taxNote(result) {
+  const rules = result.taxRules;
+  const flat = rules.irpjPct + rules.csllPct;
+  return `Lucro real, apurado mês a mês de forma simplificada. PIS/COFINS não cumulativo de ${formatFlex(rules.pisCofinsPct)}% sobre o aluguel, com crédito de ${formatFlex(rules.maintenanceCreditPct)}% sobre a manutenção terceirizada. O crédito da compra (${formatFlex(result.taxCreditPct)}% em ${formatFlex(result.creditMonths)} parcelas) só abate esse débito; o saldo passa para o mês seguinte. IR/CSLL de ${formatFlex(flat + rules.irpjSurchargePct)}% (${formatFlex(rules.irpjPct)}% + ${formatFlex(rules.irpjSurchargePct)}% acima de ${money(rules.irpjSurchargeThreshold)}/mês + ${formatFlex(rules.csllPct)}%) sobre receita líquida − manutenção − outros custos − depreciação, com prejuízo compensado até ${formatFlex(rules.lossOffsetCapPct)}% do lucro do mês. Sem IBS/CBS. Valide com o contador.`;
+}
+
+function taxLines(result) {
+  const rules = result.taxRules;
+  const sample = result.months.find((month) => month.billing > 0);
+  return [
+    'Regime fixo em lucro real, sem seletor. As alíquotas ficam na constante LUCRO_REAL do calc.js. A apuração é mensal e simplificada: na prática o IR/CSLL é trimestral ou anual com estimativas, e a reforma do IBS/CBS não entra.',
+    `PIS/COFINS: débito de ${formatFlex(rules.pisCofinsPct)}% sobre faturamento + setup. Crédito de ${formatFlex(rules.maintenanceCreditPct)}% sobre a manutenção terceirizada e as parcelas do crédito da compra. Os créditos abatem só o débito do mês; o que sobra fica em saldo. Saldo sem uso no fim do horizonte: ${money(result.creditBalance)}.`,
+    `Lucro tributável = faturamento + setup − débito de PIS/COFINS − inadimplência − manutenção líquida do crédito − seguro − monitoramento − depreciação. A depreciação é linear na vida útil, sobre o preço sem o crédito recuperável, até o residual; frete e peças vão a zero.`,
+    `IR/CSLL = ${formatFlex(rules.irpjPct + rules.csllPct)}% da base + ${formatFlex(rules.irpjSurchargePct)}% do que passar de ${money(rules.irpjSurchargeThreshold)} no mês. Mês com prejuízo não paga e acumula o prejuízo; mês com lucro compensa no máximo ${formatFlex(rules.lossOffsetCapPct)}% do lucro. Prejuízo a compensar no fim: ${money(result.lossCarry)}.`,
+    'Sucata, saída do robô e valor terminal não geram IR sobre ganho de capital: é uma simplificação.',
+    sample
+      ? `Mês ${formatFlex(sample.month)}: débito ${money(sample.debitCents / 100)}, créditos usados ${money(sample.creditUsedCents / 100)}, PIS/COFINS pago ${money(sample.pisCofinsCents / 100)}, lucro tributável ${money(sample.taxableCents / 100)}, prejuízo compensado ${money(sample.lossOffsetCents / 100)}, IR/CSLL ${money(sample.incomeTaxCents / 100)}.`
+      : 'Sem mês com aluguel.',
+    `No horizonte: PIS/COFINS pago ${money(result.pisCofins)}, IR/CSLL ${money(result.incomeTax)}.`,
+  ];
 }
 
 export function explain(result) {
@@ -629,8 +757,8 @@ export function explain(result) {
         `${paceLine}, até o mês ${formatFlex(result.horizon)}${result.maxFleet == null ? ', sem teto de frota' : `, limitado a ${formatFlex(result.maxFleet)} robôs`}. O padrão do horizonte é 180 meses, para o gráfico passar do fim do contrato de ${formatFlex(result.contractMonths)} meses.`,
         'O robô comprado no mês t começa a alugar no mês t+1. O contrato vale em meses de calendário a partir da compra, e o mês da instalação entra na vida útil. Com vida e contrato de 120 meses, o aluguel vai do mês 2 ao mês 120: 119 mensalidades. No mês 120 também entra o residual.',
         `Renovação de ${formatFlex(result.renewalPct)}%. Quem renova segue alugado, sem compra nova e sem taxa de setup. Quem não renova é reinstalado no mesmo mês, fica esse mês sem aluguel e volta a faturar no mês seguinte. Não há segunda compra, nem frete de novo.`,
-        `Vida útil de ${formatFlex(result.usefulLifeYears)} anos (${formatFlex(result.lifeMonths)} meses). No último mês de vida o caixa recebe ${formatFlex(result.residualPct)}% do preço pago naquele robô, já com o desconto de volume. No fim do horizonte, o que ainda não completou a vida entra pelo valor de livro: esse preço deprecia em linha reta até o residual; frete e estoque de peças depreciam até zero.`,
-        'O crédito de impostos não entra na depreciação nem reduz o caixa do mês da compra. Ele volta em parcelas mensais iguais a partir do mês seguinte.',
+        `Vida útil de ${formatFlex(result.usefulLifeYears)} anos (${formatFlex(result.lifeMonths)} meses). No último mês de vida o caixa recebe ${formatFlex(result.residualPct)}% do preço pago naquele robô, já com o desconto de volume. No fim do horizonte, o que ainda não completou a vida tem um valor de livro (preço depreciado em linha reta até o residual; frete e estoque de peças até zero). Esse valor terminal fica à parte: entra no VPL e na TIR, mas não no payback, no pior caixa nem na mensalidade mínima.`,
+        'O crédito de impostos não reduz o caixa do mês da compra. Ele é liberado em parcelas mensais iguais a partir do mês seguinte e só abate débitos de PIS/COFINS.',
       ],
     },
     {
@@ -638,7 +766,7 @@ export function explain(result) {
       lines: [
         `Compra de um robô no preço de tabela = ${money(result.robotPrice)} + ${money(result.freight)} de frete e instalação + ${money(result.partsPerRobot)} de estoque de peças = ${money(result.unitCapex)}. Esse valor sai inteiro no mês da compra.`,
         `Desconto por volume, pela compra acumulada: ${formatFlex(result.tier1Pct)}% a partir do ${formatFlex(result.tier1From)}º robô e ${formatFlex(result.tier2Pct)}% a partir do ${formatFlex(result.tier2From)}º. Vale o maior patamar já atingido. Recolocação não conta. O crédito e o residual incidem sobre o preço do robô com desconto, sem frete nem peças.`,
-        `Crédito de impostos recuperáveis = ${formatFlex(result.taxCreditPct)}% do preço do robô. Não abate o mês da compra. Volta em ${formatFlex(result.creditMonths)} parcelas mensais iguais, começando no mês seguinte. A divisão é em centavos e as primeiras parcelas levam o centavo que sobra. A recuperação continua mesmo se o robô sair de campo. Recolocação não gera crédito novo. O estoque de peças nasce em zero e é investimento, não custo mensal.`,
+        `Crédito de impostos recuperáveis = ${formatFlex(result.taxCreditPct)}% do preço do robô. Não abate o mês da compra. É liberado em ${formatFlex(result.creditMonths)} parcelas mensais iguais, começando no mês seguinte, e só abate o débito de PIS/COFINS do mês; o que sobra fica em saldo para os meses seguintes. A divisão é em centavos e as primeiras parcelas levam o centavo que sobra. A recuperação continua mesmo se o robô sair de campo. Recolocação não gera crédito novo. O estoque de peças nasce em zero e é investimento, não custo mensal.`,
         first
           ? `Mês 1: compra ${formatFlex(first.bought)} ${first.bought === 1 ? 'robô' : 'robôs'}, desembolso ${money(first.capexCents / 100)}. Robôs alugados nesse mês: ${formatFlex(first.billing)}.`
           : 'Horizonte vazio.',
@@ -650,8 +778,8 @@ export function explain(result) {
         rentText,
         `Saving líquido da loja = ${money(result.storeSaving)} − ${money(result.rentUsed)} = ${money(result.storeNetSaving)}, no primeiro ano. O robô não entra no balanço da loja. No lucro real o aluguel é despesa dedutível. O reajuste anual aumenta o aluguel e reduz esse líquido nos anos seguintes.`,
         `Tabela do mês m = aluguel × (1 + ${formatFlex(result.annualAdjustmentPct)}%) ^ piso((m − 1) ÷ 12). A loja paga esse aluguel cheio. A manutenção terceirizada é custo nosso, não uma parcela do preço.`,
-        `Caixa da mensalidade = faturamento × (1 − ${formatFlex(result.delinquencyPct)}% de inadimplência − ${formatFlex(result.revenueTaxPct)}% de impostos) = faturamento × ${netFactor}. O imposto incide sobre o bruto; a inadimplência não o reduz. A comparação com a economia da loja usa o aluguel cheio, um total só.`,
-        `Taxa de setup = ${money(result.setupFee)} por instalação nova ou recolocação, no mês do evento, líquida do mesmo imposto e sem inadimplência. Renovação não cobra setup.`,
+        `Receita no caixa = faturamento × (1 − ${formatFlex(result.delinquencyPct)}% de inadimplência). O PIS/COFINS de ${formatFlex(result.taxRules.pisCofinsPct)}% incide sobre o faturamento bruto; a inadimplência não reduz essa base. Antes dos créditos e do IR, sobra faturamento × ${netFactor}. A comparação com a economia da loja usa o aluguel cheio, um total só.`,
+        `Taxa de setup = ${money(result.setupFee)} por instalação nova ou recolocação, no mês do evento, sem inadimplência. Entra na base do PIS/COFINS e do IR. Renovação não cobra setup.`,
         sample
           ? `Exemplo no mês ${formatFlex(sample.month)}: tabela ${money(listAt(sample.month))}, robôs alugados ${formatFlex(sample.billing)}, receita no caixa ${money(sample.salesCents / 100)}.`
           : 'Sem mês de exemplo.',
@@ -668,32 +796,37 @@ export function explain(result) {
         `Seguro + monitoramento = (${money(result.insurancePerRobot)} + ${money(result.monitoringPerRobot)}) × robôs em campo, inclusive no mês da instalação.`,
         result.margin == null
           ? 'Não há robô-mês alugado, então não há margem por robô.'
-          : `Margem média por robô/mês = (receita no caixa + setup − manutenção − seguro − monitoramento) ÷ robôs-mês alugados = ${money(result.margin)}. Fica de fora a compra e o valor de livro.`,
+          : `Margem média por robô/mês = (receita no caixa + setup − débito de PIS/COFINS + crédito da manutenção − manutenção − seguro − monitoramento) ÷ robôs-mês alugados = ${money(result.margin)}. Ficam de fora a compra, o crédito da compra, o IR/CSLL e o valor de livro.`,
       ],
+    },
+    {
+      title: 'Impostos (lucro real)',
+      lines: taxLines(result),
     },
     {
       title: 'Contrato de um robô',
       lines: [
         `A conta de um robô usa o mesmo aluguel da frota, ${money(result.contract.rentUsed)}, sem desconto de volume, sem renovação e sem recolocação. O horizonte desse contrato é ${formatFlex(result.contract.horizon)} meses.`,
         `A manutenção desse contrato é a mesma da frota, ${money(result.contract.maintenanceMonthly)} por robô alugado, no mesmo mês do aluguel. Meses de aluguel: ${formatFlex(result.contract.billingMonths)}.`,
-        `Payback do contrato: ${result.contract.label} TIR: ${contractIrr} VPL a ${formatFlex(result.discountPct)}% ao ano: ${money(result.contract.npv)}. Lucro total, com residual ou valor de saída: ${money(result.contract.profit)}.`,
+        `Payback do contrato: ${result.contract.label} TIR: ${contractIrr} VPL a ${formatFlex(result.discountPct)}% ao ano: ${money(result.contract.npv)}. Lucro total depois dos impostos, com residual ou valor de saída: ${money(result.contract.profit)}. IR/CSLL do contrato: ${money(result.contract.incomeTax)}.`,
       ],
     },
     {
       title: 'Payback, captação e retorno',
       lines: [
-        'O caixa do mês soma compra, crédito de impostos recuperado, receita, setup, manutenção, seguro, monitoramento, sucata no fim da vida e, só no último mês, o valor de livro do que ainda não depreciou até o fim. Não entra aporte, dívida nem juros: o funding é capital próprio.',
-        `Payback da frota: ${monthLabel(result)} É o primeiro mês em que o acumulado volta a ficar maior ou igual a zero depois de ter ficado negativo.`,
+        'O caixa do mês soma compra, receita, setup, PIS/COFINS a pagar (débito menos créditos usados), IR/CSLL, manutenção, seguro, monitoramento e sucata no fim da vida. Não entra aporte, dívida nem juros: o funding é capital próprio.',
+        `Payback da frota: ${monthLabel(result)} É o primeiro mês em que o acumulado, sem o valor terminal, volta a ficar maior ou igual a zero depois de ter ficado negativo.`,
+        `Valor terminal, à parte = ${money(result.terminal)}: valor de livro, no mês ${formatFlex(result.horizon)}, dos robôs que ainda não completaram a vida. Acumulado no fim = ${money(result.cumulative)}; com o valor terminal = ${money(result.cumulativeWithTerminal)}.`,
         `Pior ponto = ${money(result.worst)} no mês ${formatFlex(result.worstMonth)}. Captação = pico × (1 + ${formatFlex(result.safetyMarginPct)}%) = ${money(result.raise)}.`,
         result.twoTranches
           ? `Duas tranches, somando a captação: ${trancheText}. A primeira cobre o pico até o mês anterior à segunda, com a mesma margem. Tranches não entram na TIR nem no payback.`
           : `Uma tranche no mês 1: ${money(result.raise)}. Ela não entra na TIR nem no payback.`,
         dilutionText,
-        `VPL desconta o caixa do projeto a ${formatFlex(result.discountPct)}% ao ano, taxa efetiva. A taxa mensal é (1 + taxa anual) ^ (1 ÷ 12) − 1. VPL = ${money(result.npv)}.`,
+        `VPL desconta o caixa do projeto depois dos impostos, com o valor terminal no último mês, a ${formatFlex(result.discountPct)}% ao ano, taxa efetiva. A taxa mensal é (1 + taxa anual) ^ (1 ÷ 12) − 1. VPL = ${money(result.npv)}.`,
         `TIR anual: ${irrText} É a taxa efetiva ao ano que zera esse VPL. O fluxo compra robô todo mês, então pode haver mais de uma raiz; a conta fica com a raiz que a busca encontra quando o VPL troca de sinal.`,
         result.suggestedRent == null
           ? `Não há mensalidade que devolva o caixa até o mês ${formatFlex(result.targetPayback)}. Com o fator líquido da receita em ${netFactor}, aumentar o aluguel não adianta.`
-          : `Mensalidade mínima sugerida = menor valor, em centavos, cujo payback cai até o mês ${formatFlex(result.targetPayback)}: ${money(result.suggestedRent)}. A busca é binária. Ela não escreve no campo de aluguel. No repasse, o resultado usa o percentual da economia, não esse mínimo.`,
+          : `Mensalidade mínima sugerida = menor valor, em centavos, cujo payback, sem o valor terminal, cai até o mês ${formatFlex(result.targetPayback)}: ${money(result.suggestedRent)}. A busca é binária. Ela não escreve no campo de aluguel. No repasse, o resultado usa o percentual da economia, não esse mínimo.`,
       ],
     },
   ];
