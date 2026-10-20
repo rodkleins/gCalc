@@ -5,12 +5,16 @@ import { describe, it } from 'vitest';
 import { evaluate as storeEvaluate } from '../../src/model/calculate.ts';
 import { defaultStorePreset } from '../../src/model/presets.ts';
 import {
+  LUCRO_REAL,
   STORE_COST_WITH,
   STORE_COST_WITHOUT,
   STORE_SAVING_DEFAULT,
   evaluate,
   explain,
+  parseBr,
   paybackLabel,
+  sanitize,
+  taxNote,
   toCents,
   volumeDiscountPct,
 } from '../../public/interno/locacao/calc.js';
@@ -42,7 +46,10 @@ describe('locação da frota', () => {
     assert.equal(result.months[1].billing, 1);
     assert.equal(result.months[1].inField, 2);
     assert.equal(result.months[1].maintenanceCents, cents(3500));
-    assert.equal(result.months[1].salesCents, cents(20000 * (1 - 0.02 - 0.1133)));
+    assert.equal(result.months[1].grossCents, cents(20000));
+    assert.equal(result.months[1].salesCents, cents(20000 * 0.98));
+    assert.equal(result.months[1].debitCents, cents(20000 * 0.0925));
+    assert.equal(result.months[1].pisCofinsCents, 0);
     assert.equal(result.months[12] ? result.months[12].listFactor : evaluate({ ...legacy, rent: 20000 }).months[12].listFactor, 1.04);
     const text = explain(result).map((block) => block.lines.join('\n')).join('\n');
     assert.match(text, /mês seguinte à instalação/);
@@ -53,8 +60,8 @@ describe('locação da frota', () => {
 
   it('não recupera com aluguel zero e paga antes quando o aluguel sobe', () => {
     const zero = evaluate({ ...legacy, rent: 0 });
-    const low = evaluate({ ...legacy, rent: 20000 });
-    const high = evaluate({ ...legacy, rent: 30000 });
+    const low = evaluate({ ...legacy, rent: 30000 });
+    const high = evaluate({ ...legacy, rent: 50000 });
     assert.equal(zero.payback, null);
     assert.equal(zero.wentNegative, true);
     assert.match(paybackLabel(zero), /Não recupera em 120 meses/);
@@ -77,7 +84,7 @@ describe('locação da frota', () => {
     assert.equal(empty.usedSuggestion, true);
     assert.equal(empty.rentUsed, early.suggestedRent);
     assert.equal(empty.payback, 36);
-    const paced = [10000, 20000, 30000, 50000].map((rent) => evaluate({ ...legacy, rent }).payback);
+    const paced = [30000, 50000, 70000, 100000].map((rent) => evaluate({ ...legacy, rent }).payback);
     for (let index = 1; index < paced.length; index += 1) {
       assert.ok(paced[index] != null && paced[index] <= paced[index - 1]);
     }
@@ -229,37 +236,38 @@ describe('repasse, manutenção terceirizada e desconto de volume', () => {
     const priced = [50, 60, 70].map((passThroughPct) => evaluate({ passThroughPct }));
     assert.deepEqual(
       priced.map((item) => item.payback),
-      [90, 78, 68],
+      [117, 101, 89],
     );
     assert.deepEqual(
       priced.map((item) => item.worstMonth),
-      [46, 39, 35],
+      [60, 51, 48],
     );
     assert.deepEqual(
       priced.map((item) => item.worstCents),
-      [-3009251571, -2603516220, -2302705976],
+      [-4128058541, -3557594415, -3128358318],
     );
     assert.deepEqual(
       priced.map((item) => item.raiseCents),
-      [3611101885, 3124219464, 2763247171],
+      [4953670249, 4269113298, 3754029982],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.npv)),
-      [691630255, 1966003873, 3240377494],
+      [-994810242, -22251754, 913771814],
     );
     assert.deepEqual(
       priced.map((item) => item.contract.payback),
-      [52, 44, 39],
+      [68, 57, 50],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.contract.npv)),
-      [-7711669, 14806100, 37323873],
+      [-31179141, -12259763, 4897248],
     );
     assert.deepEqual(
       priced.map((item) => cents(item.contract.profit)),
-      [193606540, 255131186, 316655820],
+      [152433443, 200524369, 242686490],
     );
-    assert.equal(priced[1].suggestedCents, 7452955);
+    assert.equal(priced[1].suggestedCents, 10448155);
+    assert.equal(priced[1].terminalCents, 8353800000);
     assert.equal(priced[1].creditMonths, 48);
     const suggested = evaluate({ passThroughOn: false });
     const at = evaluate({ passThroughOn: false, rent: suggested.suggestedRent });
@@ -307,6 +315,184 @@ describe('repasse, manutenção terceirizada e desconto de volume', () => {
       total,
     );
     assert.equal(redeployed.months[3].creditCents, Math.floor(total / 4));
+  });
+});
+
+describe('lucro real, um robô, valor terminal e correções', () => {
+  const one = {
+    passThroughOn: false,
+    rent: 29769.6,
+    pace: 1,
+    maxFleet: 1,
+    horizon: 121,
+    renewalPct: 0,
+    tier1Pct: 0,
+    tier2Pct: 0,
+  };
+
+  it('fixa o regime em lucro real com as alíquotas da constante', () => {
+    assert.deepEqual(LUCRO_REAL, {
+      pisCofinsPct: 9.25,
+      maintenanceCreditPct: 9.25,
+      irpjPct: 15,
+      irpjSurchargePct: 10,
+      irpjSurchargeThreshold: 20000,
+      csllPct: 9,
+      lossOffsetCapPct: 30,
+    });
+    const result = evaluate({});
+    assert.equal('revenueTaxPct' in result, false);
+    assert.equal(sanitize({ revenueTaxPct: 5 }).revenueTaxPct, undefined);
+    const note = taxNote(result);
+    assert.match(note, /Lucro real/);
+    assert.match(note, /9,25%/);
+    assert.match(note, /34%/);
+    assert.match(note, /30%/);
+    const text = explain(result).map((block) => block.lines.join('\n')).join('\n');
+    assert.match(text, /LUCRO_REAL/);
+    assert.match(text, /Lucro tributável/);
+  });
+
+  it('limita os créditos ao débito de PIS/COFINS e carrega o saldo', () => {
+    const result = evaluate(one);
+    const total = cents(1300000 * 0.25);
+    let pool = 0;
+    for (const month of result.months) {
+      assert.equal(month.debitCents, Math.round((month.grossCents + month.setupCents) * 0.0925));
+      assert.equal(month.maintenanceCreditCents, Math.round(month.maintenanceCents * 0.0925));
+      pool += month.creditCents + month.maintenanceCreditCents;
+      const used = Math.min(pool, month.debitCents);
+      pool -= used;
+      assert.equal(month.creditUsedCents, used);
+      assert.ok(month.creditUsedCents <= month.debitCents);
+      assert.equal(month.pisCofinsCents, month.debitCents - used);
+      assert.equal(month.creditBalanceCents, pool);
+    }
+    const second = result.months[1];
+    assert.equal(second.creditCents, Math.ceil(total / 48));
+    assert.equal(second.creditUsedCents, second.debitCents);
+    assert.equal(second.creditBalanceCents, second.creditCents + second.maintenanceCreditCents - second.debitCents);
+    assert.equal(second.pisCofinsCents, 0);
+    assert.ok(result.months[48].creditBalanceCents > 0);
+    // O saldo acaba antes do fim da vida e, daí em diante, o PIS/COFINS volta a ser pago.
+    const firstPaid = result.months.findIndex((month) => month.pisCofinsCents > 0);
+    assert.equal(result.months[firstPaid].month, 112);
+    assert.equal(result.months[firstPaid].creditBalanceCents, 0);
+    assert.ok(result.months.slice(1, firstPaid).every((month) => month.pisCofinsCents === 0));
+    assert.ok(result.months.slice(firstPaid, 120).every((month) => month.pisCofinsCents > 0));
+    // Sem débito (aluguel quase zero), o crédito não vira caixa.
+    const idle = evaluate({ ...one, rent: 1 });
+    assert.ok(idle.creditBalance > 300000);
+    assert.equal(
+      idle.months.reduce((sum, month) => sum + month.creditUsedCents, 0),
+      idle.months.reduce((sum, month) => sum + month.debitCents, 0),
+    );
+  });
+
+  it('calcula o IR/CSLL sobre o lucro com depreciação e compensa no máximo 30%', () => {
+    const result = evaluate(one);
+    const depreciation = cents((1300000 * (1 - 0.25 - 0.2)) / 120);
+    const first = result.months[0];
+    assert.equal(first.depreciationCents, depreciation);
+    assert.equal(first.taxableCents, -depreciation);
+    assert.equal(first.incomeTaxCents, 0);
+    assert.equal(first.lossCarryCents, depreciation);
+    const second = result.months[1];
+    const expectedTaxable =
+      second.grossCents -
+      second.debitCents -
+      second.lossCents -
+      (second.maintenanceCents - second.maintenanceCreditCents) -
+      depreciation;
+    assert.equal(second.taxableCents, expectedTaxable);
+    assert.equal(second.lossOffsetCents, Math.floor(expectedTaxable * 0.3));
+    assert.equal(second.lossCarryCents, depreciation - second.lossOffsetCents);
+    assert.equal(second.incomeTaxCents, Math.round((expectedTaxable - second.lossOffsetCents) * 0.24));
+    const third = result.months[2];
+    assert.equal(third.lossOffsetCents, second.lossCarryCents);
+    assert.equal(third.lossCarryCents, 0);
+    // Adicional de 10% acima de R$ 20 mil de base no mês.
+    const rich = evaluate({ ...one, rent: 200000, horizon: 3 }).months[2];
+    const base = rich.taxableCents - rich.lossOffsetCents;
+    assert.ok(base > cents(20000));
+    assert.equal(rich.incomeTaxCents, Math.round(base * 0.24 + (base - cents(20000)) * 0.1));
+    // O caixa do mês fecha com receita, setup, impostos e custos.
+    for (const month of result.months) {
+      assert.equal(
+        month.operatingCents,
+        month.salesCents +
+          month.setupCents -
+          month.pisCofinsCents -
+          month.incomeTaxCents -
+          month.capexCents -
+          month.maintenanceCents -
+          month.otherCents +
+          month.scrapCents +
+          month.releaseCents,
+      );
+    }
+  });
+
+  it('não compra um segundo robô na visão de um contrato (C2)', () => {
+    const base = evaluate({});
+    assert.equal(base.contract.horizon, 121);
+    assert.equal(base.contract.billingMonths, 119);
+    const short = evaluate({ contractMonths: 60 });
+    assert.equal(short.contract.billingMonths, 60);
+    assert.ok(short.contract.profit < base.contract.profit);
+    const shortest = evaluate({ contractMonths: 24 });
+    assert.equal(shortest.contract.billingMonths, 24);
+  });
+
+  it('calcula payback e mínima sem o valor terminal e o mostra à parte (C3)', () => {
+    const base = evaluate({});
+    const last = base.months[base.months.length - 1];
+    assert.equal(base.terminalCents, last.terminalCents);
+    assert.ok(base.terminalCents > 0);
+    assert.equal(last.cumulativeCents, Math.round(base.cumulative * 100));
+    assert.equal(last.netCents, last.operatingCents + last.terminalCents);
+    assert.equal(cents(base.cumulativeWithTerminal), cents(base.cumulative) + base.terminalCents);
+    // Antes, o valor de livro do mês 180 virava "Payback mês 180" com aluguel de R$ 10.000.
+    const low = evaluate({ passThroughOn: false, rent: 10000 });
+    assert.equal(low.payback, null);
+    assert.ok(low.cumulative + low.terminal > 0);
+    const late = evaluate({ passThroughOn: false, targetPayback: 180 });
+    const at = evaluate({ passThroughOn: false, rent: late.suggestedRent });
+    assert.ok(at.months[178].cumulativeCents < 0);
+    assert.ok(at.months[179].cumulativeCents >= 0);
+    assert.equal(at.payback, 180);
+    const text = explain(base).map((block) => block.lines.join('\n')).join('\n');
+    assert.match(text, /Valor terminal, à parte/);
+  });
+
+  it('exige a 2ª faixa depois da 1ª e lê percentuais com ponto decimal', () => {
+    assert.equal(sanitize({ tier1From: 60, tier2From: 50 }).tier2From, 61);
+    assert.equal(sanitize({ tier1From: 10, tier2From: 50 }).tier2From, 50);
+    const inverted = evaluate({ passThroughOn: false, rent: 1, horizon: 66, tier1From: 60, tier2From: 50 });
+    assert.equal(inverted.months[54].capexCents, cents(1300000));
+    assert.equal(inverted.months[59].capexCents, cents(1300000 * 0.95));
+    assert.equal(inverted.months[60].capexCents, cents(1300000 * 0.9));
+    assert.equal(parseBr('0.250'), 0.25);
+    assert.equal(parseBr('1.500'), 1500);
+    assert.equal(parseBr('1.300.000'), 1300000);
+    assert.equal(parseBr('2,5'), 2.5);
+    assert.equal(parseBr('2.500', { decimalDot: true }), 2.5);
+    assert.equal(parseBr('9.250', { decimalDot: true }), 9.25);
+    const calc = readFileSync(join(root, 'public/interno/locacao/calc.js'), 'utf8');
+    assert.equal(calc.includes('implantCents'), false);
+  });
+
+  it('não sobrescreve o payback alvo nem a 2ª tranche ao mudar o horizonte (A2)', () => {
+    const app = readFileSync(join(root, 'public/interno/locacao/app.js'), 'utf8');
+    const commit = app.slice(app.indexOf('function commit()'), app.indexOf('function bindChrome()'));
+    assert.doesNotMatch(commit, /state\.targetPayback\s*=/);
+    assert.doesNotMatch(commit, /state\.tranche2Month\s*=/);
+    assert.doesNotMatch(app, /state\.(targetPayback|tranche2Month)\s*=[^=]/);
+    // O calc limita os dois só na conta.
+    const clamped = sanitize({ horizon: 12, targetPayback: 36, tranche2Month: 13 });
+    assert.equal(clamped.targetPayback, 12);
+    assert.equal(clamped.tranche2Month, 12);
+    assert.equal(sanitize({ horizon: 180, targetPayback: 36, tranche2Month: 13 }).targetPayback, 36);
   });
 });
 
