@@ -1356,7 +1356,7 @@ const COLORS = {
 const CAMERA_PRESETS = {
   iso: { yaw: -0.62, pitch: 0.4, zoom: 1 },
   front: { yaw: 0, pitch: 0.06, zoom: 1.05 },
-  cut: { yaw: -1.12, pitch: 0.46, zoom: 1, xray: true },
+  cut: { yaw: 0.72, pitch: 0.48, zoom: 1.18, xray: true },
   top: { yaw: -0.0001, pitch: 1.5, zoom: 1 },
 };
 
@@ -1740,7 +1740,7 @@ function createViewer(canvas) {
     const sideAlpha = 1 - 0.8 * mix;
     const fasciaAlpha = 1 - 0.45 * mix;
     const topAlpha = 1 - 0.85 * mix;
-    const frontAlpha = 1 - 0.12 * mix;
+    const frontAlpha = 1 - 0.75 * mix;
     const extStart = Lt;
     const hasExt = model.gripper2 && L - Lt > 0.01;
 
@@ -1887,11 +1887,10 @@ function createViewer(canvas) {
     return { shell, internals: mix > 0.02 ? buildInternals(fh) : [] };
   }
 
-  /* Interior para os raios-X: estantes deslizantes, pórtico de alumínio e um ou dois grippers. */
+  /* Interior para os raios-X: estantes que deslizam em d, corredor lateral e o ciclo do gripper. */
   function buildInternals(fh) {
     const d = dims;
     const mix = xrayMix;
-    const theme = THEMES[view.theme].color;
     const H = d.H;
     const Wc = d.Wc;
     const Lt = d.Lt;
@@ -1902,67 +1901,230 @@ function createViewer(canvas) {
     const hasExt = model.gripper2 && L - Lt > 0.01;
     const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04;
     const rackTop = H - fh - 0.06;
-    /* Estantes rolantes transversais: cruzam a largura e deixam à direita o corredor do trilho e da coluna. */
+    /* Estantes rolantes transversais: cruzam a largura e deixam à direita o corredor do trilho, da esteira e do braço. */
     const shelfX0 = x0 + 0.08;
     const shelfX1 = x1 - 0.34;
     const dCool0 = Math.max(dStart + 0.6, L - 0.92);
     const dCool1 = L - 0.06;
     const dEnd = model.cooling ? dCool0 - 0.04 : L - 0.06;
-    const aisleW = 0.65;
-    const gap = 0.11;
-    const rowDepth = 0.28;
-    const span = dEnd - dStart;
-    const aisles = (hasExt ? [0.25, 0.75] : [0.5]).map((t) => dStart + span * t);
+    const aisleW = 0.62;
+    const gap = 0.045;
+    const rowDepth = 0.32;
+    const RACK_LETTERS = 'BCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const PACK_TONES = ['#f6ead2', '#e7a23a', '#d5e6c8', '#f3d3cf', '#cfe3f6', '#f4f1ea'];
+    const CYCLE = 8.6;
 
-    /* Prateleiras e divisórias de pacotes nas faces frontal e traseira, correndo ao longo de x. */
+    const smoothstep = (value) => {
+      const t = Math.max(0, Math.min(1, value));
+      return t * t * (3 - 2 * t);
+    };
+
+    /* Ciclo do gripper, em fração de CYCLE:
+       0–0,22 corre no corredor lateral, braço recolhido, e as estantes deslizam até o corredor alvo.
+       0,22–0,26 o vão fica aberto, com o braço ainda na lateral.
+       0,26–0,44 entra no corredor, acende o feixe de laser e abre as pás.
+       0,44–0,62 as pás recuam e puxam a caixa para a bandeja.
+       0,62–0,80 recua até a esteira preta.
+       0,80–1 empurra a caixa na esteira, que a leva para a frente. */
+    const gripperCycle = (phase, zone0, zone1) => {
+      const shifted = time + phase;
+      const slot = Math.floor(shifted / CYCLE);
+      const local = (shifted % CYCLE) / CYCLE;
+      const span = Math.max(0.3, zone1 - zone0);
+      const open = Math.min(aisleW, Math.max(0.42, span * 0.28));
+      const pitch = rowDepth + gap;
+      const count = Math.max(1, Math.floor((span - open + gap) / pitch));
+      const place = (nLeft) => {
+        const nL = Math.max(0, Math.min(count, nLeft));
+        const nR = count - nL;
+        const leftEnd = nL === 0 ? zone0 : zone0 + nL * pitch - gap;
+        const rightStart = nR === 0 ? zone1 : zone1 - (nR * pitch - gap);
+        const free = Math.max(0, rightStart - leftEnd);
+        const openUse = Math.min(open, free);
+        const extra = Math.max(0, free - openUse);
+        const open0 = leftEnd + extra / 2;
+        const rows = [];
+        for (let index = 0; index < nL; index += 1) rows.push(zone0 + index * pitch);
+        for (let index = 0; index < nR; index += 1) rows.push(rightStart + index * pitch);
+        return { rows, center: open0 + openUse / 2, openUse };
+      };
+      const stops = [0.18, 0.42, 0.66, 0.88].map((fraction) => Math.max(0, Math.min(count, Math.round(fraction * count))));
+      const from = stops[((slot % stops.length) + stops.length) % stops.length];
+      const to = stops[((slot + 1) % stops.length + stops.length) % stops.length];
+      const travel = local < 0.22 ? smoothstep(local / 0.22) : 1;
+      const nL = Math.max(0, Math.min(count, from + (to - from) * travel));
+      const lo = Math.floor(nL);
+      const hi = Math.min(count, Math.ceil(nL));
+      const frac = nL - lo;
+      const laidA = place(lo);
+      const laidB = place(hi);
+      const dCenter = laidA.center + (laidB.center - laidA.center) * frac;
+      const openNow = laidA.openUse + (laidB.openUse - laidA.openUse) * frac;
+      const open0 = dCenter - openNow / 2;
+      const open1 = dCenter + openNow / 2;
+      const rows = laidA.rows.map((r0a, index) => {
+        const r0 = r0a + (laidB.rows[index] - r0a) * frac;
+        const r1 = r0 + rowDepth;
+        let aisleFace = null;
+        if (Math.abs(r1 - open0) < 0.1) aisleFace = 'back';
+        else if (Math.abs(r0 - open1) < 0.1) aisleFace = 'front';
+        return [r0, r1, aisleFace];
+      });
+      const heights = [0.3, 0.58, 0.42, 0.74];
+      const yNorm = heights[slot % 4] + (heights[(slot + 1) % 4] - heights[slot % 4]) * travel;
+      let reach = 0;
+      let paddle = 0;
+      let boxMode = 'none';
+      let boxU = 0;
+      let laser = false;
+      if (local < 0.26) {
+        reach = 0;
+      } else if (local < 0.44) {
+        const u = smoothstep((local - 0.26) / 0.18);
+        reach = u;
+        paddle = u;
+        laser = true;
+        boxMode = 'shelf';
+      } else if (local < 0.62) {
+        const u = smoothstep((local - 0.44) / 0.18);
+        reach = 1;
+        paddle = 1 - u * 0.7;
+        laser = u < 0.35;
+        boxMode = 'pull';
+        boxU = u;
+      } else if (local < 0.8) {
+        const u = smoothstep((local - 0.62) / 0.18);
+        reach = 1 - u;
+        paddle = 0.3 * (1 - u);
+        boxMode = 'tray';
+      } else if (local < 0.9) {
+        reach = 0;
+        boxMode = 'dump';
+        boxU = smoothstep((local - 0.8) / 0.1);
+      } else {
+        reach = 0;
+        boxMode = 'belt';
+        boxU = (local - 0.9) / 0.1;
+      }
+      return { dCenter, open: openNow, yNorm, reach, paddle, boxMode, boxU, laser, rows };
+    };
+
     const rowLines = (dd) => {
       const lines = [];
       for (let y = 0.28; y < rackTop; y += 0.22) lines.push([P(shelfX0, y, dd), P(shelfX1, y, dd)]);
       for (let x = shelfX0 + 0.4; x < shelfX1 - 0.05; x += 0.4) lines.push([P(x, 0.12, dd), P(x, rackTop, dd)]);
       return lines;
     };
-    const rack = (r0, r1, fill, stroke, alpha) => {
-      const mid = (r0 + r1) / 2;
+    const stencil = (letter) => (context) => {
+      context.fillStyle = 'rgba(255,255,255,0.94)';
+      context.font = '600 68px Outfit, "Segoe UI", sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(letter, 40, 40);
+    };
+    const ledPanel = (context) => {
+      context.fillStyle = '#121416';
+      context.fillRect(0, 0, 96, 36);
+      context.font = '700 20px Outfit, "Segoe UI", sans-serif';
+      context.textBaseline = 'middle';
+      context.fillStyle = '#3dff7a';
+      context.fillText('002', 8, 18);
+      context.fillStyle = '#ff3b30';
+      context.fillText('174', 52, 18);
+    };
+
+    /* Com o 2º braço, cada gripper tem a sua metade da profundidade e o seu corredor. O refrigerado fica depois, no fundo. */
+    const mid = (dStart + dEnd) / 2;
+    const zones = hasExt
+      ? [
+          { d0: dStart, d1: mid - 0.16, phase: 0 },
+          { d0: mid + 0.16, d1: dEnd, phase: CYCLE / 2 },
+        ]
+      : [{ d0: dStart, d1: dEnd, phase: 0 }];
+    const poses = zones.map((zone) => ({ zone, pose: gripperCycle(zone.phase, zone.d0, zone.d1) }));
+
+    let letterIndex = 0;
+    const rack = (r0, r1, fill, stroke, alpha, letter, aisleFace) => {
+      const midD = (r0 + r1) / 2;
       /* Topo só com linhas ao longo de x: linhas em d se alinham na planta e parecem colunas longitudinais. */
-      const topLines = [r0 + (r1 - r0) * 0.25, mid, r0 + (r1 - r0) * 0.75].map((dd) => [P(shelfX0, rackTop, dd), P(shelfX1, rackTop, dd)]);
-      /* Níveis nas laterais: no corte, cada fileira aparece como um gabinete transversal próprio. */
+      const topLines = [r0 + (r1 - r0) * 0.25, midD, r0 + (r1 - r0) * 0.75].map((dd) => [P(shelfX0, rackTop, dd), P(shelfX1, rackTop, dd)]);
       const levels = (x) => {
         const lines = [];
         for (let y = 0.28; y < rackTop; y += 0.22) lines.push([P(x, y, r0), P(x, y, r1)]);
         return lines;
       };
+      const letterTop = Math.min(rackTop - 0.16, 1.92);
+      const letterBottom = letterTop - 0.7;
+      const letterDecals = letter
+        ? [{
+            pts: quadX(shelfX1 + 0.004, letterBottom, letterTop, r0 + 0.015, r1 - 0.015),
+            fill: null,
+            w: 80,
+            h: 80,
+            draw: stencil(letter),
+          }]
+        : [];
+      const packDecals = [];
+      const sidePacks = [];
+      if (aisleFace && letter) {
+        const plane = aisleFace === 'back' ? r1 + 0.004 : r0 - 0.004;
+        const rand = seeded(letter.charCodeAt(0) * 131 + (aisleFace === 'back' ? 3 : 11));
+        for (let level = 0; level < 4; level += 1) {
+          const y = 0.36 + level * 0.28;
+          if (y + 0.08 > rackTop) break;
+          const bw = 0.09 + rand() * 0.05;
+          const x = shelfX0 + 0.18 + rand() * Math.max(0.2, shelfX1 - shelfX0 - 0.5);
+          const xPack = Math.min(shelfX1 - 0.08, x + bw);
+          if (xPack - x < 0.04) continue;
+          packDecals.push({
+            pts: quadZ(plane, x, xPack, y, y + 0.065),
+            fill: PACK_TONES[Math.floor(rand() * PACK_TONES.length)],
+            alpha: 0.95 * mix,
+          });
+        }
+        for (let level = 0; level < 3; level += 1) {
+          const y = 0.3 + level * 0.32;
+          if (y + 0.08 > letterBottom) break;
+          const bw = 0.07 + rand() * 0.05;
+          const dPack = r0 + 0.04 + rand() * Math.max(0.02, rowDepth - bw - 0.1);
+          const dPack1 = Math.min(r1 - 0.03, dPack + bw);
+          if (dPack1 - dPack < 0.04) continue;
+          sidePacks.push({
+            pts: quadX(shelfX1 + 0.006, y, y + 0.07, dPack, dPack1),
+            fill: PACK_TONES[Math.floor(rand() * PACK_TONES.length)],
+            alpha: 0.95 * mix,
+          });
+        }
+      }
       faces.push(
         ...box(shelfX0, shelfX1, 0.12, rackTop, r0, r1, {
           fill,
           alpha,
           stroke,
           faces: {
-            front: { lines: rowLines(r0), lineColor: '#56636a', lineAlpha: 0.55 * mix },
-            back: { lines: rowLines(r1), lineColor: '#56636a', lineAlpha: 0.55 * mix },
+            front: { lines: rowLines(r0), lineColor: '#56636a', lineAlpha: 0.55 * mix, decals: aisleFace === 'front' ? packDecals : [] },
+            back: { lines: rowLines(r1), lineColor: '#56636a', lineAlpha: 0.55 * mix, decals: aisleFace === 'back' ? packDecals : [] },
             top: { lines: topLines, lineColor: '#56636a', lineAlpha: 0.4 * mix },
             left: { lines: levels(shelfX0), lineColor: '#56636a', lineAlpha: 0.55 * mix },
-            right: { lines: levels(shelfX1), lineColor: '#56636a', lineAlpha: 0.55 * mix },
+            right: { lines: levels(shelfX1), lineColor: '#56636a', lineAlpha: 0.55 * mix, decals: [...letterDecals, ...sidePacks] },
           },
         }),
       );
     };
-    const edges = [dStart, ...aisles.flatMap((c) => [c - aisleW / 2, c + aisleW / 2]), dEnd];
-    for (let index = 0; index < edges.length; index += 2) {
-      const a = edges[index];
-      const s = edges[index + 1] - a;
-      if (s < 0.12) continue;
-      const count = Math.max(1, Math.ceil((s + gap) / (rowDepth + gap)));
-      const depth = (s - (count - 1) * gap) / count;
-      for (let unit = 0; unit < count; unit += 1) {
-        const r0 = a + unit * (depth + gap);
-        rack(r0, r0 + depth, COLORS.rack, '#7d8a91', 0.5 * mix);
+
+    for (const { pose } of poses) {
+      for (const [r0, r1, aisleFace] of pose.rows) {
+        const letter = RACK_LETTERS[letterIndex % RACK_LETTERS.length];
+        letterIndex += 1;
+        rack(r0, r1, '#b7c3c9', '#6d787e', 0.72 * mix, letter, aisleFace);
       }
     }
+
     /* Módulo refrigerado: sempre a última seção, no fundo do robô, com duas fileiras transversais numa câmara azul. */
     if (model.cooling) {
       const coolDepth = (dCool1 - dCool0 - gap) / 2;
-      rack(dCool0, dCool0 + coolDepth, COLORS.cool, COLORS.cool, 0.62 * mix);
-      rack(dCool1 - coolDepth, dCool1, COLORS.cool, COLORS.cool, 0.62 * mix);
+      rack(dCool0, dCool0 + coolDepth, COLORS.cool, COLORS.cool, 0.62 * mix, null, null);
+      rack(dCool1 - coolDepth, dCool1, COLORS.cool, COLORS.cool, 0.62 * mix, null, null);
       faces.push(
         ...box(shelfX0 - 0.03, shelfX1 + 0.03, 0.08, rackTop + 0.04, dCool0 - 0.02, dCool1 + 0.02, {
           fill: COLORS.cool,
@@ -1977,13 +2139,19 @@ function createViewer(canvas) {
     const railY0 = H - 0.24;
     const railY1 = H - 0.16;
     const railStyle = { fill: COLORS.rail, alpha: 0.95 * mix, stroke: '#6f7b82' };
-    /* Guia linear principal: longitudinal, no alto da lateral direita, com a faixa verde no topo e no flanco. */
+    /* Guia linear principal: longitudinal, no alto da lateral direita, com a faixa verde e os rasgos do perfil T. */
     faces.push(
       ...box(x1 - 0.22, x1 - 0.06, railY0, railY1, 0.1, L - 0.08, {
         ...railStyle,
         faces: {
           top: { decals: [{ pts: [P(x1 - 0.19, railY1 + 0.002, L - 0.1), P(x1 - 0.09, railY1 + 0.002, L - 0.1), P(x1 - 0.09, railY1 + 0.002, 0.12), P(x1 - 0.19, railY1 + 0.002, 0.12)], fill: '#3f8f3a', alpha: mix }] },
-          left: { decals: [{ pts: quadX(x1 - 0.222, railY0 + 0.02, railY1 - 0.02, 0.12, L - 0.1), fill: '#3f8f3a', alpha: mix }] },
+          left: {
+            decals: [
+              { pts: quadX(x1 - 0.222, railY0 + 0.02, railY1 - 0.02, 0.12, L - 0.1), fill: '#3f8f3a', alpha: mix },
+              { pts: quadX(x1 - 0.226, railY0 + 0.04, railY0 + 0.058, 0.14, L - 0.12), fill: '#8e989e', alpha: mix },
+              { pts: quadX(x1 - 0.226, railY1 - 0.058, railY1 - 0.04, 0.14, L - 0.12), fill: '#8e989e', alpha: mix },
+            ],
+          },
         },
       }),
     );
@@ -1991,65 +2159,206 @@ function createViewer(canvas) {
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    /* Carro na guia longitudinal da direita; um braço transversal fino leva a garra, comprida em d, às estantes da frente e de trás. */
-    const grip = (dCenter, phase, isSecond) => {
-      const gxMin = shelfX0 + 0.22;
-      const gxMax = shelfX1 - 0.18;
-      const gx = (gxMin + gxMax) / 2 + Math.sin(time * 0.8 + phase) * Math.max(0, (gxMax - gxMin) / 2);
-      const gy = 0.45 + (rackTop - 0.9) * (0.5 + 0.5 * Math.sin(time * 1.1 + phase * 1.7));
-      const hx = 0.11;
-      const hd = 0.25;
+    /* Esteira preta fosca no corredor lateral direito, correndo para a saída da frente. */
+    const beltX0 = x1 - 0.31;
+    const beltX1 = x1 - 0.08;
+    const beltLines = [];
+    const beltShift = (time * 0.42) % 0.3;
+    for (let dd = L - 0.16 - beltShift; dd > 0.16; dd -= 0.3) {
+      beltLines.push([P(beltX0 + 0.01, 0.152, dd), P(beltX1 - 0.01, 0.152, dd)]);
+    }
+    faces.push(
+      ...box(beltX0, beltX1, 0.08, 0.15, 0.12, L - 0.1, {
+        fill: '#1a1d20',
+        alpha: 0.96 * mix,
+        stroke: '#3a4044',
+        faces: { top: { lines: beltLines, lineColor: '#4a5158', lineAlpha: 0.7 * mix } },
+      }),
+    );
+
+    const biased = (parts, bias) => parts.map((face) => ({ ...face, bias }));
+    const chainLink = (xA, xB, yA, yB, dA, dB) => {
+      faces.push(
+        ...biased(
+          box(xA, xB, yA, yB, Math.min(dA, dB), Math.max(dA, dB), {
+            fill: '#1a1d20',
+            alpha: mix,
+            stroke: '#5c656b',
+            skip: ['bottom', 'left', 'right'],
+          }),
+          -12,
+        ),
+      );
+    };
+    /* Esteira porta-cabos preta: corre no alto e faz a curva em U até o carro. */
+    const dragChain = (dCenter) => {
+      const cx0 = x1 - 0.19;
+      const cx1 = x1 - 0.13;
+      const yLift = railY1 + 0.1;
+      const tail = Math.min(L - 0.14, dCenter + 0.72);
+      const run = Math.max(0, tail - (dCenter + 0.18));
+      const links = 5;
+      for (let index = 0; index < links; index += 1) {
+        const a = dCenter + 0.18 + (run * index) / links;
+        const b = dCenter + 0.18 + (run * (index + 1)) / links;
+        if (b - a > 0.03) chainLink(cx0, cx1, yLift, yLift + 0.03, a, b);
+      }
+      for (let index = 0; index <= 4; index += 1) {
+        const ang = (Math.PI * index) / 4;
+        const y = railY1 + 0.02 + Math.sin(ang) * 0.08;
+        const dd = dCenter + 0.05 + Math.cos(ang) * 0.14;
+        chainLink(cx0, cx1, y, y + 0.028, dd, dd + 0.045);
+      }
+    };
+
+    const grip = (pose) => {
+      const xOut = (beltX0 + beltX1) / 2 - 0.02;
+      const xIn = shelfX0 + (shelfX1 - shelfX0) * 0.48;
+      const gx = xOut + (xIn - xOut) * pose.reach;
+      let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
+      if (pose.boxMode === 'dump') gy += (0.32 - gy) * pose.boxU;
       const carX0 = x1 - 0.24;
       const carY1 = railY1 + 0.03;
-      const accent = isSecond ? '#ffffff' : theme;
+      const dCenter = pose.dCenter;
+      const headD = 0.1;
+      const headX0 = gx - 0.12;
+      const headX1 = gx + 0.08;
       const start = faces.length;
-      /* Carro longitudinal com decalque verde ao longo de d e mastro até a altura da garra. */
       faces.push(
-        ...box(carX0, x1 - 0.05, railY0 - 0.06, carY1, dCenter - 0.22, dCenter + 0.22, {
-          fill: COLORS.grip,
+        ...box(carX0, x1 - 0.05, railY0 - 0.05, carY1, dCenter - 0.16, dCenter + 0.16, {
+          fill: '#c5ced3',
           alpha: mix,
-          stroke: '#3b4247',
-          faces: { top: { decals: [{ pts: [P(x1 - 0.17, carY1 + 0.002, dCenter + 0.19), P(x1 - 0.12, carY1 + 0.002, dCenter + 0.19), P(x1 - 0.12, carY1 + 0.002, dCenter - 0.19), P(x1 - 0.17, carY1 + 0.002, dCenter - 0.19)], fill: '#3f8f3a', alpha: mix }] } },
-        }),
-      );
-      faces.push(...box(carX0, carX0 + 0.07, 0.06, railY0 - 0.06, dCenter - 0.05, dCenter + 0.05, { fill: '#8d989e', alpha: mix, stroke: '#6f7b82' }));
-      faces.push(...box(gx, carX0, gy - 0.06, gy + 0.02, dCenter - 0.04, dCenter + 0.04, { fill: '#8d989e', alpha: mix, stroke: '#6f7b82' }));
-      faces.push(
-        ...box(gx - hx, gx + hx, gy - 0.2, gy, dCenter - hd, dCenter + hd, {
-          fill: COLORS.grip,
-          alpha: mix,
-          stroke: '#3b4247',
+          stroke: '#5e686e',
           faces: {
-            front: { decals: [{ pts: quadZ(dCenter - hd - 0.001, gx - hx, gx + hx, gy - 0.06, gy - 0.025), fill: accent, alpha: mix }] },
-            back: { decals: [{ pts: quadZ(dCenter + hd + 0.001, gx + hx, gx - hx, gy - 0.06, gy - 0.025), fill: accent, alpha: mix }] },
-            top: { decals: [{ pts: [P(gx - 0.04, gy + 0.002, dCenter + hd - 0.04), P(gx + 0.04, gy + 0.002, dCenter + hd - 0.04), P(gx + 0.04, gy + 0.002, dCenter - hd + 0.04), P(gx - 0.04, gy + 0.002, dCenter - hd + 0.04)], fill: '#3f8f3a', alpha: mix }] },
+            top: {
+              decals: [{
+                pts: [P(x1 - 0.18, carY1 + 0.002, dCenter + 0.13), P(x1 - 0.11, carY1 + 0.002, dCenter + 0.13), P(x1 - 0.11, carY1 + 0.002, dCenter - 0.13), P(x1 - 0.18, carY1 + 0.002, dCenter - 0.13)],
+                fill: '#3f8f3a',
+                alpha: mix,
+              }],
+            },
           },
         }),
       );
-      /* Mandíbulas nas pontas em d, voltadas para as fileiras transversais da frente e de trás. */
+      faces.push(...box(carX0, carX0 + 0.055, gy - 0.02, railY0, dCenter - 0.035, dCenter + 0.035, { fill: '#9aa6ac', alpha: mix, stroke: '#6f7b82' }));
+      faces.push(...box(Math.min(headX1, carX0), Math.max(headX1, carX0), gy - 0.03, gy + 0.02, dCenter - 0.03, dCenter + 0.03, { fill: '#c5ced3', alpha: mix, stroke: '#6d767c' }));
+      faces.push(
+        ...box(headX0, headX1, gy - 0.07, gy + 0.02, dCenter - headD, dCenter + headD, {
+          fill: '#d7dee2',
+          alpha: mix,
+          stroke: '#667077',
+          faces: {
+            front: {
+              decals: [{
+                pts: quadZ(dCenter - headD - 0.001, headX0 + 0.01, headX1 - 0.01, gy - 0.055, gy - 0.012),
+                fill: null,
+                w: 96,
+                h: 36,
+                draw: ledPanel,
+              }],
+            },
+            top: {
+              decals: [{
+                pts: [P(headX0 + 0.02, gy + 0.022, dCenter + headD - 0.02), P(headX1 - 0.02, gy + 0.022, dCenter + headD - 0.02), P(headX1 - 0.02, gy + 0.022, dCenter - headD + 0.02), P(headX0 + 0.02, gy + 0.022, dCenter - headD + 0.02)],
+                fill: '#eef2f4',
+                alpha: mix,
+              }],
+            },
+          },
+        }),
+      );
+      const paddleTip = headX0 - 0.04 - pose.paddle * 0.16;
       for (const sign of [-1, 1]) {
-        const face = dCenter + sign * hd;
-        for (const fx of [gx - hx + 0.02, gx + hx - 0.05]) {
-          faces.push(...box(fx, fx + 0.03, gy - 0.17, gy - 0.05, Math.min(face, face + sign * 0.05), Math.max(face, face + sign * 0.05), { fill: COLORS.anthracite, alpha: mix }));
-        }
+        const face = dCenter + sign * (headD - 0.01);
+        faces.push(
+          ...box(paddleTip, headX0 + 0.03, gy - 0.055, gy + 0.045, Math.min(face, face + sign * 0.014), Math.max(face, face + sign * 0.014), {
+            fill: '#b7c0c6',
+            alpha: mix,
+            stroke: '#5c656b',
+          }),
+        );
       }
-      /* O gripper fica no corredor entre estantes translúcidas: pinta por último para não sumir. */
-      for (let index = start; index < faces.length; index += 1) faces[index].bias = -20;
+      if (pose.laser) {
+        const tip = paddleTip - 0.02;
+        faces.push(
+          ...biased(
+            box(tip - 0.5, tip, gy - 0.014, gy + 0.01, dCenter - 0.008, dCenter + 0.008, {
+              fill: '#e2312d',
+              alpha: 0.92 * mix,
+              stroke: '#ff4a42',
+              strokeAlpha: 0.9,
+              lineWidth: 1.6,
+              faces: {
+                top: {
+                  lines: [[P(tip - 0.5, gy, dCenter), P(tip, gy, dCenter)]],
+                  lineColor: '#ff2a22',
+                  lineAlpha: mix,
+                  lineWidthPx: 2,
+                },
+              },
+            }),
+            -30,
+          ),
+        );
+      }
+      let boxX = gx;
+      let boxY = gy + 0.02;
+      let boxD = dCenter;
+      let showBox = pose.boxMode !== 'none';
+      if (pose.boxMode === 'shelf') {
+        boxX = headX0 - 0.2;
+        boxY = gy + 0.02;
+      } else if (pose.boxMode === 'pull') {
+        const from = headX0 - 0.2;
+        boxX = from + (gx - from) * pose.boxU;
+        boxY = gy + 0.02;
+      } else if (pose.boxMode === 'tray') {
+        boxX = gx - 0.02;
+        boxY = gy + 0.02;
+      } else if (pose.boxMode === 'dump') {
+        const beltCenter = (beltX0 + beltX1) / 2;
+        boxX = gx + (beltCenter - gx) * pose.boxU;
+        boxY = gy + 0.02 + (0.16 - (gy + 0.02)) * pose.boxU;
+      } else if (pose.boxMode === 'belt') {
+        boxX = (beltX0 + beltX1) / 2 - 0.02;
+        boxY = 0.15;
+        boxD = dCenter - pose.boxU * Math.min(1.15, Math.max(0.2, dCenter - 0.35));
+      }
+      if (showBox) {
+        const bw = 0.12;
+        const bh = 0.055;
+        const bd = 0.07;
+        faces.push(
+          ...biased(
+            box(boxX - bw / 2, boxX + bw / 2, boxY, boxY + bh, boxD - bd, boxD + bd, {
+              fill: '#f6ead2',
+              alpha: mix,
+              stroke: '#c4a574',
+              faces: {
+                top: { decals: [{ pts: [P(boxX - bw / 2 + 0.01, boxY + bh + 0.001, boxD + bd - 0.01), P(boxX + bw / 2 - 0.01, boxY + bh + 0.001, boxD + bd - 0.01), P(boxX + bw / 2 - 0.01, boxY + bh + 0.001, boxD - bd + 0.01), P(boxX - bw / 2 + 0.01, boxY + bh + 0.001, boxD - bd + 0.01)], fill: '#e07a2f', alpha: mix }] },
+              },
+            }),
+            -24,
+          ),
+        );
+      }
+      dragChain(dCenter);
+      for (let index = start; index < faces.length; index += 1) {
+        if (faces[index].bias == null) faces[index].bias = -20;
+      }
     };
+
+    for (const item of poses) grip(item.pose);
     if (hasExt) {
-      grip(aisles[0], 0, false);
-      grip(aisles[1], 2.1, true);
       faces.push(
         ...box(x0 + 0.02, x1 - 0.02, 0.03, H - 0.03, Lt, L - 0.02, {
           fill: COLORS.grip,
-          alpha: 0.14 * mix,
+          alpha: 0.08 * mix,
           stroke: COLORS.grip,
-          strokeAlpha: 0.85 * mix,
-          lineWidth: 1.4,
+          strokeAlpha: 0.55 * mix,
+          lineWidth: 1.2,
         }).map((face) => ({ ...face, bias: -0.05 })),
       );
-    } else {
-      grip(aisles[0], 0, false);
     }
     return faces;
   }
