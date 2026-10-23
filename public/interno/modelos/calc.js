@@ -401,6 +401,25 @@ export const WIDTH_REF_LABELS = {
   direct: 'GO.direct',
 };
 
+/**
+ * NCM 8479.89.99, "outras máquinas e aparelhos mecânicos com função própria", Bem de Capital (BK). II da TEC
+ * Mercosul e da Res. GECEX 852/2026, IPI da TIPI, PIS/COFINS-Importação da Lei 10.865/2004 com o adicional de
+ * 2026 da Lei 14.973/2024 e ICMS-Importação de SP com e sem o Convênio ICMS 52/91.
+ */
+export const NCM_INFO = {
+  code: '8479.89.99',
+  description: 'Outras máquinas e aparelhos mecânicos com função própria (Bem de Capital — BK)',
+  iiTecPct: 12.6,
+  iiGecex2026Pct: 20,
+  ipiPct: 0,
+  pisPct: 2.1,
+  cofinsBasePct: 9.65,
+  cofinsAddPct: 0.6,
+  cofinsTotalPct: 10.25,
+  icmsConvenio5291Pct: 8.8,
+  icmsFullSpPct: 18,
+};
+
 export const DEFAULTS = {
   heightM: 2.95,
   widthSam: 3.2,
@@ -418,8 +437,19 @@ export const DEFAULTS = {
   roomLengthM: 5,
   minCapacity: 20000,
   fxRate: 6.2,
-  importCostPct: 0,
-  taxCreditPct: 25,
+  // NCM 8479.89.99: Ex-Tarifário liga/desliga o II; alíquotas e créditos editáveis.
+  exTarifario: true,
+  iiRatePct: NCM_INFO.iiTecPct,
+  ipiRatePct: NCM_INFO.ipiPct,
+  pisRatePct: NCM_INFO.pisPct,
+  cofinsBaseRatePct: NCM_INFO.cofinsBasePct,
+  cofinsAddRatePct: NCM_INFO.cofinsAddPct,
+  customsExpensesPct: 0,
+  convenioIcms5291: true,
+  icmsRatePct: NCM_INFO.icmsConvenio5291Pct,
+  creditPisCofins: true,
+  creditIcms: true,
+  icmsCreditFactorPct: 100,
   fleetRobots: 1,
   year1Robots: 5,
   year2Robots: 10,
@@ -463,7 +493,7 @@ export function sanitize(raw = {}) {
     num(raw.widthSam, DEFAULTS.widthSam),
   );
   input.classId = classOf(raw.classId) ? raw.classId : DEFAULTS.classId;
-  for (const key of ['secondGripper', 'coolingModule', 'includeServices', 'roomFilterOn']) {
+  for (const key of ['secondGripper', 'coolingModule', 'includeServices', 'roomFilterOn', 'exTarifario', 'convenioIcms5291', 'creditPisCofins', 'creditIcms']) {
     if (typeof raw[key] === 'boolean') input[key] = raw[key];
   }
   input.conveyorEur = Math.max(0, num(raw.conveyorEur, DEFAULTS.conveyorEur));
@@ -483,8 +513,20 @@ export function sanitize(raw = {}) {
   if (raw.minCapacity === null || raw.minCapacity === '') input.minCapacity = null;
   else input.minCapacity = Math.max(0, Math.round(num(raw.minCapacity, DEFAULTS.minCapacity)));
   input.fxRate = clamp(num(raw.fxRate, DEFAULTS.fxRate), 0.01, 100);
-  input.importCostPct = clamp(num(raw.importCostPct, DEFAULTS.importCostPct), 0, 300);
-  input.taxCreditPct = clamp(num(raw.taxCreditPct, DEFAULTS.taxCreditPct), 0, 100);
+  input.iiRatePct = clamp(num(raw.iiRatePct, DEFAULTS.iiRatePct), 0, 100);
+  input.ipiRatePct = clamp(num(raw.ipiRatePct, DEFAULTS.ipiRatePct), 0, 100);
+  input.pisRatePct = clamp(num(raw.pisRatePct, DEFAULTS.pisRatePct), 0, 50);
+  input.cofinsBaseRatePct = clamp(num(raw.cofinsBaseRatePct, DEFAULTS.cofinsBaseRatePct), 0, 50);
+  input.cofinsAddRatePct = clamp(num(raw.cofinsAddRatePct, DEFAULTS.cofinsAddRatePct), 0, 20);
+  input.customsExpensesPct = clamp(num(raw.customsExpensesPct, DEFAULTS.customsExpensesPct), 0, 100);
+  // A alíquota digitada manda: o convênio fica ligado só quando ela é a do Convênio ICMS 52/91.
+  if (raw.icmsRatePct !== undefined) {
+    input.icmsRatePct = clamp(num(raw.icmsRatePct, DEFAULTS.icmsRatePct), 0, 40);
+    input.convenioIcms5291 = Math.abs(input.icmsRatePct - NCM_INFO.icmsConvenio5291Pct) < 1e-6;
+  } else if (typeof raw.convenioIcms5291 === 'boolean') {
+    input.icmsRatePct = raw.convenioIcms5291 ? NCM_INFO.icmsConvenio5291Pct : NCM_INFO.icmsFullSpPct;
+  }
+  input.icmsCreditFactorPct = clamp(num(raw.icmsCreditFactorPct, DEFAULTS.icmsCreditFactorPct), 0, 100);
   input.fleetRobots = Math.round(clamp(num(raw.fleetRobots, DEFAULTS.fleetRobots), 1, 5000));
   for (const key of YEAR_KEYS) input[key] = Math.round(clamp(num(raw[key], DEFAULTS[key]), 0, 1000));
   input.germanInflationPct = clamp(num(raw.germanInflationPct, DEFAULTS.germanInflationPct), 0, 50);
@@ -596,19 +638,212 @@ export function quoteRobot(config, raw = {}) {
 }
 
 /**
- * Custo Brasil de um valor em euro. Câmbio → nacionalização sobre o valor convertido → crédito recuperável
- * sobre o custo nacionalizado. Retorna reais com centavos.
+ * Custo Brasil de um valor em euro na NCM 8479.89.99, em cascata sobre o Valor Aduaneiro (VA = euro × câmbio):
+ * II (zero com Ex-Tarifário), IPI sobre VA + II, PIS e COFINS (base + adicional de 2026) sobre o VA, despesas
+ * aduaneiras e ICMS "por dentro". Depois, os créditos escolhidos: PIS + COFINS base e ICMS. O II e o adicional
+ * de 0,60% da COFINS nunca geram crédito. Retorna reais com centavos.
  */
 export function brazilCost(eur, raw = {}) {
-  const fxRate = clamp(num(raw.fxRate, DEFAULTS.fxRate), 0.01, 100);
-  const importCostPct = clamp(num(raw.importCostPct, DEFAULTS.importCostPct), 0, 300);
-  const taxCreditPct = clamp(num(raw.taxCreditPct, DEFAULTS.taxCreditPct), 0, 100);
-  const grossBrl = roundMoney(eur * fxRate);
-  const importBrl = roundMoney(grossBrl * (importCostPct / 100));
-  const landedBrl = roundMoney(grossBrl + importBrl);
-  const creditBrl = roundMoney(landedBrl * (taxCreditPct / 100));
+  const input = sanitize(raw);
+  const {
+    fxRate,
+    exTarifario,
+    iiRatePct,
+    ipiRatePct,
+    pisRatePct,
+    cofinsBaseRatePct,
+    cofinsAddRatePct,
+    customsExpensesPct,
+    convenioIcms5291,
+    icmsRatePct,
+    creditPisCofins,
+    creditIcms,
+    icmsCreditFactorPct,
+  } = input;
+  const vaBrl = roundMoney(eur * fxRate);
+  const effectiveIiPct = exTarifario ? 0 : iiRatePct;
+  const iiBrl = roundMoney(vaBrl * (effectiveIiPct / 100));
+  const ipiBaseBrl = roundMoney(vaBrl + iiBrl);
+  const ipiBrl = roundMoney(ipiBaseBrl * (ipiRatePct / 100));
+  // PIS e COFINS-Importação: base é só o VA (STF Tema 01; Lei 10.865/2004, art. 7º, I).
+  const pisBrl = roundMoney(vaBrl * (pisRatePct / 100));
+  const cofinsBaseBrl = roundMoney(vaBrl * (cofinsBaseRatePct / 100));
+  const cofinsAddBrl = roundMoney(vaBrl * (cofinsAddRatePct / 100));
+  const cofinsRatePct = roundMoney(cofinsBaseRatePct + cofinsAddRatePct);
+  const cofinsBrl = roundMoney(cofinsBaseBrl + cofinsAddBrl);
+  const customsExpensesBrl = roundMoney(vaBrl * (customsExpensesPct / 100));
+  // ICMS-Importação "por dentro" (RICMS/SP, arts. 37, IV e 49): o imposto integra a própria base.
+  const icmsNumeratorBrl = roundMoney(vaBrl + iiBrl + ipiBrl + pisBrl + cofinsBrl + customsExpensesBrl);
+  const icmsBaseBrl = icmsRatePct >= 100 ? icmsNumeratorBrl : roundMoney(icmsNumeratorBrl / (1 - icmsRatePct / 100));
+  const icmsBrl = roundMoney(icmsBaseBrl * (icmsRatePct / 100));
+  const importBrl = roundMoney(iiBrl + ipiBrl + pisBrl + cofinsBrl + customsExpensesBrl + icmsBrl);
+  const landedBrl = roundMoney(vaBrl + importBrl);
+  const creditPisBrl = creditPisCofins ? pisBrl : 0;
+  // O adicional de 0,60% da COFINS não entra no crédito (Lei 10.865/2004, art. 15, § 1º-A).
+  const creditCofinsBrl = creditPisCofins ? cofinsBaseBrl : 0;
+  const creditPisCofinsBrl = roundMoney(creditPisBrl + creditCofinsBrl);
+  const creditIcmsBrl = creditIcms ? roundMoney(icmsBrl * (icmsCreditFactorPct / 100)) : 0;
+  const creditBrl = roundMoney(creditPisCofinsBrl + creditIcmsBrl);
+  const nonRecoverableBrl = roundMoney(importBrl - creditBrl);
   const netBrl = roundMoney(landedBrl - creditBrl);
-  return { eur, fxRate, importCostPct, taxCreditPct, grossBrl, importBrl, landedBrl, creditBrl, netBrl };
+  const effectiveImportPct = vaBrl > 0 ? (importBrl / vaBrl) * 100 : 0;
+  const effectiveCreditOnVaPct = vaBrl > 0 ? (creditBrl / vaBrl) * 100 : 0;
+  const effectiveCreditOnLandedPct = landedBrl > 0 ? (creditBrl / landedBrl) * 100 : 0;
+  const effectiveNetTaxPct = vaBrl > 0 ? (nonRecoverableBrl / vaBrl) * 100 : 0;
+  const brazil = {
+    eur,
+    fxRate,
+    ncm: NCM_INFO.code,
+    exTarifario,
+    iiRatePct,
+    effectiveIiPct,
+    ipiRatePct,
+    pisRatePct,
+    cofinsBaseRatePct,
+    cofinsAddRatePct,
+    cofinsRatePct,
+    customsExpensesPct,
+    convenioIcms5291,
+    icmsRatePct,
+    creditPisCofins,
+    creditIcms,
+    icmsCreditFactorPct,
+    vaBrl,
+    grossBrl: vaBrl,
+    iiBrl,
+    ipiBaseBrl,
+    ipiBrl,
+    pisBrl,
+    cofinsBaseBrl,
+    cofinsAddBrl,
+    cofinsBrl,
+    customsExpensesBrl,
+    icmsNumeratorBrl,
+    icmsBaseBrl,
+    icmsBrl,
+    importBrl,
+    landedBrl,
+    creditPisBrl,
+    creditCofinsBrl,
+    creditPisCofinsBrl,
+    creditIcmsBrl,
+    creditBrl,
+    nonRecoverableBrl,
+    netBrl,
+    effectiveImportPct,
+    effectiveCreditOnVaPct,
+    effectiveCreditOnLandedPct,
+    effectiveNetTaxPct,
+    importCostPct: effectiveImportPct,
+    taxCreditPct: effectiveCreditOnLandedPct,
+  };
+  brazil.taxLines = ncmTaxReference(brazil);
+  return brazil;
+}
+
+/**
+ * Tabela de referência da NCM 8479.89.99: cada tributo com alíquota, base, valor pago, se gera crédito, o
+ * crédito usado na conta e o custo líquido. As despesas aduaneiras só aparecem quando existem.
+ */
+export function ncmTaxReference(brazil) {
+  const lines = [
+    {
+      key: 'ii',
+      label: 'II (Imposto de Importação)',
+      ratePct: brazil.effectiveIiPct,
+      rateLabel: brazil.exTarifario
+        ? '0% c/ Ex-Tarifário'
+        : `${pct(brazil.effectiveIiPct)} s/ Ex-Tarifário (TEC ${pct(NCM_INFO.iiTecPct)} / GECEX ${pct(NCM_INFO.iiGecex2026Pct)})`,
+      baseLabel: 'VA',
+      amountBrl: brazil.iiBrl,
+      creditable: false,
+      creditBrl: 0,
+      netCostBrl: brazil.iiBrl,
+      legalBasis: 'TEC Mercosul / Res. GECEX 852/2026 · Ex-Tarifário BK zera p/ 0%',
+      creditRule: 'Não creditável (custo definitivo em qualquer regime)',
+    },
+    {
+      key: 'ipi',
+      label: 'IPI (Imposto s/ Prod. Industrializados)',
+      ratePct: brazil.ipiRatePct,
+      rateLabel: pct(brazil.ipiRatePct),
+      baseLabel: 'VA + II',
+      amountBrl: brazil.ipiBrl,
+      creditable: false,
+      creditBrl: 0,
+      netCostBrl: brazil.ipiBrl,
+      legalBasis: 'TIPI Decreto 11.158/2022 — NCM 8479.89.99 tem alíquota 0%',
+      creditRule: 'Alíquota 0% na NCM 8479.89.99 (e não creditável p/ farmácia ou locadora)',
+    },
+    {
+      key: 'pis',
+      label: 'PIS-Importação',
+      ratePct: brazil.pisRatePct,
+      rateLabel: pct(brazil.pisRatePct),
+      baseLabel: 'VA',
+      amountBrl: brazil.pisBrl,
+      creditable: brazil.creditPisCofins,
+      creditBrl: brazil.creditPisBrl,
+      netCostBrl: roundMoney(brazil.pisBrl - brazil.creditPisBrl),
+      legalBasis: 'Lei 10.865/2004, art. 7º, I e art. 8º, I (STF Tema 01: base = VA)',
+      creditRule: 'Creditável no Lucro Real em 48x sobre Ativo Imobilizado (Lei 10.865/04 art. 15, V e Lei 10.833/03 art. 3º, VI) ou integral via CBS (LC 214/2025)',
+    },
+    {
+      key: 'cofins',
+      label: 'COFINS-Importação (Base)',
+      ratePct: brazil.cofinsBaseRatePct,
+      rateLabel: pct(brazil.cofinsBaseRatePct),
+      baseLabel: 'VA',
+      amountBrl: brazil.cofinsBaseBrl,
+      creditable: brazil.creditPisCofins,
+      creditBrl: brazil.creditCofinsBrl,
+      netCostBrl: roundMoney(brazil.cofinsBaseBrl - brazil.creditCofinsBrl),
+      legalBasis: 'Lei 10.865/2004, art. 8º, II (alíquota modal sobre o VA)',
+      creditRule: 'Creditável junto com o PIS (total 11,75% s/ VA) no Lucro Real em 48x ou integral via CBS',
+    },
+    {
+      key: 'cofinsAdd',
+      label: 'Adicional COFINS-Importação (2026)',
+      ratePct: brazil.cofinsAddRatePct,
+      rateLabel: pct(brazil.cofinsAddRatePct),
+      baseLabel: 'VA',
+      amountBrl: brazil.cofinsAddBrl,
+      creditable: false,
+      creditBrl: 0,
+      netCostBrl: brazil.cofinsAddBrl,
+      legalBasis: 'Lei 10.865/2004, art. 8º, § 21 c/c Anexo I da Lei 12.546/2011 e Lei 14.973/2024 (cronograma 2026: 0,60%)',
+      creditRule: 'NÃO creditável por vedação expressa do art. 15, § 1º-A da Lei 10.865/2004 (custo definitivo)',
+    },
+  ];
+  if (brazil.customsExpensesBrl > 0) {
+    lines.push({
+      key: 'customs',
+      label: 'Despesas aduaneiras / Siscomex / AFRMM',
+      ratePct: brazil.customsExpensesPct,
+      rateLabel: pct(brazil.customsExpensesPct),
+      baseLabel: 'VA',
+      amountBrl: brazil.customsExpensesBrl,
+      creditable: false,
+      creditBrl: 0,
+      netCostBrl: brazil.customsExpensesBrl,
+      legalBasis: 'Premissa de despacho: taxa Siscomex, AFRMM, armazenagem e despachante (entram na base do ICMS)',
+      creditRule: 'Não creditável neste cálculo (custo de aquisição)',
+    });
+  }
+  lines.push({
+    key: 'icms',
+    label: 'ICMS-Importação ("por dentro")',
+    ratePct: brazil.icmsRatePct,
+    rateLabel: `${formatFlex(brazil.icmsRatePct, 2)}%`,
+    baseLabel: '(VA + II + IPI + PIS + COFINS + Desp.) ÷ (1 − ICMS)',
+    amountBrl: brazil.icmsBrl,
+    creditable: brazil.creditIcms && brazil.icmsCreditFactorPct > 0,
+    creditBrl: brazil.creditIcmsBrl,
+    netCostBrl: roundMoney(brazil.icmsBrl - brazil.creditIcmsBrl),
+    legalBasis: 'RICMS/SP arts. 37, IV e 49 · Convênio ICMS 52/91, Anexo I, Subitem 62.7 (NCM 8479.89.99 BK = 8,80% em SP; sem convênio = 18%)',
+    creditRule: 'Creditável em 48x no CIAP (LC 87/96, art. 20, § 5º) na proporção das saídas tributadas da farmácia, ou 100% via IBS; 0% p/ locadora pura (Súmula Vinculante 31)',
+  });
+  return lines;
 }
 
 function widthFor(config, ref) {
@@ -944,7 +1179,8 @@ export function evaluate(raw = {}, keep = null) {
   const brazil = brazilCost(quote.netOrderEur, chosen);
   const totalGrossBrl = roundMoney(brazil.landedBrl + quote.localServicesBrl);
   const totalNetBrl = roundMoney(brazil.netBrl + quote.localServicesBrl);
-  const totalEurApprox = roundMoney(quote.netOrderEur + quote.localServicesBrl / chosen.fxRate);
+  // Equivalente em euro do Preço Total Bruto, já com os impostos de importação.
+  const totalEurApprox = roundMoney(totalGrossBrl / chosen.fxRate);
   return {
     ...chosen,
     selection,
@@ -1059,12 +1295,24 @@ export function explain(result) {
       ],
     },
     {
-      title: 'Custo Brasil e Preço Total',
+      title: `Custo Brasil (NCM ${NCM_INFO.code}) e Preço Total`,
       lines: [
-        `Parte importada em reais = ${eur(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${brl(brazil.grossBrl)}.`,
-        `Nacionalização = ${pct(brazil.importCostPct)} × ${brl(brazil.grossBrl)} = ${brl(brazil.importBrl)}. Parte importada nacionalizada ${brl(brazil.landedBrl)}.`,
-        `Preço Total = ${brl(brazil.landedBrl)} + serviços locais ${brl(quote.localServicesBrl)} = ${brl(result.totalGrossBrl)} (≈ ${eur(result.totalEurApprox)}).`,
-        `Crédito recuperável = ${pct(brazil.taxCreditPct)} × ${brl(brazil.landedBrl)} = ${brl(brazil.creditBrl)}. Investimento líquido = ${brl(result.totalGrossBrl)} − ${brl(brazil.creditBrl)} = ${brl(result.totalNetBrl)}, ou ${brl(result.brlPerPack)} por pacote de capacidade.`,
+        `Valor Aduaneiro (VA) = pedido Gollmann líquido ${eur(quote.netOrderEur)} × câmbio ${formatFlex(brazil.fxRate, 4)} = ${brl(brazil.vaBrl)}.`,
+        brazil.exTarifario
+          ? `Ex-Tarifário ligado: II = 0% sobre o VA = ${brl(brazil.iiBrl)} (sem ele seriam ${pct(brazil.iiRatePct)}).`
+          : `Ex-Tarifário desligado: II = ${pct(brazil.effectiveIiPct)} × ${brl(brazil.vaBrl)} = ${brl(brazil.iiBrl)}, custo definitivo sem crédito.`,
+        `IPI = ${pct(brazil.ipiRatePct)} × (VA + II) ${brl(brazil.ipiBaseBrl)} = ${brl(brazil.ipiBrl)}. PIS-Importação = ${pct(brazil.pisRatePct)} × VA = ${brl(brazil.pisBrl)}. COFINS-Importação = base ${pct(brazil.cofinsBaseRatePct)} (${brl(brazil.cofinsBaseBrl)}) + adicional de 2026 ${pct(brazil.cofinsAddRatePct)} (${brl(brazil.cofinsAddBrl)}) = ${pct(brazil.cofinsRatePct)}, ${brl(brazil.cofinsBrl)}.`,
+        `Despesas aduaneiras / Siscomex / AFRMM = ${pct(brazil.customsExpensesPct)} × VA = ${brl(brazil.customsExpensesBrl)}.`,
+        `ICMS-Importação por dentro (${pct(brazil.icmsRatePct)}${brazil.convenioIcms5291 ? ', Convênio ICMS 52/91' : ', alíquota cheia de SP'}): base = ${brl(brazil.icmsNumeratorBrl)} ÷ (1 − ${pct(brazil.icmsRatePct)}) = ${brl(brazil.icmsBaseBrl)}; ICMS = ${brl(brazil.icmsBrl)}.`,
+        `Total de impostos de importação ${brl(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} efetivo sobre o VA). Custo nacionalizado = VA + impostos = ${brl(brazil.landedBrl)}.`,
+        `Preço Total Bruto = ${brl(brazil.landedBrl)} + serviços locais ${brl(quote.localServicesBrl)} = ${brl(result.totalGrossBrl)} (≈ ${eur(result.totalEurApprox)}).`,
+        brazil.creditPisCofins
+          ? `Crédito PIS + COFINS base = ${pct(brazil.pisRatePct + brazil.cofinsBaseRatePct)} sobre o VA = ${brl(brazil.creditPisCofinsBrl)}. O adicional de ${pct(brazil.cofinsAddRatePct)} da COFINS (${brl(brazil.cofinsAddBrl)}) não gera crédito (Lei 10.865/2004, art. 15, § 1º-A).`
+          : `Crédito de PIS + COFINS desligado. O adicional de ${pct(brazil.cofinsAddRatePct)} da COFINS (${brl(brazil.cofinsAddBrl)}) nunca gera crédito.`,
+        brazil.creditIcms
+          ? `Crédito de ICMS = ${pct(brazil.icmsCreditFactorPct)} × ${brl(brazil.icmsBrl)} = ${brl(brazil.creditIcmsBrl)}.`
+          : 'Crédito de ICMS desligado.',
+        `Créditos ${brl(brazil.creditBrl)}; custo tributário não recuperável ${brl(brazil.nonRecoverableBrl)} (${pct(brazil.effectiveNetTaxPct)} do VA). Investimento Líquido Pós-Créditos = ${brl(result.totalGrossBrl)} − ${brl(brazil.creditBrl)} = ${brl(result.totalNetBrl)}, ou ${brl(result.brlPerPack)} por pacote de capacidade.`,
       ],
     },
     { title: 'Espaço da loja', lines: roomLines },

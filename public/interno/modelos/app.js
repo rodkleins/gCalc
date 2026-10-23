@@ -5,12 +5,14 @@ import {
   DEFAULTS,
   HEIGHTS,
   LENGTH_INCLUDED,
+  NCM_INFO,
   OPTIONS,
   PRESETS,
   SAM_PROTRUSION_M,
   WIDTHS,
   WIDTH_REF_LABELS,
   bonusLedger,
+  brazilCost,
   classOf,
   classesAt,
   configLabel,
@@ -27,7 +29,7 @@ import {
   widthsAt,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.modelos.interno.v2';
+const STORAGE_KEY = 'gcalc.modelos.interno.v3';
 
 const VIEW_DEFAULTS = { theme: 'azul', xray: false, human: true };
 
@@ -201,9 +203,9 @@ const SECTIONS = [
   },
   {
     id: 'cambio',
-    title: '4. Câmbio e Custo Brasil (R$)',
+    title: '4. Câmbio, Importação (NCM 8479.89.99) e Créditos',
     open: true,
-    intro: 'Converte o pedido em euro para reais, soma a nacionalização e desconta o crédito tributário.',
+    intro: 'Cálculo oficial em cascata da NCM 8479.89.99 (Bem de Capital) sobre o pedido Gollmann líquido em euro: II (com ou sem Ex-Tarifário), IPI (0%), PIS (2,10%), COFINS (9,65% + 0,60% adic. 2026) e ICMS por dentro (8,80% Conv. 52/91 ou 18%). Escolha também quais impostos geram crédito recuperável.',
     fields: [
       {
         key: 'fxRate',
@@ -217,29 +219,83 @@ const SECTIONS = [
         tooltip: 'Premissa de R$ 6,20 por euro. Troque pela cotação do dia ou pela taxa contratada.',
       },
       {
-        key: 'importCostPct',
-        label: 'Custos de importação / nacionalização (%)',
-        suffix: '%',
-        min: 0,
-        max: 150,
-        step: 1,
-        slider: true,
-        quick: [
-          { value: 0, label: '0% Proposta pura' },
-          { value: 35, label: '35%' },
-          { value: 60, label: '60%' },
-        ],
-        tooltip: 'Impostos, frete internacional e despacho, em % do valor convertido. Padrão 0%: o preço da proposta, sem nacionalizar.',
+        key: 'exTarifario',
+        label: 'Ex-Tarifário (II)',
+        kind: 'check',
+        checkLabel: 'Aplicar Ex-Tarifário de Bem de Capital — zera o II para 0% (NCM 8479.89.99)',
+        wide: true,
+        tooltip: 'Com o Ex-Tarifário de BK o Imposto de Importação cai para 0%. Desligado, vale a alíquota do campo abaixo. O II nunca gera crédito e entra na base do IPI e do ICMS.',
       },
       {
-        key: 'taxCreditPct',
-        label: 'Crédito tributário recuperável (%)',
+        key: 'iiRatePct',
+        label: 'Alíquota do II sem Ex-Tarifário (%)',
         suffix: '%',
         min: 0,
         max: 100,
-        step: 1,
-        slider: true,
-        tooltip: 'Percentual do custo nacionalizado que volta como crédito. Padrão 25%. Confirme com o contador.',
+        lockedByNot: 'exTarifario',
+        wide: true,
+        quick: [
+          { value: 12.6, label: '12,6% TEC Mercosul' },
+          { value: 20, label: '20,0% Res. GECEX 852/2026' },
+        ],
+        tooltip: 'Usada só com o Ex-Tarifário desligado. 12,6% é a TEC Mercosul da NCM 8479.89.99; 20% é a alíquota da Res. GECEX 852/2026.',
+      },
+      {
+        key: 'icmsRatePct',
+        label: 'ICMS-Importação por dentro (%)',
+        suffix: '%',
+        min: 0,
+        max: 40,
+        wide: true,
+        quick: [
+          { value: 8.8, label: '8,80% Convênio 52/91 (BK)' },
+          { value: 18, label: '18,00% ICMS cheio SP' },
+        ],
+        tooltip: 'Carga efetiva do ICMS-Importação em SP, calculado por dentro: base = (VA + II + IPI + PIS + COFINS + despesas) ÷ (1 − alíquota). O Convênio ICMS 52/91 (Anexo I, subitem 62.7) reduz a carga do BK para 8,80%.',
+      },
+      {
+        key: 'customsExpensesPct',
+        label: 'Despesas aduaneiras / Siscomex / AFRMM (% do VA)',
+        suffix: '%',
+        min: 0,
+        max: 50,
+        wide: true,
+        quick: [
+          { value: 0, label: '0% Só impostos' },
+          { value: 2.5, label: '2,5% C/ despesas' },
+        ],
+        tooltip: 'Taxa Siscomex, AFRMM, armazenagem e despachante, em % do Valor Aduaneiro. Entram na base do ICMS e não geram crédito neste cálculo. Padrão 0% para ver só os impostos.',
+      },
+      {
+        key: 'creditPisCofins',
+        label: 'Crédito PIS + COFINS (11,75%)',
+        kind: 'check',
+        checkLabel: 'Creditar PIS (2,10%) + COFINS base (9,65%) = 11,75% do VA (Lucro Real 48x / CBS)',
+        wide: true,
+        tooltip: 'No Lucro Real, PIS e COFINS-Importação do Ativo Imobilizado viram crédito em 48 meses (ou integral via CBS). O adicional de 0,60% da COFINS não gera crédito por vedação legal (Lei 10.865/2004, art. 15, § 1º-A) e fica sempre como custo.',
+      },
+      {
+        key: 'creditIcms',
+        label: 'Crédito ICMS-Importação',
+        kind: 'check',
+        checkLabel: 'Creditar ICMS-Importação (CIAP 48x / IBS)',
+        wide: true,
+        tooltip: 'ICMS do Ativo Imobilizado vira crédito em 48 parcelas no CIAP (LC 87/96, art. 20, § 5º), na proporção das saídas tributadas, ou integral via IBS.',
+      },
+      {
+        key: 'icmsCreditFactorPct',
+        label: 'Aproveitamento do crédito de ICMS (%)',
+        suffix: '%',
+        min: 0,
+        max: 100,
+        lockedBy: 'creditIcms',
+        wide: true,
+        quick: [
+          { value: 100, label: '100% Integral / IBS' },
+          { value: 50, label: '50% Rateio CIAP Farmácia' },
+          { value: 0, label: '0% Locadora s/ ICMS' },
+        ],
+        tooltip: '100%: crédito integral (ou IBS). 50%: rateio do CIAP numa farmácia com parte das saídas isentas ou com ST. 0%: locadora pura, sem débito de ICMS (Súmula Vinculante 31).',
       },
     ],
   },
@@ -584,12 +640,17 @@ function lockControl(key, off) {
   if (control.text) control.text.disabled = off;
   if (control.slider) control.slider.disabled = off;
   if (control.select) control.select.disabled = off;
+  control.wrap.querySelectorAll('[data-quick]').forEach((button) => {
+    button.disabled = off;
+  });
   control.wrap.classList.toggle('is-off', off);
 }
 
 function syncLocks() {
   for (const [key, control] of controls) {
     if (control.field.lockedBy) lockControl(key, !state[control.field.lockedBy]);
+    // lockedByNot: trava quando a chave está ligada (a alíquota do II só vale sem Ex-Tarifário).
+    if (control.field.lockedByNot) lockControl(key, Boolean(state[control.field.lockedByNot]));
   }
 }
 
@@ -682,11 +743,12 @@ function renderHero(result) {
     label: '1. Preço Total (1 Robô)',
     value: compactBRL(result.totalGrossBrl),
     exact: `${formatBRL(result.totalGrossBrl)} · ≈ ${formatEUR(result.totalEurApprox)}`,
-    sub:
+    sub: `${
       quote.discountPct > 0
-        ? `c/ ${pct(quote.discountPct)} desc. volume (−${formatEUR(quote.discountEur)}) · ${formatPacks(quote.capacityPacks)}`
-        : `pedido Gollmann ${formatEUR(quote.netOrderEur)} + local ${formatBRL(quote.localServicesBrl)}`,
-    title: 'Parte importada nacionalizada, já com o desconto por volume, + serviços locais em R$',
+        ? `c/ ${pct(quote.discountPct)} desc. volume (−${formatEUR(quote.discountEur)})`
+        : `pedido Gollmann ${formatEUR(quote.netOrderEur)} + local ${formatBRL(quote.localServicesBrl)}`
+    } · ${brazil.exTarifario ? 'Ex-Tarifário ligado (II 0%)' : `sem Ex-Tarifário (II ${pct(brazil.effectiveIiPct)}: ${formatBRL(brazil.iiBrl)})`} · impostos de importação ${formatBRL(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} s/ VA)`,
+    title: `VA ${formatBRL(brazil.vaBrl)} + impostos da NCM ${NCM_INFO.code} ${formatBRL(brazil.importBrl)} + serviços locais em R$`,
     hero: true,
   });
   renderKpi(hero, {
@@ -732,8 +794,8 @@ function renderHero(result) {
     label: 'Investimento Líquido Pós-Crédito',
     value: compactBRL(result.totalNetBrl),
     exact: formatBRL(result.totalNetBrl),
-    sub: `crédito ${pct(brazil.taxCreditPct)}: −${formatBRL(brazil.creditBrl)}`,
-    title: formatBRL(result.totalNetBrl),
+    sub: `créditos −${formatBRL(brazil.creditBrl)} (PIS + COFINS ${formatBRL(brazil.creditPisCofinsBrl)} · ICMS ${formatBRL(brazil.creditIcmsBrl)}) · custo tributário não recuperável ${formatBRL(brazil.nonRecoverableBrl)}${brazil.exTarifario ? '' : ', com o II'}`,
+    title: `${formatBRL(result.totalGrossBrl)} − créditos ${formatBRL(brazil.creditBrl)} = ${formatBRL(result.totalNetBrl)}`,
   });
   document.getElementById('model-note').textContent = `${configLabel(quote.config)}. GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`;
   const options = document.getElementById('options-hint');
@@ -741,7 +803,34 @@ function renderHero(result) {
     options.textContent = `Robô ${formatEUR(quote.tablePriceEur)} + opcionais ${formatEUR(quote.optionsEur)} + transporte e instalação ${formatEUR(quote.servicesEur)} = pedido Gollmann de ${formatEUR(quote.orderEur)} por robô.`;
   }
   const fx = document.getElementById('fx-hint');
-  if (fx) fx.textContent = `${formatEUR(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${formatBRL(brazil.grossBrl)}.`;
+  if (fx) fx.textContent = `Valor Aduaneiro: ${formatEUR(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${formatBRL(brazil.vaBrl)}.`;
+}
+
+/** Barra do Ex-Tarifário e do Convênio ICMS 52/91, acima dos quadrantes. */
+function renderFiscalBar(result) {
+  const { quote, brazil } = result;
+  const exButton = document.getElementById('toggle-ex-tarifario');
+  const convButton = document.getElementById('toggle-convenio-icms');
+  const summary = document.getElementById('ex-tarifario-summary');
+  if (!exButton || !convButton || !summary) return;
+  exButton.setAttribute('aria-pressed', brazil.exTarifario ? 'true' : 'false');
+  exButton.classList.toggle('is-on', brazil.exTarifario);
+  exButton.classList.toggle('is-warn', !brazil.exTarifario);
+  exButton.textContent = brazil.exTarifario
+    ? 'Ex-Tarifário: LIGADO (II = 0%)'
+    : `Ex-Tarifário: DESLIGADO (II = ${pct(brazil.effectiveIiPct)})`;
+  convButton.setAttribute('aria-pressed', brazil.convenioIcms5291 ? 'true' : 'false');
+  convButton.classList.toggle('is-on', brazil.convenioIcms5291);
+  convButton.classList.toggle('is-warn', !brazil.convenioIcms5291);
+  convButton.textContent = `Convênio ICMS 52/91: ${brazil.convenioIcms5291 ? 'LIGADO' : 'DESLIGADO'} (ICMS ${formatFixed(brazil.icmsRatePct, 2)}%)`;
+  const load = `Carga de importação: ${formatFixed(brazil.effectiveImportPct, 2)}% s/ VA`;
+  if (brazil.exTarifario) {
+    // O que o Ex-Tarifário poupa: o II e o reflexo dele no IPI e no ICMS por dentro.
+    const without = brazilCost(quote.netOrderEur, { ...state, exTarifario: false });
+    summary.textContent = `${load} · Economia de II: ${formatBRL(without.iiBrl)} (total ${formatBRL(without.importBrl - brazil.importBrl)} c/ reflexo no ICMS)`;
+  } else {
+    summary.textContent = `${load} · +${formatBRL(brazil.iiBrl)} de II não creditável`;
+  }
 }
 
 function renderDims(result) {
@@ -850,12 +939,25 @@ function renderPrice(result) {
     [`+ Transporte e instalação (média € 22.500; classe ${cls.id}: ${formatEUR(quote.classServicesEur)})`, formatEUR(quote.servicesEur), formatBRL(brl.services)],
     ['= Pedido Gollmann bruto (1 robô)', formatEUR(quote.orderEur), formatBRL(brl.order), 'is-total'],
     [`− Desconto por volume (${pct(quote.discountPct)} p/ ${fleet})`, `−${formatEUR(quote.discountEur)}`, `−${formatBRL(brl.discount)}`, 'is-minus'],
-    ['= Pedido Gollmann líquido c/ desconto', formatEUR(quote.netOrderEur), formatBRL(brl.netOrder), 'is-total is-key'],
-    [`+ Impostos de nacionalização (${pct(brazil.importCostPct)} sobre parte importada)`, approx(brazil.importBrl), formatBRL(brazil.importBrl)],
+    ['= Pedido Gollmann líquido (Valor Aduaneiro — VA)', formatEUR(quote.netOrderEur), formatBRL(brazil.vaBrl), 'is-total is-key'],
+    [`+ II — Imposto de Importação (${brazil.exTarifario ? '0% c/ Ex-Tarifário BK' : `${pct(brazil.effectiveIiPct)} s/ Ex-Tarifário`})`, approx(brazil.iiBrl), formatBRL(brazil.iiBrl)],
+    [`+ IPI — NCM ${NCM_INFO.code} (${pct(brazil.ipiRatePct)} na TIPI)`, approx(brazil.ipiBrl), formatBRL(brazil.ipiBrl)],
+    [`+ PIS-Importação (${pct(brazil.pisRatePct)} s/ VA)`, approx(brazil.pisBrl), formatBRL(brazil.pisBrl)],
+    [`+ COFINS-Importação base (${pct(brazil.cofinsBaseRatePct)} s/ VA)`, approx(brazil.cofinsBaseBrl), formatBRL(brazil.cofinsBaseBrl)],
+    [`+ Adicional COFINS-Importação 2026 (${pct(brazil.cofinsAddRatePct)} s/ VA — Lei 14.973/24, não creditável)`, approx(brazil.cofinsAddBrl), formatBRL(brazil.cofinsAddBrl)],
+    ...(brazil.customsExpensesBrl > 0
+      ? [[`+ Despesas aduaneiras / Siscomex / AFRMM (${pct(brazil.customsExpensesPct)} s/ VA)`, approx(brazil.customsExpensesBrl), formatBRL(brazil.customsExpensesBrl)]]
+      : []),
+    [`+ ICMS-Importação por dentro (${pct(brazil.icmsRatePct)}${brazil.convenioIcms5291 ? ' · Convênio ICMS 52/91' : ' · Alíquota cheia'})`, approx(brazil.icmsBrl), formatBRL(brazil.icmsBrl)],
+    [`= Total de impostos de importação (${pct(brazil.effectiveImportPct)} efetivo s/ VA)`, approx(brazil.importBrl), formatBRL(brazil.importBrl), 'is-total'],
+    ['= Parte importada nacionalizada (VA + impostos)', approx(brazil.landedBrl), formatBRL(brazil.landedBrl), 'is-total'],
     ['+ Serviços locais faturados no Brasil (R$)', `≈ ${formatEUR(quote.localServicesEurApprox)}`, formatBRL(brl.localServices)],
-    ['= Preço Total Bruto no Brasil (1 robô)', `≈ ${formatEUR(result.totalEurApprox)}`, formatBRL(result.totalGrossBrl), 'is-total is-key'],
-    [`− Crédito tributário recuperável (${pct(brazil.taxCreditPct)} sobre nacionalizado)`, `≈ −${formatEUR(brazil.creditBrl / fx)}`, `−${formatBRL(brazil.creditBrl)}`, 'is-minus'],
-    ['= Investimento Líquido Efetivo (pós-crédito)', approx(result.totalNetBrl), formatBRL(result.totalNetBrl), 'is-total is-key'],
+    ['= 1. Preço Total Bruto no Brasil (1 robô)', `≈ ${formatEUR(result.totalEurApprox)}`, formatBRL(result.totalGrossBrl), 'is-total is-key'],
+    [`− Crédito recuperável PIS + COFINS (${brazil.creditPisCofins ? '2,10% + 9,65% = 11,75% s/ VA' : 'desligado'})`, `≈ −${formatEUR(brazil.creditPisCofinsBrl / fx)}`, `−${formatBRL(brazil.creditPisCofinsBrl)}`, 'is-minus'],
+    [`− Crédito recuperável ICMS (${brazil.creditIcms ? `${pct(brazil.icmsCreditFactorPct)} do ICMS pago` : 'desligado'})`, `≈ −${formatEUR(brazil.creditIcmsBrl / fx)}`, `−${formatBRL(brazil.creditIcmsBrl)}`, 'is-minus'],
+    [`= Total de créditos tributários recuperáveis (${pct(brazil.effectiveCreditOnVaPct)} s/ VA · ${pct(brazil.effectiveCreditOnLandedPct)} s/ nacionalizado)`, `≈ −${formatEUR(brazil.creditBrl / fx)}`, `−${formatBRL(brazil.creditBrl)}`, 'is-minus is-total'],
+    ['= Investimento Líquido Efetivo Pós-Créditos (1 robô)', approx(result.totalNetBrl), formatBRL(result.totalNetBrl), 'is-total is-key'],
+    [`Custo tributário líquido não recuperável (impostos − créditos · ${pct(brazil.effectiveNetTaxPct)} s/ VA)`, approx(brazil.nonRecoverableBrl), formatBRL(brazil.nonRecoverableBrl)],
     [
       `Custo por pacote de capacidade (${formatPacks(quote.capacityPacks)})`,
       `${formatEUR(quote.eurPerPack)} (pedido líquido)`,
@@ -883,7 +985,71 @@ function renderPrice(result) {
     body.append(tr);
   }
   table.append(head, body);
-  document.getElementById('price-note').textContent = `Na tabela o preço já inclui a carga automática (${formatEUR(22000)}) e o SAM (${formatEUR(3000)}). Opcionais, transporte e instalação e serviços locais vêm separados. O desconto por volume vale para o pedido Gollmann; a nacionalização e o crédito, só para a parte importada. Os serviços locais entram em reais, sem câmbio. Linhas em euro marcadas com ≈ são o equivalente pelo câmbio.`;
+  document.getElementById('price-note').textContent = `Na tabela o preço já inclui a carga automática (${formatEUR(22000)}) e o SAM (${formatEUR(3000)}). Opcionais, transporte e instalação e serviços locais vêm separados. O desconto por volume vale para o pedido Gollmann, que é o Valor Aduaneiro da NCM ${NCM_INFO.code}; os impostos de importação e os créditos valem só para essa parte importada. Os serviços locais entram em reais, sem câmbio. Linhas em euro marcadas com ≈ são o equivalente pelo câmbio.`;
+  renderNcmTable(brazil);
+}
+
+/** Tabela de referência: impostos da NCM 8479.89.99, o que gera crédito e o custo que fica. */
+function renderNcmTable(brazil) {
+  const table = document.getElementById('ncm-tax-table');
+  if (!table) return;
+  table.replaceChildren();
+  table.append(el('caption', null, `Tabela de Referência: Impostos da NCM ${NCM_INFO.code} e O Que Pode Creditar`));
+  const head = document.createElement('thead');
+  const hr = document.createElement('tr');
+  const columns = [
+    [`Tributo / Encargo (NCM ${NCM_INFO.code})`, null],
+    ['Alíquota e Base Legal', null],
+    ['Pago na Importação (R$)', 'num'],
+    ['Gera Crédito?', null],
+    ['Crédito no Cálculo (R$)', 'num'],
+    ['Custo Líquido (R$)', 'num'],
+  ];
+  for (const [label, cls] of columns) {
+    const th = el('th', cls, label);
+    th.scope = 'col';
+    hr.append(th);
+  }
+  head.append(hr);
+  const body = document.createElement('tbody');
+  for (const line of brazil.taxLines) {
+    const tr = document.createElement('tr');
+    const th = el('th', null, line.label);
+    th.scope = 'row';
+    th.append(document.createElement('br'), el('small', null, `Base: ${line.baseLabel}`));
+    const rate = el('td', 'tax-legal');
+    rate.append(el('strong', null, line.rateLabel), document.createElement('br'), el('small', null, line.legalBasis));
+    const credit = el('td', 'tax-credit');
+    credit.append(
+      el('span', line.creditable ? 'tax-pill is-yes' : 'tax-pill is-no', line.creditable ? 'Sim · Creditável' : 'Não · Custo definitivo'),
+      document.createElement('br'),
+      el('small', null, line.creditRule),
+    );
+    tr.append(
+      th,
+      rate,
+      el('td', 'num', formatBRL(line.amountBrl)),
+      credit,
+      el('td', 'num', line.creditBrl > 0 ? `−${formatBRL(line.creditBrl)}` : formatBRL(0)),
+      el('td', 'num', formatBRL(line.netCostBrl)),
+    );
+    body.append(tr);
+  }
+  const foot = document.createElement('tfoot');
+  const fr = document.createElement('tr');
+  fr.className = 'is-total is-key';
+  const label = el('th', null, 'Total Pago na Importação · Total Creditável · Custo Tributário Definitivo (Não Recuperável)');
+  label.scope = 'row';
+  label.colSpan = 2;
+  fr.append(
+    label,
+    el('td', 'num', formatBRL(brazil.importBrl)),
+    el('td', null, `${pct(brazil.effectiveCreditOnVaPct)} do VA volta como crédito`),
+    el('td', 'num', `−${formatBRL(brazil.creditBrl)}`),
+    el('td', 'num', formatBRL(brazil.nonRecoverableBrl)),
+  );
+  foot.append(fr);
+  table.append(head, body, foot);
 }
 
 function focusTab(heightM) {
@@ -1115,6 +1281,7 @@ function render(result) {
   syncLocks();
   syncQuick();
   renderStatus(result);
+  renderFiscalBar(result);
   renderHero(result);
   renderDims(result);
   renderSpace(result);
@@ -1147,6 +1314,8 @@ function commit(keep = null) {
     fillControls();
   }
   if (previousHeight !== result.quote.heightM) matrixHeight = result.quote.heightM;
+  // A alíquota de ICMS digitada decide o convênio: o botão do convênio acompanha o que entrou na conta.
+  state.convenioIcms5291 = result.brazil.convenioIcms5291;
   render(result);
   persist();
 }
@@ -2306,6 +2475,17 @@ function bindChrome() {
   });
   modal.addEventListener('close', () => opener.focus());
   document.getElementById('print').addEventListener('click', () => window.print());
+  document.getElementById('toggle-ex-tarifario').addEventListener('click', () => {
+    state.exTarifario = !state.exTarifario;
+    fillControls();
+    commit();
+  });
+  document.getElementById('toggle-convenio-icms').addEventListener('click', () => {
+    state.convenioIcms5291 = !state.convenioIcms5291;
+    state.icmsRatePct = state.convenioIcms5291 ? NCM_INFO.icmsConvenio5291Pct : NCM_INFO.icmsFullSpPct;
+    fillControls();
+    commit();
+  });
   document.getElementById('reset').addEventListener('click', () => {
     state = freshState();
     view = { ...VIEW_DEFAULTS };
