@@ -1,4 +1,5 @@
 import {
+  AVERAGE_SERVICES_EUR,
   CLASSES,
   CONFIGURATIONS,
   DEFAULTS,
@@ -9,12 +10,10 @@ import {
   SAM_PROTRUSION_M,
   WIDTHS,
   WIDTH_REF_LABELS,
-  YEAR_KEYS,
   bonusLedger,
   classOf,
   classesAt,
   configLabel,
-  distributeRobots,
   evaluate,
   explain,
   formatBRL,
@@ -28,7 +27,7 @@ import {
   widthsAt,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.modelos.interno.v1';
+const STORAGE_KEY = 'gcalc.modelos.interno.v2';
 
 const VIEW_DEFAULTS = { theme: 'azul', xray: false, human: true };
 
@@ -70,7 +69,7 @@ const SECTIONS = [
     id: 'opcionais',
     title: '2. Opcionais e Serviços',
     open: true,
-    intro: 'Os opcionais do slide 6 e os serviços do slide 8. Tudo entra na base do bônus de volume.',
+    intro: 'Opcionais do slide 6, transporte e instalação do slide 8 e serviços locais faturados no Brasil, cada um separado. O desconto por volume incide sobre opcionais e transporte; os serviços locais ficam fora.',
     fields: [
       {
         key: 'secondGripper',
@@ -89,14 +88,6 @@ const SECTIONS = [
         tooltip: 'Módulo de refrigeração integrado ao robô, por robô.',
       },
       {
-        key: 'includeServices',
-        label: 'Serviços',
-        kind: 'check',
-        checkLabel: 'Incluir serviços de transporte e instalação (€ 18k–€ 27k)',
-        wide: true,
-        tooltip: 'Por classe: S € 18.000, M € 19.500, L € 21.000, XL € 22.500, XXL € 24.000, 3XL € 25.500, 4XL € 27.000.',
-      },
-      {
         key: 'conveyorEur',
         label: 'Tecnologia de esteiras (€)',
         prefix: '€',
@@ -104,6 +95,37 @@ const SECTIONS = [
         digits: 2,
         wide: true,
         tooltip: 'Sob consulta na proposta: digite o valor da cotação individual, por robô. Padrão zero.',
+      },
+      {
+        key: 'servicesEur',
+        label: 'Transporte e instalação (€)',
+        prefix: '€',
+        min: 0,
+        digits: 2,
+        wide: true,
+        quick: [
+          { value: AVERAGE_SERVICES_EUR, label: 'Média (€ 22.500)' },
+          { value: 'class', label: 'Valor da classe' },
+          { value: 18000, label: 'Mín. (€ 18.000)' },
+          { value: 27000, label: 'Máx. (€ 27.000)' },
+          { value: 0, label: '€ 0' },
+        ],
+        tooltip: 'Varia por obra. Padrão: média de € 22.500 das 7 classes do slide 8 (S € 18.000, M € 19.500, L € 21.000, XL € 22.500, XXL € 24.000, 3XL € 25.500, 4XL € 27.000).',
+      },
+      {
+        key: 'localServicesBrl',
+        label: 'Serviços locais no Brasil (R$)',
+        prefix: 'R$',
+        min: 0,
+        digits: 2,
+        wide: true,
+        quick: [
+          { value: 0, label: 'R$ 0' },
+          { value: 50000, label: 'R$ 50 mil' },
+          { value: 100000, label: 'R$ 100 mil' },
+          { value: 150000, label: 'R$ 150 mil' },
+        ],
+        tooltip: 'Valor faturado aqui no Brasil, em reais, por robô. Soma ao Preço Total sem câmbio, nacionalização, crédito ou desconto por volume.',
       },
     ],
   },
@@ -223,36 +245,27 @@ const SECTIONS = [
   },
   {
     id: 'rollout',
-    title: '5. Rollout 5 Anos (Framework Agreement)',
+    title: '5. Desconto por Volume (Faixas do Acordo)',
     open: true,
-    intro: 'Robôs pedidos por ano no acordo DPSP. A contagem do bônus soma os 5 anos.',
+    intro: 'Escolha a quantidade de robôs para aplicar a faixa de desconto por volume (0% a 8%) sobre o pedido Gollmann.',
     fields: [
       {
-        key: 'fleetTotal',
-        label: 'Cenários de frota',
-        kind: 'pills',
-        wide: true,
-        quick: [1, 10, 25, 50, 100].map((value) => ({ value, label: `${value} ${value === 1 ? 'robô' : 'robôs'}` })),
-        tooltip: 'Divide o total igualmente pelos 5 anos, o resto nos primeiros. 10, 25, 50 e 100 são os marcos das faixas.',
-      },
-      ...YEAR_KEYS.map((key, index) => ({
-        key,
-        label: `Ano ${index + 1}`,
+        key: 'fleetRobots',
+        label: 'Quantidade de robôs',
         suffix: 'robôs',
         integer: true,
-        min: 0,
-        max: 1000,
-        tooltip: index < 2 ? `Ano ${index + 1}: preço fixo.` : `Ano ${index + 1}: preço × (1 + VPI)^${index - 1}.`,
-      })),
-      {
-        key: 'germanInflationPct',
-        label: 'Inflação alemã VPI (%/ano, anos 3–5)',
-        suffix: '% a.a.',
-        min: 0,
-        max: 10,
-        step: 0.1,
+        min: 1,
+        max: 250,
+        step: 1,
         slider: true,
-        tooltip: 'Teto do reajuste anual a partir do 3º ano: VPI da Alemanha (Destatis) do ano anterior. Padrão 2,0%.',
+        quick: [
+          { value: 1, label: '1 robô (0%)' },
+          { value: 10, label: '10 robôs (2%)' },
+          { value: 25, label: '25 robôs (4%)' },
+          { value: 50, label: '50 robôs (6%)' },
+          { value: 100, label: '100 robôs (8%)' },
+        ],
+        tooltip: 'Faixas de desconto por volume (slides 11 e 12): 1–9 robôs = 0%, 10–24 = 2%, 25–49 = 4%, 50–99 = 6%, 100+ = 8%.',
       },
     ],
   },
@@ -421,17 +434,6 @@ function renderField(field) {
     return wrap;
   }
 
-  if (field.kind === 'pills') {
-    wrap.append(quickRow(field, (value) => {
-      distributeRobots(value).forEach((count, index) => {
-        state[YEAR_KEYS[index]] = count;
-      });
-      commit();
-    }));
-    controls.set(field.key, { field, wrap });
-    return wrap;
-  }
-
   const control = el('div', 'control');
   let slider = null;
   if (field.slider) {
@@ -478,7 +480,7 @@ function renderField(field) {
   wrap.append(control);
   if (field.quick) {
     wrap.append(quickRow(field, (value) => {
-      state[field.key] = value;
+      state[field.key] = quickValue(value);
       fillControls();
       commit();
     }));
@@ -495,6 +497,11 @@ function renderField(field) {
   }
   controls.set(field.key, { field, text, slider, wrap });
   return wrap;
+}
+
+/** Atalho 'class' do transporte e instalação: o valor da classe escolhida no slide 8. */
+function quickValue(value) {
+  return value === 'class' ? classOf(state.classId).servicesEur : value;
 }
 
 function quickRow(field, apply) {
@@ -587,12 +594,14 @@ function syncLocks() {
 }
 
 function syncQuick() {
-  const fleet = YEAR_KEYS.map((key) => state[key]).join(',');
   for (const [key, control] of controls) {
     if (!control.field.quick) continue;
     control.wrap.querySelectorAll('[data-quick]').forEach((button) => {
-      const value = Number(button.dataset.quick);
-      const on = key === 'fleetTotal' ? distributeRobots(value).join(',') === fleet : state[key] === value;
+      const raw = button.dataset.quick;
+      // Na classe XL o valor da classe é a própria média: fica marcado só o atalho da média.
+      const on = raw === 'class'
+        ? state[key] === quickValue(raw) && state[key] !== AVERAGE_SERVICES_EUR
+        : state[key] === Number(raw);
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
@@ -669,46 +678,70 @@ function renderHero(result) {
   const hero = document.getElementById('hero-kpis');
   hero.replaceChildren();
   renderKpi(hero, {
+    id: 'total-price',
+    label: '1. Preço Total (1 Robô)',
+    value: compactBRL(result.totalGrossBrl),
+    exact: `${formatBRL(result.totalGrossBrl)} · ≈ ${formatEUR(result.totalEurApprox)}`,
+    sub:
+      quote.discountPct > 0
+        ? `c/ ${pct(quote.discountPct)} desc. volume (−${formatEUR(quote.discountEur)}) · ${formatPacks(quote.capacityPacks)}`
+        : `pedido Gollmann ${formatEUR(quote.netOrderEur)} + local ${formatBRL(quote.localServicesBrl)}`,
+    title: 'Parte importada nacionalizada, já com o desconto por volume, + serviços locais em R$',
+    hero: true,
+  });
+  renderKpi(hero, {
     id: 'robot-price',
-    label: 'Preço total do robô',
+    label: 'Preço do Robô (Tabela)',
     value: formatEUR(quote.tablePriceEur),
-    sub: `pedido c/ opcionais e serviços ${formatEUR(quote.orderEur)}`,
+    exact: formatBRL(result.brl.tablePrice),
+    sub: `${formatPacks(quote.capacityPacks)} · ${formatFixed(quote.heightM, 2)} × ${formatFixed(quote.widthSam, 2)} × ${formatFixed(quote.totalLengthM, 2)} m`,
     title: `${formatEUR(quote.baseRobotEur)} + ${formatEUR(quote.autoLoadingEur)} + ${formatEUR(quote.samEur)}`,
     hero: true,
   });
+  const chosen = [
+    quote.secondGripper && '2º braço',
+    quote.coolingModule && 'refrigeração',
+    quote.conveyorEur > 0 && 'esteiras',
+  ].filter(Boolean);
   renderKpi(hero, {
-    id: 'gross-brl',
-    label: 'Investimento bruto',
-    value: compactBRL(brazil.landedBrl),
-    exact: formatBRL(brazil.landedBrl),
-    sub: `câmbio ${formatFlex(brazil.fxRate, 4)} · nacionalização ${pct(brazil.importCostPct)}`,
-    title: formatBRL(brazil.landedBrl),
-    hero: true,
+    id: 'options-price',
+    label: '2. Opcionais (Separado)',
+    value: formatEUR(quote.optionsEur),
+    exact: formatBRL(result.brl.options),
+    sub: chosen.length ? chosen.join(' · ') : 'nenhum opcional selecionado',
+  });
+  renderKpi(hero, {
+    id: 'services-price',
+    label: '2. Transporte e Instalação',
+    value: formatEUR(quote.servicesEur),
+    exact: formatBRL(result.brl.services),
+    sub:
+      quote.servicesEur === AVERAGE_SERVICES_EUR
+        ? `média padrão · classe ${quote.classId}: ${formatEUR(quote.classServicesEur)}`
+        : `valor editado · média € 22.500 · ${quote.classId}: ${formatEUR(quote.classServicesEur)}`,
+  });
+  renderKpi(hero, {
+    id: 'local-services',
+    label: '3. Serviços Locais (Brasil)',
+    value: formatBRL(quote.localServicesBrl),
+    exact: `≈ ${formatEUR(quote.localServicesEurApprox)} pelo câmbio`,
+    sub: 'faturado em R$ no Brasil (sem imp. importação)',
   });
   renderKpi(hero, {
     id: 'net-brl',
-    label: 'Investimento líquido pós-crédito',
-    value: compactBRL(brazil.netBrl),
-    exact: formatBRL(brazil.netBrl),
-    sub: `crédito de ${pct(brazil.taxCreditPct)}: −${formatBRL(brazil.creditBrl)}`,
-    title: formatBRL(brazil.netBrl),
-    hero: true,
+    label: 'Investimento Líquido Pós-Crédito',
+    value: compactBRL(result.totalNetBrl),
+    exact: formatBRL(result.totalNetBrl),
+    sub: `crédito ${pct(brazil.taxCreditPct)}: −${formatBRL(brazil.creditBrl)}`,
+    title: formatBRL(result.totalNetBrl),
   });
-  renderKpi(hero, {
-    id: 'capacity',
-    label: 'Capacidade e dimensões',
-    value: formatPacks(quote.capacityPacks),
-    sub: `${formatFixed(quote.heightM, 2)} × ${formatFixed(quote.widthSam, 2)} × ${formatFixed(quote.totalLengthM, 2)} m · ${m2(quote.footprintM2)}`,
-    title: 'Altura × largura c/ SAM × comprimento total',
-    hero: true,
-  });
-  document.getElementById('model-note').textContent = `${configLabel(quote.config)}. GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}.`;
+  document.getElementById('model-note').textContent = `${configLabel(quote.config)}. GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`;
   const options = document.getElementById('options-hint');
   if (options) {
-    options.textContent = `Equipamento ${formatEUR(quote.equipmentEur)} + serviços ${formatEUR(quote.servicesEur)} = pedido de ${formatEUR(quote.orderEur)} por robô.`;
+    options.textContent = `Robô ${formatEUR(quote.tablePriceEur)} + opcionais ${formatEUR(quote.optionsEur)} + transporte e instalação ${formatEUR(quote.servicesEur)} = pedido Gollmann de ${formatEUR(quote.orderEur)} por robô.`;
   }
   const fx = document.getElementById('fx-hint');
-  if (fx) fx.textContent = `${formatEUR(quote.orderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${formatBRL(brazil.grossBrl)}.`;
+  if (fx) fx.textContent = `${formatEUR(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${formatBRL(brazil.grossBrl)}.`;
 }
 
 function renderDims(result) {
@@ -804,23 +837,28 @@ function renderPrice(result) {
   const fx = brazil.fxRate;
   const approx = (value) => `≈ ${formatEUR(value / fx)}`;
   const cls = classOf(quote.classId);
+  const fleet = `${formatFlex(result.fleetRobots)} ${result.fleetRobots === 1 ? 'robô' : 'robôs'}`;
   const rows = [
     ['Robô base (tabela − € 25.000)', formatEUR(quote.baseRobotEur), formatBRL(brl.baseRobot)],
     ['+ Carga automática c/ OCR e carga manual', formatEUR(quote.autoLoadingEur), formatBRL(brl.autoLoading)],
     ['+ SAM c/ 4 saídas', formatEUR(quote.samEur), formatBRL(brl.sam)],
-    ['= Preço de tabela (total do robô)', formatEUR(quote.tablePriceEur), formatBRL(brl.tablePrice), 'is-total'],
+    ['= Preço de tabela do robô', formatEUR(quote.tablePriceEur), formatBRL(brl.tablePrice), 'is-total'],
     [`+ 2º braço c/ 2º SAM${quote.secondGripper ? ` (+${formatFixed(OPTIONS.secondGripperLengthM, 2)} m)` : ' (não)'}`, formatEUR(quote.secondGripperEur), formatBRL(brl.secondGripper)],
     [`+ Módulo refrigerado${quote.coolingModule ? '' : ' (não)'}`, formatEUR(quote.coolingEur), formatBRL(brl.cooling)],
     ['+ Tecnologia de esteiras', formatEUR(quote.conveyorEur), formatBRL(brl.conveyor)],
-    [`+ Serviços de transporte e instalação (${cls.id})${quote.includeServices ? '' : ' (fora)'}`, formatEUR(quote.servicesEur), formatBRL(brl.services)],
-    ['= Pedido por robô (base do bônus)', formatEUR(quote.orderEur), formatBRL(brazil.grossBrl), 'is-total is-key'],
-    [`+ Impostos de nacionalização (${pct(brazil.importCostPct)})`, approx(brazil.importBrl), formatBRL(brazil.importBrl)],
-    ['= Custo nacionalizado', approx(brazil.landedBrl), formatBRL(brazil.landedBrl), 'is-total'],
-    [`− Crédito recuperável (${pct(brazil.taxCreditPct)})`, `≈ −${formatEUR(brazil.creditBrl / fx)}`, `−${formatBRL(brazil.creditBrl)}`, 'is-minus'],
-    ['= Custo líquido efetivo', approx(brazil.netBrl), formatBRL(brazil.netBrl), 'is-total is-key'],
+    ['= Subtotal de opcionais', formatEUR(quote.optionsEur), formatBRL(brl.options), 'is-total'],
+    [`+ Transporte e instalação (média € 22.500; classe ${cls.id}: ${formatEUR(quote.classServicesEur)})`, formatEUR(quote.servicesEur), formatBRL(brl.services)],
+    ['= Pedido Gollmann bruto (1 robô)', formatEUR(quote.orderEur), formatBRL(brl.order), 'is-total'],
+    [`− Desconto por volume (${pct(quote.discountPct)} p/ ${fleet})`, `−${formatEUR(quote.discountEur)}`, `−${formatBRL(brl.discount)}`, 'is-minus'],
+    ['= Pedido Gollmann líquido c/ desconto', formatEUR(quote.netOrderEur), formatBRL(brl.netOrder), 'is-total is-key'],
+    [`+ Impostos de nacionalização (${pct(brazil.importCostPct)} sobre parte importada)`, approx(brazil.importBrl), formatBRL(brazil.importBrl)],
+    ['+ Serviços locais faturados no Brasil (R$)', `≈ ${formatEUR(quote.localServicesEurApprox)}`, formatBRL(brl.localServices)],
+    ['= Preço Total Bruto no Brasil (1 robô)', `≈ ${formatEUR(result.totalEurApprox)}`, formatBRL(result.totalGrossBrl), 'is-total is-key'],
+    [`− Crédito tributário recuperável (${pct(brazil.taxCreditPct)} sobre nacionalizado)`, `≈ −${formatEUR(brazil.creditBrl / fx)}`, `−${formatBRL(brazil.creditBrl)}`, 'is-minus'],
+    ['= Investimento Líquido Efetivo (pós-crédito)', approx(result.totalNetBrl), formatBRL(result.totalNetBrl), 'is-total is-key'],
     [
-      'Custo por pacote de capacidade',
-      `${formatEUR(quote.eurPerPack)} (pedido)`,
+      `Custo por pacote de capacidade (${formatPacks(quote.capacityPacks)})`,
+      `${formatEUR(quote.eurPerPack)} (pedido líquido)`,
       `${formatBRL(result.brlPerPack)} (líquido)`,
     ],
   ];
@@ -845,7 +883,7 @@ function renderPrice(result) {
     body.append(tr);
   }
   table.append(head, body);
-  document.getElementById('price-note').textContent = `Na tabela o preço já inclui a carga automática (${formatEUR(22000)}) e o SAM (${formatEUR(3000)}). As linhas em euro depois do pedido são o equivalente pelo câmbio. O custo por pacote divide o pedido em euro e o líquido em reais pela capacidade garantida de ${formatPacks(quote.capacityPacks)}.`;
+  document.getElementById('price-note').textContent = `Na tabela o preço já inclui a carga automática (${formatEUR(22000)}) e o SAM (${formatEUR(3000)}). Opcionais, transporte e instalação e serviços locais vêm separados. O desconto por volume vale para o pedido Gollmann; a nacionalização e o crédito, só para a parte importada. Os serviços locais entram em reais, sem câmbio. Linhas em euro marcadas com ≈ são o equivalente pelo câmbio.`;
 }
 
 function focusTab(heightM) {
@@ -944,141 +982,88 @@ function renderMatrix(result) {
   } "–": a proposta não oferece a combinação.`;
 }
 
+function setFleet(count) {
+  state.fleetRobots = count;
+  fillControls();
+  commit();
+}
+
 function renderRollout(result) {
-  const plan = result.rollout;
+  const { quote, volume } = result;
+  const robots = (count) => `${formatFlex(count)} ${count === 1 ? 'robô' : 'robôs'}`;
   const kpis = document.getElementById('rollout-kpis');
   kpis.replaceChildren();
   renderKpi(kpis, {
-    id: 'fleet-total',
-    label: 'Total de robôs',
-    value: formatFlex(plan.totalRobots),
-    sub: `por ano: ${plan.years.map((year) => formatFlex(year.robots)).join(' · ')}`,
-  });
-  renderKpi(kpis, {
     id: 'fleet-tier',
-    label: 'Faixa final do bônus',
-    value: pct(plan.finalTierPct),
-    sub: plan.next ? `faltam ${formatFlex(plan.next.from - plan.totalRobots)} para ${pct(plan.next.pct)}` : 'faixa máxima',
+    label: 'Faixa aplicada',
+    value: pct(volume.pct),
+    sub: `${robots(volume.count)} · ${volume.next ? `faltam ${formatFlex(volume.next.from - volume.count)} p/ ${pct(volume.next.pct)}` : 'faixa máxima'}`,
   });
   renderKpi(kpis, {
-    id: 'fleet-bonus',
-    label: 'Bônus total',
-    value: formatEUR(plan.bonus),
-    sub: `${formatBRL(plan.bonusBrl)} · ${pct(plan.effectivePct)} efetivo`,
+    id: 'fleet-unit-discount',
+    label: 'Desconto por robô',
+    value: formatEUR(volume.unitDiscountEur),
+    sub: formatBRL(volume.unitDiscountBrl),
   });
   renderKpi(kpis, {
-    id: 'fleet-average',
-    label: 'Preço médio efetivo por robô',
-    value: plan.avgNetEur == null ? '—' : formatEUR(plan.avgNetEur),
-    sub: plan.avgGrossEur == null ? 'sem robôs' : `bruto médio ${formatEUR(plan.avgGrossEur)}`,
+    id: 'fleet-unit-net',
+    label: 'Pedido líquido por robô',
+    value: formatEUR(volume.unitNetEur),
+    sub: `bruto ${formatEUR(volume.unitGrossEur)}`,
   });
-  document.getElementById('rollout-note').textContent = `Pedido por robô de ${formatEUR(result.quote.orderEur)} (${configLabel(result.quote.config)}, com opcionais e serviços). Anos 1 e 2 fixos; anos 3 a 5 com VPI de ${pct(result.germanInflationPct)} ao ano.`;
+  renderKpi(kpis, {
+    id: 'fleet-total',
+    label: `Preço Total da frota`,
+    value: compactBRL(volume.fleetTotalGrossBrl),
+    exact: formatBRL(volume.fleetTotalGrossBrl),
+    sub: `${robots(volume.count)} · desconto −${formatEUR(volume.fleetDiscountEur)}`,
+  });
+  document.getElementById('rollout-note').textContent = `Pedido Gollmann bruto de ${formatEUR(quote.orderEur)} por robô (${configLabel(quote.config)}: robô, opcionais e transporte e instalação). A faixa sai da quantidade de robôs; os serviços locais em R$ entram no total sem desconto. Clique numa faixa para aplicá-la.`;
 
-  const years = document.getElementById('rollout-years');
-  years.replaceChildren();
-  years.append(el('caption', null, 'Ano a ano'));
+  const table = document.getElementById('rollout-milestones');
+  table.replaceChildren();
+  table.append(el('caption', null, 'Tabela de faixas de desconto por volume (por robô)'));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  const columns = ['Ano', 'Robôs', 'Acumulado', 'Pedido por robô', 'Volume bruto', 'Bônus na fatura', 'Notas de crédito', 'Bônus do ano', 'Líquido (€)', 'Líquido (R$)', 'Líquido custo Brasil'];
+  const columns = ['Faixa', 'Desconto', 'Desconto por robô', 'Pedido líquido (€)', 'Preço Total (R$)', 'Líquido pós-crédito (R$)', 'Nota de crédito no marco'];
   for (const label of columns) {
-    const th = el('th', label === 'Ano' ? null : 'num', label);
+    const th = el('th', label === 'Faixa' ? null : 'num', label);
     th.scope = 'col';
     hr.append(th);
   }
   head.append(hr);
   const body = document.createElement('tbody');
-  for (const year of plan.years) {
+  for (const tier of volume.tiers) {
     const tr = document.createElement('tr');
-    const th = el('th', null, `Ano ${year.year}`);
+    if (tier.active) tr.className = 'is-active';
+    tr.tabIndex = 0;
+    tr.dataset.from = String(tier.from);
+    tr.setAttribute('aria-label', `Aplicar a faixa ${tier.rangeLabel}, ${pct(tier.pct)}`);
+    if (tier.active) tr.setAttribute('aria-current', 'true');
+    const th = el('th', null, tier.rangeLabel);
     th.scope = 'row';
-    th.append(document.createElement('br'), el('small', null, year.multiplier === 1 ? 'preço fixo' : `× ${formatFixed(year.multiplier, 4)}`));
     tr.append(th);
-    tr.append(el('td', 'num', formatFlex(year.robots)));
-    const cumulative = el('td', 'num');
-    cumulative.append(el('span', null, formatFlex(year.cumulative)), document.createElement('br'));
-    cumulative.append(el('span', year.tierPct > 0 ? 'tier-pill' : 'tier-pill is-off', pct(year.tierPct)));
-    tr.append(cumulative);
-    tr.append(el('td', 'num', formatEUR(year.unitGrossEur)));
-    tr.append(el('td', 'num', cents(year.grossCents)));
-    tr.append(el('td', 'num', cents(year.invoiceBonusCents)));
-    const credit = el('td', 'num', cents(year.creditNoteCents));
-    if (year.milestones.length) {
-      credit.append(document.createElement('br'), el('small', null, year.milestones.map((robot) => `${robot}º robô`).join(', ')));
-    }
+    tr.append(el('td', 'num'));
+    tr.lastChild.append(el('span', tier.pct > 0 ? 'tier-pill' : 'tier-pill is-off', pct(tier.pct)));
+    tr.append(el('td', 'num', tier.pct === 0 ? '–' : `−${formatEUR(tier.unitDiscountEur)}`));
+    tr.append(el('td', 'num', formatEUR(tier.unitNetEur)));
+    tr.append(el('td', 'num', formatBRL(tier.unitTotalGrossBrl)));
+    tr.append(el('td', 'num', formatBRL(tier.unitTotalNetBrl)));
+    const credit = el('td', 'num', tier.pct === 0 ? '–' : formatEUR(tier.creditNoteEur));
+    if (tier.pct > 0) credit.append(document.createElement('br'), el('small', null, `${formatFlex(tier.from)}º robô · ${formatBRL(tier.creditNoteBrl)}`));
     tr.append(credit);
-    tr.append(el('td', 'num', cents(year.bonusCents)));
-    tr.append(el('td', 'num', cents(year.netCents)));
-    tr.append(el('td', 'num', formatBRL(year.netBrl)));
-    tr.append(el('td', 'num', formatBRL(year.netLandedBrl)));
+    tr.addEventListener('click', () => setFleet(tier.from));
+    tr.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      setFleet(tier.from);
+    });
     body.append(tr);
   }
-  const foot = document.createElement('tfoot');
-  const fr = document.createElement('tr');
-  const total = el('th', null, 'Total');
-  total.scope = 'row';
-  const sum = (key) => plan.years.reduce((acc, year) => acc + year[key], 0);
-  fr.append(
-    total,
-    el('td', 'num', formatFlex(plan.totalRobots)),
-    el('td', 'num', pct(plan.finalTierPct)),
-    el('td', 'num', plan.avgGrossEur == null ? '—' : `média ${formatEUR(plan.avgGrossEur)}`),
-    el('td', 'num', formatEUR(plan.gross)),
-    el('td', 'num', cents(sum('invoiceBonusCents'))),
-    el('td', 'num', cents(sum('creditNoteCents'))),
-    el('td', 'num', formatEUR(plan.bonus)),
-    el('td', 'num', formatEUR(plan.net)),
-    el('td', 'num', formatBRL(plan.netBrl)),
-    el('td', 'num', formatBRL(plan.netLandedBrl)),
-  );
-  foot.append(fr);
-  years.append(head, body, foot);
-
-  const table = document.getElementById('rollout-milestones');
-  table.replaceChildren();
-  table.append(el('caption', null, 'Marcos do bônus e notas de crédito (formato do slide 12)'));
-  const mh = document.createElement('thead');
-  const mr = document.createElement('tr');
-  for (const label of ['Robôs pedidos', 'Bônus na fatura', 'Faixa alcançada com', 'Nota de crédito', 'Bônus total até ali', 'Bônus efetivo']) {
-    const th = el('th', label === 'Robôs pedidos' ? null : 'num', label);
-    th.scope = 'col';
-    mr.append(th);
-  }
-  mh.append(mr);
-  const mb = document.createElement('tbody');
-  for (const row of plan.milestones) {
-    const tr = document.createElement('tr');
-    const th = el('th', null, row.to == null ? `${formatFlex(row.from)} e mais` : `${formatFlex(row.from)} – ${formatFlex(row.to)}`);
-    th.scope = 'row';
-    tr.append(th);
-    tr.append(el('td', 'num', row.invoicePct === 0 ? '–' : `${pct(row.invoicePct)}${row.reached ? ` (${cents(row.bandInvoiceBonusCents)})` : ''}`));
-    if (row.to == null) {
-      tr.append(
-        el('td', 'num', '–'),
-        el('td', 'num', '–'),
-        el('td', 'num', row.reached ? `${pct(row.levelPct)} em ${formatFlex(row.robots)} robôs` : `faltam ${formatFlex(row.missing)} robôs`),
-        el('td', 'num', pct(row.levelPct)),
-      );
-    } else if (row.reached) {
-      tr.append(
-        el('td', 'num', `${formatFlex(row.to)}º robô (ano ${formatFlex(row.year)}) → ${pct(row.levelPct)}`),
-        el('td', 'num', cents(row.creditNoteCents)),
-        el('td', 'num', cents(row.bonusToDateCents)),
-        el('td', 'num', `${pct(row.effectivePct)} de ${cents(row.cumulativeCents)}`),
-      );
-    } else {
-      tr.append(
-        el('td', 'num', `${formatFlex(row.to)}º robô → ${pct(row.levelPct)}`),
-        el('td', 'num', `faltam ${formatFlex(row.missing)} robôs`),
-        el('td', 'num', '—'),
-        el('td', 'num', '—'),
-      );
-    }
-    mb.append(tr);
-  }
-  table.append(mh, mb);
-  document.getElementById('milestone-note').textContent = `Conferência do slide 12, com ${formatEUR(100000)} por robô e sem VPI: ${SLIDE_12.milestones
+  table.append(head, body);
+  document.getElementById('milestone-note').textContent = `Nota de crédito: ao alcançar 10, 25, 50 e 100 robôs, os robôs já pedidos são levados à faixa nova, com ${formatEUR(volume.unitGrossEur)} por robô. Conferência do slide 12, com ${formatEUR(100000)} por robô: ${SLIDE_12.milestones
     .map((item) => `${item.robot}º robô ${cents(item.bonusToDateCents)}`)
-    .join(' · ')}. No 25º: robôs 11 a 25 já tiveram 2% na fatura (${cents(SLIDE_12.milestones[1].bandInvoiceBonusCents)}) e a nota de ${cents(SLIDE_12.milestones[1].creditNoteCents)} leva os 25 a 4%.`;
+    .join(' · ')} de desconto acumulado.`;
 }
 
 const SLIDE_12 = bonusLedger(Array.from({ length: 100 }, () => 100000));
@@ -1097,15 +1082,22 @@ function renderMemory(result) {
 }
 
 function renderDock(result) {
-  document.getElementById('dock-price').textContent = formatEUR(result.quote.tablePriceEur);
-  document.getElementById('dock-order').textContent = formatEUR(result.quote.orderEur);
-  document.getElementById('dock-net').textContent = compactBRL(result.brazil.netBrl);
-  document.getElementById('dock-bonus').textContent = `${pct(result.rollout.finalTierPct)} · ${formatEUR(result.rollout.bonus)}`;
+  const { quote } = result;
+  document.getElementById('dock-net').textContent = compactBRL(result.totalGrossBrl);
+  document.getElementById('dock-price').textContent = formatEUR(quote.equipmentEur);
+  const local = quote.localServicesBrl > 0 ? compactBRL(quote.localServicesBrl) : 'R$ 0';
+  document.getElementById('dock-order').textContent = `${formatEUR(quote.servicesEur)} + ${local}`;
+  document.getElementById('dock-bonus').textContent = `${pct(quote.discountPct)} · −${formatEUR(quote.discountEur)}`;
 }
 
 function syncPresets(result) {
   const { quote } = result;
-  const plain = !quote.secondGripper && !quote.coolingModule && quote.conveyorEur === 0 && quote.includeServices;
+  const plain =
+    !quote.secondGripper &&
+    !quote.coolingModule &&
+    quote.conveyorEur === 0 &&
+    quote.servicesEur === AVERAGE_SERVICES_EUR &&
+    quote.localServicesBrl === 0;
   document.querySelectorAll('[data-preset]').forEach((button) => {
     const preset = PRESETS.find((item) => item.id === button.dataset.preset);
     const on = plain && preset && getId(preset) === quote.config.id;
@@ -2295,6 +2287,24 @@ function bindChrome() {
     button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     if (willOpen) memory.scrollIntoView({ block: 'nearest' });
   });
+  const modal = document.getElementById('premissas-modal');
+  const opener = document.getElementById('open-premissas');
+  const closeModal = () => {
+    if (!modal.open) return;
+    if (typeof modal.close === 'function') modal.close();
+    else modal.removeAttribute('open');
+  };
+  opener.addEventListener('click', () => {
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+    document.getElementById('close-premissas').focus();
+  });
+  document.getElementById('close-premissas').addEventListener('click', closeModal);
+  // Clique no fundo escurecido: o alvo é o próprio dialog, fora do cartão.
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeModal();
+  });
+  modal.addEventListener('close', () => opener.focus());
   document.getElementById('print').addEventListener('click', () => window.print());
   document.getElementById('reset').addEventListener('click', () => {
     state = freshState();
@@ -2322,7 +2332,8 @@ function bindChrome() {
         secondGripper: false,
         coolingModule: false,
         conveyorEur: 0,
-        includeServices: true,
+        servicesEur: AVERAGE_SERVICES_EUR,
+        localServicesBrl: 0,
       });
       lastAdjust = null;
       matrixHeight = preset.heightM;
@@ -2350,6 +2361,10 @@ function bindChrome() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
+    if (modal.open) {
+      event.preventDefault();
+      closeModal();
+    }
     document.querySelectorAll('.tip').forEach((node) => {
       node.hidden = true;
     });

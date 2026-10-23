@@ -1,7 +1,7 @@
 /**
  * Modelos GO.compact e acordo-quadro Gollmann × DPSP. Dados da apresentação de 21.10.2026:
- * slides 4 e 8 (classes e serviços), 5 a 7 (composição do preço e opcionais), 10 a 12 (prazo, VPI e bônus)
- * e 14 a 23 (uma tabela por altura). Tudo fica embutido aqui: a página não busca nada em tempo de execução.
+ * slides 4 e 8 (classes e serviços), 5 a 7 (composição do preço e opcionais), 11 e 12 (faixas de desconto
+ * por volume e notas de crédito) e 14 a 23 (uma tabela por altura). Tudo fica embutido aqui: a página não busca nada em tempo de execução.
  */
 
 /**
@@ -75,7 +75,7 @@ export function formatBRL(value) {
   }).format(roundMoney(value));
 }
 
-/** Euro no padrão brasileiro: "€ 108.000". Centavos só aparecem quando existem (reajuste do VPI). */
+/** Euro no padrão brasileiro: "€ 108.000". Centavos só aparecem quando existem (desconto por volume). */
 export function formatEUR(value) {
   if (value == null || !Number.isFinite(value)) return '—';
   const rounded = roundMoney(value);
@@ -128,6 +128,9 @@ export const CLASSES = [
   { id: '3XL', approxPacks: 35000, fromEur: 119000, servicesEur: 25500 },
   { id: '4XL', approxPacks: 40000, fromEur: 123000, servicesEur: 27000 },
 ];
+
+/** Média dos serviços de transporte e instalação das 7 classes do slide 8: padrão do campo editável. */
+export const AVERAGE_SERVICES_EUR = CLASSES.reduce((sum, cls) => sum + cls.servicesEur, 0) / CLASSES.length;
 
 /** Slide 5: todo preço de tabela já traz a carga automática com OCR e o SAM com 4 saídas. */
 export const PRICE_BUILD_UP = {
@@ -405,6 +408,8 @@ export const DEFAULTS = {
   secondGripper: false,
   coolingModule: false,
   conveyorEur: 0,
+  servicesEur: AVERAGE_SERVICES_EUR,
+  localServicesBrl: 0,
   includeServices: true,
   roomFilterOn: false,
   roomHeightM: 3,
@@ -415,6 +420,7 @@ export const DEFAULTS = {
   fxRate: 6.2,
   importCostPct: 0,
   taxCreditPct: 25,
+  fleetRobots: 1,
   year1Robots: 5,
   year2Robots: 10,
   year3Robots: 15,
@@ -461,6 +467,15 @@ export function sanitize(raw = {}) {
     if (typeof raw[key] === 'boolean') input[key] = raw[key];
   }
   input.conveyorEur = Math.max(0, num(raw.conveyorEur, DEFAULTS.conveyorEur));
+  // Transporte e instalação agora é um valor digitado. includeServices: false sem valor é o "fora" antigo.
+  if (raw.includeServices === false && raw.servicesEur === undefined) {
+    input.servicesEur = 0;
+    input.includeServices = false;
+  } else {
+    input.servicesEur = roundMoney(Math.max(0, num(raw.servicesEur, DEFAULTS.servicesEur)));
+    input.includeServices = input.servicesEur > 0;
+  }
+  input.localServicesBrl = roundMoney(Math.max(0, num(raw.localServicesBrl, DEFAULTS.localServicesBrl)));
   input.roomHeightM = optionalMeters(raw.roomHeightM, DEFAULTS.roomHeightM);
   input.roomWidthM = optionalMeters(raw.roomWidthM, DEFAULTS.roomWidthM);
   input.roomLengthM = optionalMeters(raw.roomLengthM, DEFAULTS.roomLengthM);
@@ -470,6 +485,7 @@ export function sanitize(raw = {}) {
   input.fxRate = clamp(num(raw.fxRate, DEFAULTS.fxRate), 0.01, 100);
   input.importCostPct = clamp(num(raw.importCostPct, DEFAULTS.importCostPct), 0, 300);
   input.taxCreditPct = clamp(num(raw.taxCreditPct, DEFAULTS.taxCreditPct), 0, 100);
+  input.fleetRobots = Math.round(clamp(num(raw.fleetRobots, DEFAULTS.fleetRobots), 1, 5000));
   for (const key of YEAR_KEYS) input[key] = Math.round(clamp(num(raw[key], DEFAULTS[key]), 0, 1000));
   input.germanInflationPct = clamp(num(raw.germanInflationPct, DEFAULTS.germanInflationPct), 0, 50);
   return input;
@@ -508,7 +524,11 @@ export function resolveSelection(raw = {}, keep = null) {
   return { heightM: best.heightM, widthSam: best.widthSam, classId: best.classId, config: best, requested, changed };
 }
 
-/** Composição do preço de um robô (slides 5 a 8) e as medidas que dela decorrem. */
+/**
+ * Composição do preço de um robô (slides 5 a 8) e as medidas que dela decorrem. Opcionais e transporte e
+ * instalação ficam separados; o desconto por volume (slide 11) incide sobre o pedido Gollmann inteiro. Os
+ * serviços locais são faturados em reais no Brasil e ficam fora do pedido em euro.
+ */
 export function quoteRobot(config, raw = {}) {
   const options = sanitize({ ...raw, heightM: config.heightM, widthSam: config.widthSam, classId: config.classId });
   const cls = classOf(config.classId);
@@ -519,9 +539,14 @@ export function quoteRobot(config, raw = {}) {
   const secondGripperEur = options.secondGripper ? OPTIONS.secondGripperEur : 0;
   const coolingEur = options.coolingModule ? OPTIONS.coolingEur : 0;
   const conveyorEur = roundMoney(options.conveyorEur);
-  const servicesEur = options.includeServices ? cls.servicesEur : 0;
-  const equipmentEur = roundMoney(tablePriceEur + secondGripperEur + coolingEur + conveyorEur);
+  const optionsEur = roundMoney(secondGripperEur + coolingEur + conveyorEur);
+  const servicesEur = roundMoney(options.servicesEur);
+  const equipmentEur = roundMoney(tablePriceEur + optionsEur);
   const orderEur = roundMoney(equipmentEur + servicesEur);
+  const discountPct = volumeBonusPct(options.fleetRobots);
+  const discountEur = roundMoney(orderEur * (discountPct / 100));
+  const netOrderEur = roundMoney(orderEur - discountEur);
+  const localServicesBrl = roundMoney(options.localServicesBrl);
   const extraLengthM = options.secondGripper ? OPTIONS.secondGripperLengthM : 0;
   const tableLengthM = config.lengthM;
   const totalLengthM = roundM(tableLengthM + extraLengthM);
@@ -547,10 +572,17 @@ export function quoteRobot(config, raw = {}) {
     secondGripperEur,
     coolingEur,
     conveyorEur,
+    optionsEur,
     servicesEur,
     classServicesEur: cls.servicesEur,
     equipmentEur,
     orderEur,
+    fleetRobots: options.fleetRobots,
+    discountPct,
+    discountEur,
+    netOrderEur,
+    localServicesBrl,
+    localServicesEurApprox: roundMoney(localServicesBrl / options.fxRate),
     tableLengthM,
     coreLengthM,
     extraLengthM,
@@ -559,7 +591,7 @@ export function quoteRobot(config, raw = {}) {
     compactAreaM2: Math.round(config.widthCompact * totalLengthM * 10000) / 10000,
     directAreaM2: Math.round(config.widthDirect * totalLengthM * 10000) / 10000,
     volumeM3: Math.round(footprintM2 * config.heightM * 10000) / 10000,
-    eurPerPack: orderEur / config.capacityPacks,
+    eurPerPack: netOrderEur / config.capacityPacks,
   };
 }
 
@@ -833,6 +865,66 @@ export function rollout(raw = {}, unitOrderEur) {
   };
 }
 
+const TIER_LABELS = ['1 a 9 robôs', '10 a 24 robôs', '25 a 49 robôs', '50 a 99 robôs', '100+ robôs'];
+
+/**
+ * Tabela das faixas de desconto por volume para um pedido Gollmann bruto por robô (equipamento, opcionais e
+ * transporte e instalação). Cada faixa traz o preço unitário com o desconto, o total no Brasil com os serviços
+ * locais e a nota de crédito retroativa do marco (slide 12). O resumo é o da quantidade escolhida.
+ */
+export function volumeTiersTable(unitOrderEur, raw = {}) {
+  const input = sanitize(raw);
+  const ledger = bonusLedger(Array.from({ length: 100 }, () => unitOrderEur));
+  const tiers = VOLUME_TIERS.map((tier, index) => {
+    const next = VOLUME_TIERS[index + 1];
+    const milestone = ledger.milestones.find((item) => item.robot === tier.from);
+    const unitDiscountEur = roundMoney(unitOrderEur * (tier.pct / 100));
+    const unitNetEur = roundMoney(unitOrderEur - unitDiscountEur);
+    const brazil = brazilCost(unitNetEur, input);
+    const creditNoteEur = tier.pct === 0 || !milestone ? 0 : milestone.creditNoteCents / 100;
+    return {
+      from: tier.from,
+      to: next ? next.from - 1 : null,
+      rangeLabel: TIER_LABELS[index],
+      pct: tier.pct,
+      active: tier.pct === volumeBonusPct(input.fleetRobots),
+      unitGrossEur: unitOrderEur,
+      unitDiscountEur,
+      unitDiscountBrl: roundMoney(unitDiscountEur * input.fxRate),
+      unitNetEur,
+      unitNetBrl: roundMoney(unitNetEur * input.fxRate),
+      unitLandedBrl: brazil.landedBrl,
+      unitTotalGrossBrl: roundMoney(brazil.landedBrl + input.localServicesBrl),
+      unitTotalNetBrl: roundMoney(brazil.netBrl + input.localServicesBrl),
+      creditNoteEur,
+      creditNoteBrl: roundMoney(creditNoteEur * input.fxRate),
+      bonusToDateEur: tier.pct === 0 || !milestone ? 0 : milestone.bonusToDateCents / 100,
+    };
+  });
+  const count = input.fleetRobots;
+  const pct = volumeBonusPct(count);
+  const row = tiers.find((tier) => tier.pct === pct);
+  return {
+    count,
+    pct,
+    next: nextTier(count),
+    unitGrossEur: row.unitGrossEur,
+    unitDiscountEur: row.unitDiscountEur,
+    unitDiscountBrl: row.unitDiscountBrl,
+    unitNetEur: row.unitNetEur,
+    unitNetBrl: row.unitNetBrl,
+    unitTotalGrossBrl: row.unitTotalGrossBrl,
+    unitTotalNetBrl: row.unitTotalNetBrl,
+    fleetGrossEur: roundMoney(row.unitGrossEur * count),
+    fleetDiscountEur: roundMoney(row.unitDiscountEur * count),
+    fleetDiscountBrl: roundMoney(row.unitDiscountBrl * count),
+    fleetNetEur: roundMoney(row.unitNetEur * count),
+    fleetTotalGrossBrl: roundMoney(row.unitTotalGrossBrl * count),
+    fleetTotalNetBrl: roundMoney(row.unitTotalNetBrl * count),
+    tiers,
+  };
+}
+
 /** Rótulo de uma configuração: "2,95 m × 3,20 m · Robô L". */
 export function configLabel(config) {
   return `${formatMeters(config.heightM)} × ${formatMeters(config.widthSam)} · Robô ${config.classId}`;
@@ -848,11 +940,16 @@ export function evaluate(raw = {}, keep = null) {
   const chosen = { ...input, heightM: selection.heightM, widthSam: selection.widthSam, classId: selection.classId };
   const quote = quoteRobot(selection.config, chosen);
   const fx = (eur) => roundMoney(eur * chosen.fxRate);
-  const brazil = brazilCost(quote.orderEur, chosen);
+  const brazilGrossOrder = brazilCost(quote.orderEur, chosen);
+  const brazil = brazilCost(quote.netOrderEur, chosen);
+  const totalGrossBrl = roundMoney(brazil.landedBrl + quote.localServicesBrl);
+  const totalNetBrl = roundMoney(brazil.netBrl + quote.localServicesBrl);
+  const totalEurApprox = roundMoney(quote.netOrderEur + quote.localServicesBrl / chosen.fxRate);
   return {
     ...chosen,
     selection,
     quote,
+    brazilGrossOrder,
     brazil,
     brl: {
       baseRobot: fx(quote.baseRobotEur),
@@ -862,14 +959,23 @@ export function evaluate(raw = {}, keep = null) {
       secondGripper: fx(quote.secondGripperEur),
       cooling: fx(quote.coolingEur),
       conveyor: fx(quote.conveyorEur),
+      options: fx(quote.optionsEur),
       equipment: fx(quote.equipmentEur),
       services: fx(quote.servicesEur),
-      order: brazil.grossBrl,
+      order: fx(quote.orderEur),
+      discount: fx(quote.discountEur),
+      netOrder: brazil.grossBrl,
+      localServices: quote.localServicesBrl,
+      totalGross: totalGrossBrl,
+      totalNet: totalNetBrl,
     },
-    brlPerPack: brazil.netBrl / quote.capacityPacks,
+    totalGrossBrl,
+    totalNetBrl,
+    totalEurApprox,
+    brlPerPack: totalNetBrl / quote.capacityPacks,
     room: fitsRoom(selection.config, chosen),
     space: findSpace(chosen),
-    rollout: rollout(chosen, quote.orderEur),
+    volume: volumeTiersTable(quote.orderEur, chosen),
   };
 }
 
@@ -888,7 +994,7 @@ function pct(value) {
 const DIM_LABELS = { height: 'Pé-direito', width: 'Largura', length: 'Comprimento' };
 
 export function explain(result) {
-  const { quote, brazil, selection, rollout: plan, room, space } = result;
+  const { quote, brazil, selection, volume, room, space } = result;
   const cls = classOf(quote.classId);
   const range = classPriceRange(quote.classId);
   const changedText = selection.changed.length
@@ -905,12 +1011,16 @@ export function explain(result) {
         ),
       ]
     : ['Filtro da sala desligado. Ligue para ver quantas das 286 configurações cabem nas medidas da loja.'];
-  const milestoneLines = plan.milestones
-    .filter((row) => row.to != null)
-    .map((row) =>
-      row.reached
-        ? `Robô ${formatFlex(row.to)} (ano ${formatFlex(row.year)}): faixa ${pct(row.levelPct)}. Os robôs ${formatFlex(row.from)} a ${formatFlex(row.to)} saíram com ${pct(row.invoicePct)} na fatura (${eur(row.bandInvoiceBonusCents / 100)}). Nota de crédito = ${pct(row.levelPct)} × ${eur(row.cumulativeCents / 100)} − bônus já dado = ${eur(row.creditNoteCents / 100)}. Bônus acumulado ${eur(row.bonusToDateCents / 100)}.`
-        : `Faixa de ${pct(row.levelPct)} no robô ${formatFlex(row.to)}: não alcançada, faltam ${formatFlex(row.missing)}.`,
+  const robots = (count) => `${formatFlex(count)} ${count === 1 ? 'robô' : 'robôs'}`;
+  const servicesText =
+    quote.servicesEur === AVERAGE_SERVICES_EUR
+      ? `${eur(quote.servicesEur)}, a média padrão das 7 classes`
+      : `${eur(quote.servicesEur)}, valor editado (média padrão ${eur(AVERAGE_SERVICES_EUR)})`;
+  const creditLines = volume.tiers
+    .filter((tier) => tier.pct > 0)
+    .map(
+      (tier) =>
+        `Marco do ${formatFlex(tier.from)}º robô: faixa ${pct(tier.pct)}, nota de crédito retroativa de ${eur(tier.creditNoteEur)} (${brl(tier.creditNoteBrl)}); desconto acumulado até ali ${eur(tier.bonusToDateEur)}.`,
     );
   return [
     {
@@ -923,37 +1033,40 @@ export function explain(result) {
       ],
     },
     {
-      title: 'Preço do robô',
+      title: 'Preço do robô (tabela)',
       lines: [
         `Preço de tabela ${eur(quote.tablePriceEur)}. Na classe ${cls.id} a tabela vai de ${eur(range.min)} a ${eur(range.max)} em ${formatFlex(range.count)} células; o slide 4 diz "a partir de ${eur(cls.fromEur)}".`,
         `Robô base = ${eur(quote.tablePriceEur)} − ${eur(PRICE_BUILD_UP.bundledEur)} = ${eur(quote.baseRobotEur)}. + Carga automática com OCR e carga manual ${eur(quote.autoLoadingEur)} + SAM com 4 saídas ${eur(quote.samEur)} = ${eur(quote.robotPriceEur)}.`,
       ],
     },
     {
-      title: 'Opcionais e serviços',
+      title: 'Opcionais e serviços (separados)',
       lines: [
-        `2º braço com 2º SAM: ${quote.secondGripper ? eur(quote.secondGripperEur) : 'não'}. Refrigeração: ${quote.coolingModule ? eur(quote.coolingEur) : 'não'}. Esteiras: ${eur(quote.conveyorEur)}.`,
-        `Equipamento = ${eur(quote.equipmentEur)}. Serviços de transporte e instalação da classe ${cls.id}: ${quote.includeServices ? eur(quote.servicesEur) : `fora (${eur(quote.classServicesEur)} se incluir)`}.`,
-        `Pedido por robô = ${eur(quote.orderEur)}. É a base do bônus de volume: inclui opcionais e serviços.`,
+        `Opcionais: 2º braço com 2º SAM ${quote.secondGripper ? eur(quote.secondGripperEur) : 'não'}, refrigeração ${quote.coolingModule ? eur(quote.coolingEur) : 'não'}, esteiras ${eur(quote.conveyorEur)}. Subtotal de opcionais ${eur(quote.optionsEur)}; robô + opcionais = ${eur(quote.equipmentEur)}.`,
+        `Transporte e instalação: ${servicesText}. Na tabela do slide 8 a classe ${cls.id} custa ${eur(quote.classServicesEur)} (de ${eur(18000)} no S a ${eur(27000)} no 4XL).`,
+        `Pedido Gollmann bruto por robô = ${eur(quote.equipmentEur)} + ${eur(quote.servicesEur)} = ${eur(quote.orderEur)}. É a base do desconto por volume.`,
+        `Serviços locais faturados no Brasil: ${brl(quote.localServicesBrl)} (≈ ${eur(quote.localServicesEurApprox)} pelo câmbio). Ficam fora do pedido em euro, da nacionalização e do crédito.`,
       ],
     },
     {
-      title: 'Custo Brasil',
+      title: 'Desconto por volume',
       lines: [
-        `Em reais = ${eur(quote.orderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${brl(brazil.grossBrl)}.`,
-        `Nacionalização = ${pct(brazil.importCostPct)} × ${brl(brazil.grossBrl)} = ${brl(brazil.importBrl)}. Custo nacionalizado ${brl(brazil.landedBrl)}.`,
-        `Crédito recuperável = ${pct(brazil.taxCreditPct)} × ${brl(brazil.landedBrl)} = ${brl(brazil.creditBrl)}. Custo líquido efetivo ${brl(brazil.netBrl)}, ou ${brl(result.brlPerPack)} por pacote de capacidade.`,
+        `Faixas do acordo pela quantidade de robôs: 0% de 1 a 9, 2% de 10 a 24, 4% de 25 a 49, 6% de 50 a 99 e 8% a partir de 100.`,
+        `Com ${robots(volume.count)}: faixa de ${pct(quote.discountPct)}. Desconto = ${pct(quote.discountPct)} × ${eur(quote.orderEur)} = ${eur(quote.discountEur)} por robô. Pedido Gollmann líquido ${eur(quote.netOrderEur)}.${volume.next ? ` Faltam ${robots(volume.next.from - volume.count)} para ${pct(volume.next.pct)}.` : ' Faixa máxima.'}`,
+        `Frota de ${robots(volume.count)}: bruto ${eur(volume.fleetGrossEur)}, desconto ${eur(volume.fleetDiscountEur)}, líquido ${eur(volume.fleetNetEur)}; Preço Total no Brasil ${brl(volume.fleetTotalGrossBrl)}.`,
+        `Cada robô sai com a faixa vigente no pedido. Ao alcançar 10, 25, 50 e 100 robôs, a nota de crédito leva todos os robôs pedidos até ali à faixa nova:`,
+        ...creditLines,
+      ],
+    },
+    {
+      title: 'Custo Brasil e Preço Total',
+      lines: [
+        `Parte importada em reais = ${eur(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${brl(brazil.grossBrl)}.`,
+        `Nacionalização = ${pct(brazil.importCostPct)} × ${brl(brazil.grossBrl)} = ${brl(brazil.importBrl)}. Parte importada nacionalizada ${brl(brazil.landedBrl)}.`,
+        `Preço Total = ${brl(brazil.landedBrl)} + serviços locais ${brl(quote.localServicesBrl)} = ${brl(result.totalGrossBrl)} (≈ ${eur(result.totalEurApprox)}).`,
+        `Crédito recuperável = ${pct(brazil.taxCreditPct)} × ${brl(brazil.landedBrl)} = ${brl(brazil.creditBrl)}. Investimento líquido = ${brl(result.totalGrossBrl)} − ${brl(brazil.creditBrl)} = ${brl(result.totalNetBrl)}, ou ${brl(result.brlPerPack)} por pacote de capacidade.`,
       ],
     },
     { title: 'Espaço da loja', lines: roomLines },
-    {
-      title: 'Acordo-quadro e bônus',
-      lines: [
-        `Anos 1 e 2 com preço fixo. Anos 3, 4 e 5: × (1 + ${pct(result.germanInflationPct)}) elevado a 1, 2 e 3. Pedido por robô no ano: ${plan.unitByYear.map((value, index) => `ano ${index + 1} ${eur(value)}`).join(', ')}.`,
-        `Faixas pela contagem acumulada: 2% a partir do 10º, 4% do 25º, 6% do 50º e 8% do 100º robô. Cada robô sai com a faixa vigente no pedido. Ao alcançar uma faixa nova, a nota de crédito leva todos os robôs pedidos até ali à nova faixa.`,
-        ...milestoneLines,
-        `Total: ${formatFlex(plan.totalRobots)} robôs, bruto ${eur(plan.gross)}, bônus ${eur(plan.bonus)} (${pct(plan.effectivePct)} efetivo), líquido ${eur(plan.net)}. Em reais pelo câmbio: bônus ${brl(plan.bonusBrl)}, líquido ${brl(plan.netBrl)}; com nacionalização e crédito, ${brl(plan.netLandedBrl)}.`,
-      ],
-    },
   ];
 }
