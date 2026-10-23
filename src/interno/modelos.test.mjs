@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'vitest';
 import {
+  AVERAGE_SERVICES_EUR,
   CLASSES,
   CONFIGURATIONS,
   DEFAULTS,
@@ -17,6 +18,7 @@ import {
   WIDTHS,
   bonusLedger,
   brazilCost,
+  classOf,
   classPriceRange,
   classesAt,
   distributeRobots,
@@ -34,6 +36,7 @@ import {
   sanitize,
   toCents,
   volumeBonusPct,
+  volumeTiersTable,
   widthsAt,
   yearMultipliers,
 } from '../../public/interno/modelos/calc.js';
@@ -164,7 +167,13 @@ describe('composição do preço e exemplos dos slides 7 e 8', () => {
       assert.equal(preset.heightM, 2.95);
       assert.equal(preset.widthSam, widthSam);
       assert.equal(preset.classId, classId);
-      const result = evaluate({ heightM: preset.heightM, widthSam: preset.widthSam, classId: preset.classId });
+      // Os slides usam o transporte e instalação da classe; o simulador nasce na média e aceita o valor da classe.
+      const result = evaluate({
+        heightM: preset.heightM,
+        widthSam: preset.widthSam,
+        classId: preset.classId,
+        servicesEur: classOf(classId).servicesEur,
+      });
       const { quote } = result;
       assert.equal(result.selection.changed.length, 0);
       assert.equal(quote.tableLengthM, lengthM);
@@ -185,13 +194,20 @@ describe('composição do preço e exemplos dos slides 7 e 8', () => {
     assert.match(PRESETS[1].label, /Padrão/);
   });
 
-  it('nasce no exemplo 2, Robô L', () => {
+  it('nasce no exemplo 2, Robô L, com a média de transporte e instalação', () => {
     assert.equal(DEFAULTS.heightM, 2.95);
     assert.equal(DEFAULTS.widthSam, 3.2);
     assert.equal(DEFAULTS.classId, 'L');
+    assert.equal(AVERAGE_SERVICES_EUR, 22500);
+    assert.equal(DEFAULTS.servicesEur, 22500);
+    assert.equal(DEFAULTS.localServicesBrl, 0);
+    assert.equal(DEFAULTS.fleetRobots, 1);
     const base = evaluate({});
     assert.equal(base.quote.tablePriceEur, 108000);
-    assert.equal(base.quote.orderEur, 129000);
+    assert.equal(base.quote.servicesEur, 22500);
+    assert.equal(base.quote.orderEur, 130500);
+    assert.equal(base.quote.discountPct, 0);
+    assert.equal(base.quote.netOrderEur, 130500);
     assert.equal(base.quote.footprintM2, 12.8);
     assert.equal(base.quote.volumeM3, 37.76);
   });
@@ -220,26 +236,60 @@ describe('opcionais e serviços (slide 6)', () => {
   it('soma 8.000 da refrigeração e o valor digitado das esteiras', () => {
     const cooled = quoteRobot(config, { coolingModule: true });
     assert.equal(cooled.coolingEur, 8000);
-    assert.equal(cooled.orderEur, 129000 + 8000);
+    assert.equal(cooled.optionsEur, 8000);
+    assert.equal(cooled.orderEur, 130500 + 8000);
     const belts = quoteRobot(config, { conveyorEur: 12345.67 });
     assert.equal(belts.conveyorEur, 12345.67);
-    assert.equal(belts.orderEur, 129000 + 12345.67);
+    assert.equal(belts.orderEur, 130500 + 12345.67);
     const all = quoteRobot(config, { secondGripper: true, coolingModule: true, conveyorEur: 5000 });
-    assert.equal(all.equipmentEur, 108000 + 14000 + 8000 + 5000);
-    assert.equal(all.orderEur, all.equipmentEur + 21000);
+    assert.equal(all.optionsEur, 14000 + 8000 + 5000);
+    assert.equal(all.equipmentEur, 108000 + all.optionsEur);
+    assert.equal(all.servicesEur, 22500);
+    assert.equal(all.orderEur, all.equipmentEur + 22500);
     assert.equal(quoteRobot(config, { conveyorEur: -10 }).conveyorEur, 0);
   });
 
-  it('cobra os serviços pela classe e permite deixá-los de fora', () => {
+  it('separa opcionais, transporte e instalação editável e serviços locais em R$', () => {
     const expected = { S: 18000, M: 19500, L: 21000, XL: 22500, XXL: 24000, '3XL': 25500, '4XL': 27000 };
     for (const cls of CLASSES) {
       const sample = CONFIGURATIONS.find((item) => item.classId === cls.id);
       const quote = quoteRobot(sample, {});
-      assert.equal(quote.servicesEur, expected[cls.id]);
-      assert.equal(quote.orderEur, sample.priceEur + expected[cls.id]);
+      assert.equal(quote.servicesEur, 22500);
+      assert.equal(quote.classServicesEur, expected[cls.id]);
+      assert.equal(quote.optionsEur, 0);
+      assert.equal(quote.orderEur, sample.priceEur + 22500);
+      const byClass = quoteRobot(sample, { servicesEur: cls.servicesEur });
+      assert.equal(byClass.servicesEur, expected[cls.id]);
+      assert.equal(byClass.orderEur, sample.priceEur + expected[cls.id]);
       const without = quoteRobot(sample, { includeServices: false });
       assert.equal(without.servicesEur, 0);
+      assert.equal(without.includeServices, false);
       assert.equal(without.classServicesEur, expected[cls.id]);
+    }
+    const custom = quoteRobot(config, { servicesEur: 30000.5, localServicesBrl: 62000, fxRate: 6.2 });
+    assert.equal(custom.servicesEur, 30000.5);
+    assert.equal(custom.orderEur, 108000 + 30000.5);
+    assert.equal(custom.localServicesBrl, 62000);
+    assert.equal(custom.localServicesEurApprox, 10000);
+    assert.equal(quoteRobot(config, { servicesEur: 0 }).includeServices, false);
+    assert.equal(quoteRobot(config, { servicesEur: -5, localServicesBrl: -1 }).servicesEur, 0);
+    assert.equal(sanitize({ localServicesBrl: -1 }).localServicesBrl, 0);
+    assert.equal(sanitize({ fleetRobots: 0 }).fleetRobots, 1);
+    assert.equal(sanitize({ fleetRobots: 12.6 }).fleetRobots, 13);
+  });
+
+  it('aplica o desconto por volume ao pedido Gollmann e não aos serviços locais', () => {
+    const quote = quoteRobot(config, { fleetRobots: 25, coolingModule: true, localServicesBrl: 50000 });
+    assert.equal(quote.orderEur, 108000 + 8000 + 22500);
+    assert.equal(quote.discountPct, 4);
+    assert.equal(quote.discountEur, 5540);
+    assert.equal(quote.netOrderEur, 138500 - 5540);
+    assert.equal(quote.localServicesBrl, 50000);
+    for (const [fleetRobots, pct] of [[1, 0], [9, 0], [10, 2], [24, 2], [25, 4], [50, 6], [99, 6], [100, 8], [250, 8]]) {
+      const item = quoteRobot(config, { fleetRobots });
+      assert.equal(item.discountPct, pct, String(fleetRobots));
+      assert.equal(item.discountEur, toCents(130500 * (pct / 100)) / 100);
+      assert.equal(item.netOrderEur, 130500 - item.discountEur);
     }
   });
 });
@@ -289,7 +339,7 @@ describe('busca por espaço da loja', () => {
   it('acha o mais barato, a menor área e a maior capacidade', () => {
     const space = findSpace({ roomFilterOn: true, roomHeightM: 3, roomWidthM: 3.5, roomLengthM: 5, minCapacity: 20000 });
     assert.equal(space.cheapest.config.id, '2.95|3.20|L');
-    assert.equal(space.cheapest.orderEur, 129000);
+    assert.equal(space.cheapest.orderEur, 130500);
     assert.equal(space.smallest.footprintM2, Math.min(...space.matches.map((quote) => quote.footprintM2)));
     assert.equal(space.largest.capacityPacks, Math.max(...space.matches.map((quote) => quote.capacityPacks)));
     assert.equal(space.largest.config.id, '2.95|3.20|XL');
@@ -417,8 +467,7 @@ describe('acordo-quadro: VPI, faixas e notas de crédito (slides 10 a 12)', () =
   });
 
   it('padrão: 5, 10, 15, 10 e 10 robôs fecham em 6%', () => {
-    const result = evaluate({});
-    const plan = result.rollout;
+    const plan = rollout({}, 129000);
     assert.equal(plan.totalRobots, 50);
     assert.equal(plan.finalTierPct, 6);
     assert.deepEqual(plan.milestones.filter((row) => row.reached).map((row) => row.to), [10, 25, 50]);
@@ -452,18 +501,104 @@ describe('câmbio e custo Brasil', () => {
   });
 
   it('leva o custo Brasil para o resultado e para a memória de cálculo', () => {
-    const result = evaluate({ importCostPct: 35 });
+    const result = evaluate({ importCostPct: 35, servicesEur: 21000 });
     assert.equal(result.brazil.netBrl, 809797.5);
+    assert.equal(result.totalNetBrl, 809797.5);
+    assert.equal(result.totalGrossBrl, 1079730);
     assert.equal(result.brl.tablePrice, 108000 * 6.2);
     close(result.brlPerPack, 809797.5 / 20500, 9);
     const text = explain(result).map((block) => `${block.title}\n${block.lines.join('\n')}`).join('\n');
-    for (const pattern of [/Custo Brasil/, /Robô base/, /nota de crédito/, /VPI|1 \+ 2%/, /Filtro da sala desligado/]) {
+    assert.deepEqual(
+      explain(result).map((block) => block.title),
+      ['Modelo e dimensões', 'Preço do robô (tabela)', 'Opcionais e serviços (separados)', 'Desconto por volume', 'Custo Brasil e Preço Total', 'Espaço da loja'],
+    );
+    for (const pattern of [/Custo Brasil/, /Robô base/, /nota de crédito/, /Subtotal de opcionais/, /média padrão €\s22\.500/, /Serviços locais/, /0% de 1 a 9, 2% de 10 a 24/, /Filtro da sala desligado/]) {
       assert.match(text, pattern);
     }
     assert.equal(parseBr('6.20', { decimalDot: true }), 6.2);
     assert.equal(parseBr('6,20'), 6.2);
     assert.equal(parseBr('129.000'), 129000);
     assert.equal(parseBr('€ 14.000'), 14000);
+  });
+});
+
+describe('Preço Total e faixas de desconto por volume', () => {
+  it('soma a parte importada com desconto e os serviços locais em R$', () => {
+    const result = evaluate({ fleetRobots: 25, localServicesBrl: 50000 });
+    const { quote, brazil } = result;
+    assert.equal(quote.orderEur, 130500);
+    assert.equal(quote.discountEur, 5220);
+    assert.equal(quote.netOrderEur, 125280);
+    assert.equal(result.brazilGrossOrder.grossBrl, 809100);
+    assert.equal(brazil.grossBrl, 776736);
+    assert.equal(brazil.creditBrl, 194184);
+    assert.equal(result.totalGrossBrl, 776736 + 50000);
+    assert.equal(result.totalNetBrl, 776736 - 194184 + 50000);
+    assert.equal(result.totalEurApprox, toCents(125280 + 50000 / 6.2) / 100);
+    assert.equal(result.brl.options, 0);
+    assert.equal(result.brl.services, 22500 * 6.2);
+    assert.equal(result.brl.order, 809100);
+    assert.equal(result.brl.discount, 5220 * 6.2);
+    assert.equal(result.brl.netOrder, 776736);
+    assert.equal(result.brl.localServices, 50000);
+    assert.equal(result.brl.totalGross, result.totalGrossBrl);
+    assert.equal(result.brl.totalNet, result.totalNetBrl);
+    close(result.brlPerPack, result.totalNetBrl / 20500, 9);
+    assert.equal(result.rollout, undefined);
+
+    const landed = evaluate({ importCostPct: 35, localServicesBrl: 10000 });
+    assert.equal(landed.brazil.landedBrl, 1092285);
+    assert.equal(landed.totalGrossBrl, 1102285);
+    assert.equal(landed.totalNetBrl, 1092285 - 273071.25 + 10000);
+  });
+
+  it('monta as 5 faixas com preço unitário, total no Brasil e notas de crédito retroativas', () => {
+    const table = volumeTiersTable(130500, { fxRate: 6.2, localServicesBrl: 50000, fleetRobots: 30 });
+    assert.deepEqual(
+      table.tiers.map((tier) => [tier.from, tier.to, tier.rangeLabel, tier.pct, tier.active]),
+      [
+        [1, 9, '1 a 9 robôs', 0, false],
+        [10, 24, '10 a 24 robôs', 2, false],
+        [25, 49, '25 a 49 robôs', 4, true],
+        [50, 99, '50 a 99 robôs', 6, false],
+        [100, null, '100+ robôs', 8, false],
+      ],
+    );
+    assert.deepEqual(table.tiers.map((tier) => tier.unitDiscountEur), [0, 2610, 5220, 7830, 10440]);
+    assert.deepEqual(table.tiers.map((tier) => tier.unitNetEur), [130500, 127890, 125280, 122670, 120060]);
+    assert.deepEqual(table.tiers.map((tier) => tier.creditNoteEur), [0, 26100, 65250, 130500, 261000]);
+    assert.deepEqual(table.tiers.map((tier) => tier.bonusToDateEur), [0, 26100, 130500, 391500, 1044000]);
+    for (const tier of table.tiers) {
+      assert.equal(tier.unitGrossEur, 130500);
+      assert.equal(tier.unitNetBrl, toCents(tier.unitNetEur * 6.2) / 100);
+      assert.equal(tier.unitDiscountBrl, toCents(tier.unitDiscountEur * 6.2) / 100);
+      assert.equal(tier.unitLandedBrl, tier.unitNetBrl);
+      assert.equal(tier.unitTotalGrossBrl, tier.unitLandedBrl + 50000);
+      assert.equal(tier.unitTotalNetBrl, brazilCost(tier.unitNetEur, { fxRate: 6.2 }).netBrl + 50000);
+      assert.equal(tier.creditNoteBrl, toCents(tier.creditNoteEur * 6.2) / 100);
+    }
+    assert.equal(table.count, 30);
+    assert.equal(table.pct, 4);
+    assert.equal(table.next.from, 50);
+    assert.equal(table.unitNetEur, 125280);
+    assert.equal(table.fleetGrossEur, 130500 * 30);
+    assert.equal(table.fleetDiscountEur, 5220 * 30);
+    assert.equal(table.fleetNetEur, 125280 * 30);
+    assert.equal(table.fleetTotalGrossBrl, table.unitTotalGrossBrl * 30);
+    assert.equal(table.fleetTotalNetBrl, table.unitTotalNetBrl * 30);
+    assert.equal(volumeTiersTable(130500, { fleetRobots: 150 }).next, null);
+    // Com € 100.000 por robô as notas repetem o slide 12.
+    assert.deepEqual(volumeTiersTable(100000, {}).tiers.map((tier) => tier.bonusToDateEur), [0, 20000, 100000, 300000, 800000]);
+  });
+
+  it('leva a tabela de faixas para o resultado', () => {
+    const result = evaluate({ fleetRobots: 100, secondGripper: true });
+    assert.equal(result.volume.pct, 8);
+    assert.equal(result.volume.unitGrossEur, result.quote.orderEur);
+    assert.equal(result.volume.unitNetEur, result.quote.netOrderEur);
+    assert.equal(result.volume.unitTotalGrossBrl, result.totalGrossBrl);
+    assert.equal(result.volume.unitTotalNetBrl, result.totalNetBrl);
+    assert.equal(result.volume.tiers.filter((tier) => tier.active).length, 1);
   });
 });
 
@@ -511,11 +646,35 @@ describe('página de modelos isolada', () => {
     assert.match(page, /class="dock/);
     assert.match(page, /<canvas id="viewer"/);
     for (const color of ['#009bb4', '#8ab81a', '#b5124b', '#23272b']) assert.ok(app.includes(color), color);
-    assert.match(app, /gcalc\.modelos\.interno\.v1/);
+    assert.match(app, /gcalc\.modelos\.interno\.v2/);
     assert.match(app, /Filtrar por medidas da sala/);
-    assert.match(app, /Inflação alemã VPI/);
+    assert.doesNotMatch(app, /Inflação alemã VPI/);
+    assert.doesNotMatch(page, /rollout-years/);
     assert.match(app, /1,70 m/);
     assert.match(css, /@media print/);
+  });
+
+  it('abre as premissas num modal e separa preço, opcionais, serviços e serviços locais', () => {
+    assert.match(page, /<dialog id="premissas-modal" class="modal" aria-labelledby="premissas-title">/);
+    assert.match(page, /<button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal">Premissas<\/button>/);
+    assert.match(page, /id="close-premissas"/);
+    const dialog = page.slice(page.indexOf('<dialog'), page.indexOf('</dialog>'));
+    assert.match(dialog, /id="fontes"/);
+    assert.match(dialog, /média de € 22\.500/);
+    assert.match(dialog, /Serviços locais \(R\$\)/);
+    assert.match(dialog, /0% de 1 a 9 robôs, 2% de 10 a 24, 4% de 25 a 49, 6% de 50 a 99 e 8% a partir de 100 robôs/);
+    const main = page.slice(page.indexOf('<main'), page.indexOf('</main>'));
+    assert.doesNotMatch(main, /id="fontes"/);
+    for (const id of ['dock-price', 'dock-order', 'dock-net', 'dock-bonus']) assert.match(page, new RegExp(`id="${id}"`), id);
+    assert.match(page, /Preço Total \(R\$\)/);
+    for (const text of ["'open-premissas'", "'close-premissas'", "'premissas-modal'", "key: 'servicesEur'", "key: 'localServicesBrl'", "key: 'fleetRobots'", "value: 'class'", "'1. Preço Total (1 Robô)'", "'2. Opcionais (Separado)'", "'2. Transporte e Instalação'", "'3. Serviços Locais (Brasil)'"]) {
+      assert.ok(app.includes(text), text);
+    }
+    assert.doesNotMatch(app, /key: 'includeServices'/);
+    assert.match(css, /dialog\.modal/);
+    assert.match(css, /\.modal::backdrop/);
+    assert.match(css, /\.kpis-hero \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
+    assert.match(css, /#rollout-milestones tbody tr \{ cursor: pointer; \}/);
   });
 
   it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {

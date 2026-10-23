@@ -26,11 +26,13 @@
       <h1>Simulador de Modelos e Acordo Comercial Gollmann</h1>
       <p class="lede">
         Escolha o GO.compact pela tabela da proposta: 10 alturas × 7 larguras × 7 classes, 286 configurações
-        válidas, de cerca de 10.000 a 40.000 pacotes. Some os opcionais (2º braço, refrigeração, esteiras) e os
-        serviços, converta para o custo Brasil em reais e veja o acordo-quadro DPSP de 5 anos: preço fixo nos
-        anos 1 e 2, VPI alemão depois, e o bônus de volume retroativo com notas de crédito.
+        válidas, de cerca de 10.000 a 40.000 pacotes. Veja separados os opcionais (2º braço, refrigeração,
+        esteiras), o transporte e instalação (editável, com a média de € 22.500 como padrão) e os serviços locais
+        faturados em R$ no Brasil. O Preço Total aplica a faixa de desconto por volume do acordo (0% a 8%) e o
+        custo Brasil em reais.
       </p>
       <div class="actions no-print">
+        <button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal">Premissas</button>
         <button type="button" id="print">Imprimir em A4</button>
         <button type="button" id="reset">Restaurar premissas</button>
       </div>
@@ -125,12 +127,9 @@
         </section>
 
         <section class="block" id="rollout-section" aria-labelledby="rollout-title">
-          <h3 id="rollout-title" class="block-title">Acordo-quadro de 5 anos e bônus de volume</h3>
+          <h3 id="rollout-title" class="block-title">Desconto por volume (faixas do acordo comercial)</h3>
           <p id="rollout-note" class="fine"></p>
           <div id="rollout-kpis" class="kpis kpis-rollout"></div>
-          <div class="table-wrap">
-            <table id="rollout-years"></table>
-          </div>
           <div class="table-wrap">
             <table id="rollout-milestones"></table>
           </div>
@@ -139,9 +138,12 @@
 
         <div id="memoria" class="memory is-collapsed"></div>
       </section>
-      <section class="sources" id="fontes">
+    </main>
+    <dialog id="premissas-modal" class="modal" aria-labelledby="premissas-title">
+      <section class="sources modal-card" id="fontes">
         <div class="sources-head">
-          <h2>Premissas</h2>
+          <h2 id="premissas-title">Premissas</h2>
+          <button type="button" id="close-premissas" class="modal-close">Fechar</button>
         </div>
         <p class="lede">
           Os números vêm da proposta "Framework Agreement between Gollmann and DPSP", de 21.10.2026. Onde a proposta
@@ -149,52 +151,46 @@
         </p>
         <ul class="source-group">
           <li>
-            <p>Tabelas dos slides 14 a 23: uma por altura, de 2,20 m a 3,55 m. São 286 células válidas. A largura de 3,75 m vai até 2,95 m de altura, a de 4,15 m até 2,65 m e a de 4,55 m até 2,50 m. O slide 3 fala em 8 larguras e mais de 1.000 configurações na lista de preços completa; as tabelas da proposta trazem 7 larguras, e é o que vale aqui.</p>
+            <p>Tabelas dos slides 14 a 23: uma por altura, de 2,20 m a 3,55 m. São 286 configurações válidas. A largura de 3,75 m vai até 2,95 m de altura, a de 4,15 m até 2,65 m e a de 4,55 m até 2,50 m. O slide 3 fala em 8 larguras e mais de 1.000 configurações na lista de preços completa; as tabelas da proposta trazem 7 larguras, e é o que vale aqui.</p>
           </li>
           <li>
             <p>Slide 5: todo preço de tabela já inclui a carga automática com câmera OCR e a carga manual (€ 22.000) e o SAM com 4 saídas (€ 3.000). Robô base = preço de tabela − € 25.000. O comprimento da tabela já soma +0,15 m da carga manual e +0,17 m da opção speed, que é gratuita.</p>
           </li>
           <li>
-            <p>Slide 6: 2º braço com 2º SAM por € 14.000, com +0,68 m de comprimento; módulo refrigerado por € 8.000 por robô; esteiras sob consulta, por isso o valor é digitado. Slide 8: serviços de transporte e instalação de € 18.000 (S) a € 27.000 (4XL).</p>
+            <p>Slides 6 e 8: opcionais separados dos serviços. 2º braço com 2º SAM por € 14.000, com +0,68 m de comprimento; módulo refrigerado por € 8.000 por robô; esteiras sob consulta, por isso o valor é digitado. <strong>Transporte e instalação</strong> é um campo editável, com padrão na <strong>média de € 22.500</strong>: na tabela do slide 8 varia de € 18.000 no S a € 27.000 no 4XL. <strong>Serviços locais (R$)</strong> são os valores faturados diretamente no Brasil, em reais.</p>
           </li>
           <li>
-            <p>Larguras: a coluna da tabela é o GO.compact com o SAM. O GO.compact sem SAM é 0,20 m mais estreito. O GO.direct aparece como referência de folga. Área = largura c/ SAM × comprimento total; volume = área × altura. No desenho o SAM fica no lado esquerdo e a tela de operação no lado direito, como nas fotos de referência.</p>
+            <p>Larguras: a coluna da tabela é o GO.compact com o SAM. O GO.compact sem SAM é 0,20 m mais estreito. O GO.direct aparece como referência de folga. Área = largura c/ SAM × comprimento total; volume = área × altura. No modelo 3D o SAM fica no lado esquerdo e a tela de operação no lado direito, como nas fotos de referência.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Câmbio de R$ 6,20 por euro. Custos de importação e nacionalização nascem em 0%, a proposta pura; 35% e 60% são atalhos de cenário. Incidem sobre o pedido inteiro convertido, inclusive os serviços. Crédito tributário recuperável de 25% sobre o custo nacionalizado. Confirme as alíquotas com o despachante e com o contador.</p>
+            <p><span class="tag">Premissa</span> Câmbio de R$ 6,20 por euro. Custos de importação e nacionalização nascem em 0%, a proposta pura; 35% e 60% são atalhos de cenário. Incidem sobre o pedido importado em euro, já com o desconto por volume. Crédito tributário recuperável de 25% sobre o custo nacionalizado. Os serviços locais faturados no Brasil somam ao Preço Total sem nacionalização nem crédito. Confirme as alíquotas com o despachante e com o contador.</p>
           </li>
           <li>
-            <p>Slide 10: acordo de 5 anos. Anos 1 e 2 com preço fixo. A partir do 3º ano o preço pode subir uma vez por ano, no máximo pelo VPI da Alemanha (Destatis) do ano anterior. <span class="tag">Premissa</span> VPI de 2,0% ao ano, aplicado no teto: ano 3 × 1,02, ano 4 × 1,02², ano 5 × 1,02³, sobre o pedido inteiro.</p>
-          </li>
-          <li>
-            <p>Slides 11 e 12: bônus pela contagem acumulada dos 5 anos, todas as farmácias DPSP juntas: 2% a partir de 10 robôs, 4% a partir de 25, 6% a partir de 50 e 8% a partir de 100. Base: pedido inteiro, com opcionais e serviços. Cada robô é faturado com a faixa vigente no pedido. Ao alcançar uma faixa nova, a nota de crédito leva todos os robôs pedidos até ali à nova faixa e abate a próxima fatura. Com € 100.000 por robô, o simulador repete o slide 12: € 20.000 no 10º, € 100.000 no 25º, € 300.000 no 50º e € 800.000 no 100º robô.</p>
-          </li>
-          <li>
-            <p><span class="tag">Premissa</span> Rollout padrão de 5, 10, 15, 10 e 10 robôs por ano, 50 no total. Os pedidos são sequenciais. A nota de crédito entra no ano em que a faixa é alcançada; se não houver fatura seguinte, ela fica como crédito a receber.</p>
+            <p>Slides 11 e 12: faixas de desconto por volume do acordo comercial: 0% de 1 a 9 robôs, 2% de 10 a 24, 4% de 25 a 49, 6% de 50 a 99 e 8% a partir de 100 robôs. Base: pedido Gollmann (equipamento + opcionais + transporte e instalação). Cada robô é faturado com a faixa vigente no pedido; ao alcançar 10, 25, 50 e 100 robôs, a nota de crédito retroativa leva todos os robôs pedidos até ali à nova faixa. Com € 100.000 por robô, o simulador repete o slide 12: € 20.000 no 10º, € 100.000 no 25º, € 300.000 no 50º e € 800.000 no 100º robô.</p>
           </li>
         </ul>
       </section>
-    </main>
+    </dialog>
     <div class="dock no-print" aria-hidden="false">
       <div>
-        <span>Preço do robô</span>
-        <strong id="dock-price">—</strong>
-      </div>
-      <div>
-        <span>Pedido c/ serviços</span>
-        <strong id="dock-order">—</strong>
-      </div>
-      <div>
-        <span>Líquido em R$</span>
+        <span>Preço Total (R$)</span>
         <strong id="dock-net">—</strong>
       </div>
       <div>
-        <span>Bônus da frota</span>
+        <span>Robô + Opcionais</span>
+        <strong id="dock-price">—</strong>
+      </div>
+      <div>
+        <span>Transp. + Serviços Locais</span>
+        <strong id="dock-order">—</strong>
+      </div>
+      <div>
+        <span>Desconto Volume</span>
         <strong id="dock-bonus">—</strong>
       </div>
     </div>
     <noscript>
-      <p class="wrap">Esta página precisa de JavaScript para calcular. As premissas acima continuam visíveis.</p>
+      <p class="wrap">Esta página precisa de JavaScript para calcular e para abrir as premissas.</p>
     </noscript>
     <script type="module" src="./app.js"></script>
   </body>
