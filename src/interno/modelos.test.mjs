@@ -9,6 +9,7 @@ import {
   DEFAULTS,
   HEIGHTS,
   LENGTH_INCLUDED,
+  NCM_INFO,
   OPTIONS,
   PRESETS,
   PRICE_BUILD_UP,
@@ -29,6 +30,7 @@ import {
   getConfig,
   maxHeightOf,
   milestoneTable,
+  ncmTaxReference,
   parseBr,
   quoteRobot,
   resolveSelection,
@@ -481,40 +483,184 @@ describe('acordo-quadro: VPI, faixas e notas de crédito (slides 10 a 12)', () =
   });
 });
 
-describe('câmbio e custo Brasil', () => {
-  it('converte, nacionaliza e desconta o crédito', () => {
-    const pure = brazilCost(129000, { fxRate: 6.2, importCostPct: 0, taxCreditPct: 25 });
-    assert.equal(pure.grossBrl, 799800);
-    assert.equal(pure.importBrl, 0);
-    assert.equal(pure.creditBrl, 199950);
-    assert.equal(pure.netBrl, 599850);
-    const landed = brazilCost(129000, { fxRate: 6.2, importCostPct: 35, taxCreditPct: 25 });
-    assert.equal(landed.importBrl, 279930);
-    assert.equal(landed.landedBrl, 1079730);
-    assert.equal(landed.creditBrl, 269932.5);
-    assert.equal(landed.netBrl, 809797.5);
-    const heavy = brazilCost(100000, { fxRate: 5.5, importCostPct: 60, taxCreditPct: 0 });
-    assert.equal(heavy.netBrl, 880000);
+describe('importação da NCM 8479.89.99 e créditos', () => {
+  it('traz as alíquotas da NCM e os padrões fiscais', () => {
+    assert.deepEqual(NCM_INFO, {
+      code: '8479.89.99',
+      description: 'Outras máquinas e aparelhos mecânicos com função própria (Bem de Capital — BK)',
+      iiTecPct: 12.6,
+      iiGecex2026Pct: 20,
+      ipiPct: 0,
+      pisPct: 2.1,
+      cofinsBasePct: 9.65,
+      cofinsAddPct: 0.6,
+      cofinsTotalPct: 10.25,
+      icmsConvenio5291Pct: 8.8,
+      icmsFullSpPct: 18,
+    });
     assert.equal(DEFAULTS.fxRate, 6.2);
-    assert.equal(DEFAULTS.importCostPct, 0);
-    assert.equal(DEFAULTS.taxCreditPct, 25);
+    assert.equal(DEFAULTS.exTarifario, true);
+    assert.equal(DEFAULTS.iiRatePct, 12.6);
+    assert.equal(DEFAULTS.ipiRatePct, 0);
+    assert.equal(DEFAULTS.pisRatePct, 2.1);
+    assert.equal(DEFAULTS.cofinsBaseRatePct, 9.65);
+    assert.equal(DEFAULTS.cofinsAddRatePct, 0.6);
+    assert.equal(DEFAULTS.customsExpensesPct, 0);
+    assert.equal(DEFAULTS.convenioIcms5291, true);
+    assert.equal(DEFAULTS.icmsRatePct, 8.8);
+    assert.equal(DEFAULTS.creditPisCofins, true);
+    assert.equal(DEFAULTS.creditIcms, true);
+    assert.equal(DEFAULTS.icmsCreditFactorPct, 100);
+    assert.equal('importCostPct' in DEFAULTS, false);
+    assert.equal('taxCreditPct' in DEFAULTS, false);
+  });
+
+  it('calcula a cascata padrão: Ex-Tarifário, Convênio 52/91 e créditos ligados', () => {
+    const b = brazilCost(100000, {});
+    assert.equal(b.vaBrl, 620000);
+    assert.equal(b.grossBrl, 620000);
+    assert.equal(b.effectiveIiPct, 0);
+    assert.equal(b.iiBrl, 0);
+    assert.equal(b.ipiBaseBrl, 620000);
+    assert.equal(b.ipiBrl, 0);
+    assert.equal(b.pisBrl, 13020);
+    assert.equal(b.cofinsBaseBrl, 59830);
+    assert.equal(b.cofinsAddBrl, 3720);
+    assert.equal(b.cofinsRatePct, 10.25);
+    assert.equal(b.cofinsBrl, 63550);
+    assert.equal(b.customsExpensesBrl, 0);
+    assert.equal(b.icmsNumeratorBrl, 696570);
+    assert.equal(b.icmsBaseBrl, toCents((620000 + 13020 + 63550) / (1 - 0.088)) / 100);
+    assert.equal(b.icmsBaseBrl, 763782.89);
+    assert.equal(b.icmsBrl, toCents(763782.89 * 0.088) / 100);
+    assert.equal(b.icmsBrl, 67212.89);
+    assert.equal(b.importBrl, 143782.89);
+    close(b.effectiveImportPct, 23.1908, 4);
+    assert.equal(b.importCostPct, b.effectiveImportPct);
+    assert.equal(b.landedBrl, 763782.89);
+    assert.equal(b.creditPisBrl, 13020);
+    assert.equal(b.creditCofinsBrl, 59830);
+    assert.equal(b.creditPisCofinsBrl, 72850);
+    close(b.creditPisCofinsBrl / b.vaBrl, 0.1175, 12);
+    assert.equal(b.creditIcmsBrl, 67212.89);
+    assert.equal(b.creditBrl, 140062.89);
+    // Só o adicional de 0,60% da COFINS fica como custo.
+    assert.equal(b.nonRecoverableBrl, 3720);
+    close(b.effectiveNetTaxPct, 0.6, 9);
+    assert.equal(b.netBrl, 623720);
+    close(b.effectiveCreditOnVaPct, (140062.89 / 620000) * 100, 9);
+    close(b.effectiveCreditOnLandedPct, (140062.89 / 763782.89) * 100, 9);
+    assert.equal(b.taxCreditPct, b.effectiveCreditOnLandedPct);
+  });
+
+  it('cobra o II sem Ex-Tarifário e nunca o credita', () => {
+    const base = brazilCost(100000, {});
+    for (const iiRatePct of [12.6, 20]) {
+      const off = brazilCost(100000, { exTarifario: false, iiRatePct });
+      assert.equal(off.effectiveIiPct, iiRatePct);
+      assert.equal(off.iiBrl, toCents(620000 * (iiRatePct / 100)) / 100);
+      assert.ok(off.iiBrl > 0);
+      assert.equal(off.ipiBaseBrl, 620000 + off.iiBrl);
+      assert.equal(off.pisBrl, base.pisBrl);
+      assert.equal(off.cofinsBrl, base.cofinsBrl);
+      assert.ok(off.icmsBaseBrl > base.icmsBaseBrl);
+      assert.equal(off.icmsBaseBrl, toCents((696570 + off.iiBrl) / 0.912) / 100);
+      assert.ok(off.importBrl > base.importBrl);
+      assert.equal(off.creditPisCofinsBrl, base.creditPisCofinsBrl);
+      assert.equal(off.creditIcmsBrl, off.icmsBrl);
+      assert.equal(off.nonRecoverableBrl, toCents(off.iiBrl + off.cofinsAddBrl) / 100);
+      assert.equal(off.netBrl, toCents(620000 + off.iiBrl + off.cofinsAddBrl) / 100);
+    }
+    const tec = brazilCost(100000, { exTarifario: false });
+    assert.equal(tec.iiBrl, 78120);
+    assert.equal(tec.icmsBaseBrl, 849440.79);
+    assert.equal(tec.importBrl, 229440.79);
+    // A alíquota do II fica guardada, mas só vale sem Ex-Tarifário.
+    assert.equal(brazilCost(100000, { exTarifario: true, iiRatePct: 20 }).iiBrl, 0);
+  });
+
+  it('liga e desliga o Convênio ICMS 52/91', () => {
+    const base = brazilCost(100000, {});
+    const full = brazilCost(100000, { icmsRatePct: 18 });
+    assert.equal(full.convenioIcms5291, false);
+    assert.equal(full.icmsBaseBrl, toCents(696570 / 0.82) / 100);
+    assert.ok(full.icmsBrl > base.icmsBrl);
+    assert.ok(full.importBrl > base.importBrl);
+    assert.equal(full.nonRecoverableBrl, 3720);
+    const both = brazilCost(100000, { exTarifario: false, icmsRatePct: 18 });
+    assert.equal(both.icmsBaseBrl, 944743.9);
+    assert.equal(both.importBrl, 324743.9);
+    assert.equal(both.nonRecoverableBrl, 78120 + 3720);
+    assert.equal(sanitize({ convenioIcms5291: false }).icmsRatePct, 18);
+    assert.equal(sanitize({ convenioIcms5291: true }).icmsRatePct, 8.8);
+    assert.equal(sanitize({ icmsRatePct: 8.8, convenioIcms5291: false }).convenioIcms5291, true);
+    assert.equal(sanitize({ icmsRatePct: 12 }).convenioIcms5291, false);
+    assert.equal(sanitize({ icmsRatePct: 99 }).icmsRatePct, 40);
+  });
+
+  it('atualiza créditos e líquido com cada chave de crédito', () => {
+    const noPisCofins = brazilCost(100000, { creditPisCofins: false });
+    assert.equal(noPisCofins.creditPisCofinsBrl, 0);
+    assert.equal(noPisCofins.creditBrl, 67212.89);
+    assert.equal(noPisCofins.netBrl, 763782.89 - 67212.89);
+    assert.equal(noPisCofins.nonRecoverableBrl, 13020 + 63550);
+    const noIcms = brazilCost(100000, { creditIcms: false });
+    assert.equal(noIcms.creditIcmsBrl, 0);
+    assert.equal(noIcms.creditBrl, 72850);
+    assert.equal(noIcms.netBrl, toCents(763782.89 - 72850) / 100);
+    const half = brazilCost(100000, { icmsCreditFactorPct: 50 });
+    assert.equal(half.creditIcmsBrl, toCents(67212.89 * 0.5) / 100);
+    assert.equal(half.creditBrl, toCents(72850 + half.creditIcmsBrl) / 100);
+    assert.equal(half.netBrl, toCents(763782.89 - half.creditBrl) / 100);
+    const none = brazilCost(100000, { creditPisCofins: false, creditIcms: false });
+    assert.equal(none.creditBrl, 0);
+    assert.equal(none.netBrl, none.landedBrl);
+    assert.equal(none.nonRecoverableBrl, none.importBrl);
+    const customs = brazilCost(100000, { customsExpensesPct: 2.5 });
+    assert.equal(customs.customsExpensesBrl, 15500);
+    assert.equal(customs.icmsNumeratorBrl, 696570 + 15500);
+    assert.equal(customs.nonRecoverableBrl, 3720 + 15500);
+    assert.equal(brazilCost(129000, { fxRate: 5.5 }).vaBrl, 709500);
+  });
+
+  it('monta a tabela de referência dos tributos', () => {
+    const b = brazilCost(100000, {});
+    assert.deepEqual(b.taxLines, ncmTaxReference(b));
+    assert.deepEqual(b.taxLines.map((line) => line.key), ['ii', 'ipi', 'pis', 'cofins', 'cofinsAdd', 'icms']);
+    assert.deepEqual(b.taxLines.map((line) => line.creditable), [false, false, true, true, false, true]);
+    assert.deepEqual(b.taxLines.map((line) => line.amountBrl), [0, 0, 13020, 59830, 3720, 67212.89]);
+    assert.equal(toCents(b.taxLines.reduce((sum, line) => sum + line.amountBrl, 0)), toCents(b.importBrl));
+    assert.equal(toCents(b.taxLines.reduce((sum, line) => sum + line.creditBrl, 0)), toCents(b.creditBrl));
+    assert.equal(toCents(b.taxLines.reduce((sum, line) => sum + line.netCostBrl, 0)), toCents(b.nonRecoverableBrl));
+    assert.match(b.taxLines[4].creditRule, /art\. 15, § 1º-A/);
+    assert.match(b.taxLines[5].legalBasis, /Convênio ICMS 52\/91/);
+    assert.equal(b.taxLines[5].rateLabel, '8,8%');
+    const off = brazilCost(100000, { exTarifario: false, creditIcms: false, customsExpensesPct: 2.5 });
+    assert.equal(off.taxLines[0].amountBrl, 78120);
+    assert.equal(off.taxLines[0].netCostBrl, 78120);
+    assert.equal(off.taxLines.find((line) => line.key === 'icms').creditable, false);
+    assert.ok(off.taxLines.some((line) => line.key === 'customs'));
+    assert.equal(toCents(off.taxLines.reduce((sum, line) => sum + line.amountBrl, 0)), toCents(off.importBrl));
   });
 
   it('leva o custo Brasil para o resultado e para a memória de cálculo', () => {
-    const result = evaluate({ importCostPct: 35, servicesEur: 21000 });
-    assert.equal(result.brazil.netBrl, 809797.5);
-    assert.equal(result.totalNetBrl, 809797.5);
-    assert.equal(result.totalGrossBrl, 1079730);
+    const result = evaluate({ exTarifario: false, servicesEur: 21000 });
+    const expected = brazilCost(129000, { exTarifario: false });
+    assert.equal(result.brazil.vaBrl, 799800);
+    assert.equal(result.brazil.netBrl, expected.netBrl);
+    assert.equal(result.totalNetBrl, expected.netBrl);
+    assert.equal(result.totalGrossBrl, expected.landedBrl);
     assert.equal(result.brl.tablePrice, 108000 * 6.2);
-    close(result.brlPerPack, 809797.5 / 20500, 9);
+    close(result.brlPerPack, expected.netBrl / 20500, 9);
     const text = explain(result).map((block) => `${block.title}\n${block.lines.join('\n')}`).join('\n');
     assert.deepEqual(
       explain(result).map((block) => block.title),
-      ['Modelo e dimensões', 'Preço do robô (tabela)', 'Opcionais e serviços (separados)', 'Desconto por volume', 'Custo Brasil e Preço Total', 'Espaço da loja'],
+      ['Modelo e dimensões', 'Preço do robô (tabela)', 'Opcionais e serviços (separados)', 'Desconto por volume', 'Custo Brasil (NCM 8479.89.99) e Preço Total', 'Espaço da loja'],
     );
-    for (const pattern of [/Custo Brasil/, /Robô base/, /nota de crédito/, /Subtotal de opcionais/, /média padrão €\s22\.500/, /Serviços locais/, /0% de 1 a 9, 2% de 10 a 24/, /Filtro da sala desligado/]) {
+    for (const pattern of [/Valor Aduaneiro \(VA\)/, /Ex-Tarifário desligado/, /por dentro/, /0,6%/, /art\. 15, § 1º-A/, /Investimento Líquido Pós-Créditos/, /Robô base/, /nota de crédito/, /Subtotal de opcionais/, /média padrão €\s22\.500/, /Serviços locais/, /0% de 1 a 9, 2% de 10 a 24/, /Filtro da sala desligado/]) {
       assert.match(text, pattern);
     }
+    assert.match(explain(evaluate({})).map((block) => block.lines.join('\n')).join('\n'), /Ex-Tarifário ligado: II = 0%/);
     assert.equal(parseBr('6.20', { decimalDot: true }), 6.2);
     assert.equal(parseBr('6,20'), 6.2);
     assert.equal(parseBr('129.000'), 129000);
@@ -531,10 +677,13 @@ describe('Preço Total e faixas de desconto por volume', () => {
     assert.equal(quote.netOrderEur, 125280);
     assert.equal(result.brazilGrossOrder.grossBrl, 809100);
     assert.equal(brazil.grossBrl, 776736);
-    assert.equal(brazil.creditBrl, 194184);
-    assert.equal(result.totalGrossBrl, 776736 + 50000);
-    assert.equal(result.totalNetBrl, 776736 - 194184 + 50000);
-    assert.equal(result.totalEurApprox, toCents(125280 + 50000 / 6.2) / 100);
+    assert.equal(brazil.vaBrl, 776736);
+    assert.deepEqual(brazil, brazilCost(125280, {}));
+    assert.equal(result.totalGrossBrl, toCents(brazil.landedBrl + 50000) / 100);
+    assert.equal(result.totalNetBrl, toCents(brazil.netBrl + 50000) / 100);
+    // Com tudo creditado, o líquido é o VA + o adicional de 0,60% da COFINS.
+    assert.equal(brazil.netBrl, toCents(776736 + brazil.cofinsAddBrl) / 100);
+    assert.equal(result.totalEurApprox, toCents(result.totalGrossBrl / 6.2) / 100);
     assert.equal(result.brl.options, 0);
     assert.equal(result.brl.services, 22500 * 6.2);
     assert.equal(result.brl.order, 809100);
@@ -546,10 +695,12 @@ describe('Preço Total e faixas de desconto por volume', () => {
     close(result.brlPerPack, result.totalNetBrl / 20500, 9);
     assert.equal(result.rollout, undefined);
 
-    const landed = evaluate({ importCostPct: 35, localServicesBrl: 10000 });
-    assert.equal(landed.brazil.landedBrl, 1092285);
-    assert.equal(landed.totalGrossBrl, 1102285);
-    assert.equal(landed.totalNetBrl, 1092285 - 273071.25 + 10000);
+    const landed = evaluate({ exTarifario: false, icmsRatePct: 18, localServicesBrl: 10000 });
+    const expected = brazilCost(130500, { exTarifario: false, icmsRatePct: 18 });
+    assert.equal(landed.brazil.landedBrl, expected.landedBrl);
+    assert.equal(landed.totalGrossBrl, toCents(expected.landedBrl + 10000) / 100);
+    assert.equal(landed.totalNetBrl, toCents(expected.netBrl + 10000) / 100);
+    assert.equal(landed.convenioIcms5291, false);
   });
 
   it('monta as 5 faixas com preço unitário, total no Brasil e notas de crédito retroativas', () => {
@@ -572,9 +723,10 @@ describe('Preço Total e faixas de desconto por volume', () => {
       assert.equal(tier.unitGrossEur, 130500);
       assert.equal(tier.unitNetBrl, toCents(tier.unitNetEur * 6.2) / 100);
       assert.equal(tier.unitDiscountBrl, toCents(tier.unitDiscountEur * 6.2) / 100);
-      assert.equal(tier.unitLandedBrl, tier.unitNetBrl);
-      assert.equal(tier.unitTotalGrossBrl, tier.unitLandedBrl + 50000);
-      assert.equal(tier.unitTotalNetBrl, brazilCost(tier.unitNetEur, { fxRate: 6.2 }).netBrl + 50000);
+      assert.equal(tier.unitLandedBrl, brazilCost(tier.unitNetEur, { fxRate: 6.2 }).landedBrl);
+      assert.ok(tier.unitLandedBrl > tier.unitNetBrl);
+      assert.equal(tier.unitTotalGrossBrl, toCents(tier.unitLandedBrl + 50000) / 100);
+      assert.equal(tier.unitTotalNetBrl, toCents(brazilCost(tier.unitNetEur, { fxRate: 6.2 }).netBrl + 50000) / 100);
       assert.equal(tier.creditNoteBrl, toCents(tier.creditNoteEur * 6.2) / 100);
     }
     assert.equal(table.count, 30);
@@ -584,8 +736,8 @@ describe('Preço Total e faixas de desconto por volume', () => {
     assert.equal(table.fleetGrossEur, 130500 * 30);
     assert.equal(table.fleetDiscountEur, 5220 * 30);
     assert.equal(table.fleetNetEur, 125280 * 30);
-    assert.equal(table.fleetTotalGrossBrl, table.unitTotalGrossBrl * 30);
-    assert.equal(table.fleetTotalNetBrl, table.unitTotalNetBrl * 30);
+    assert.equal(table.fleetTotalGrossBrl, toCents(table.unitTotalGrossBrl * 30) / 100);
+    assert.equal(table.fleetTotalNetBrl, toCents(table.unitTotalNetBrl * 30) / 100);
     assert.equal(volumeTiersTable(130500, { fleetRobots: 150 }).next, null);
     // Com € 100.000 por robô as notas repetem o slide 12.
     assert.deepEqual(volumeTiersTable(100000, {}).tiers.map((tier) => tier.bonusToDateEur), [0, 20000, 100000, 300000, 800000]);
@@ -646,7 +798,8 @@ describe('página de modelos isolada', () => {
     assert.match(page, /class="dock/);
     assert.match(page, /<canvas id="viewer"/);
     for (const color of ['#009bb4', '#8ab81a', '#b5124b', '#23272b']) assert.ok(app.includes(color), color);
-    assert.match(app, /gcalc\.modelos\.interno\.v2/);
+    assert.match(app, /gcalc\.modelos\.interno\.v3/);
+    assert.doesNotMatch(app, /gcalc\.modelos\.interno\.v2/);
     assert.match(app, /Filtrar por medidas da sala/);
     assert.doesNotMatch(app, /Inflação alemã VPI/);
     assert.doesNotMatch(page, /rollout-years/);
@@ -675,6 +828,21 @@ describe('página de modelos isolada', () => {
     assert.match(css, /\.modal::backdrop/);
     assert.match(css, /\.kpis-hero \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
     assert.match(css, /#rollout-milestones tbody tr \{ cursor: pointer; \}/);
+  });
+
+  it('tem o botão do Ex-Tarifário, os créditos e a tabela da NCM 8479.89.99', () => {
+    for (const id of ['ex-tarifario-bar', 'toggle-ex-tarifario', 'toggle-convenio-icms', 'ex-tarifario-summary', 'ncm-tax-table', 'price-table']) {
+      assert.match(page, new RegExp(`id="${id}"`), id);
+    }
+    assert.match(page, /<button type="button" id="toggle-ex-tarifario"[^>]*aria-pressed="true"/);
+    assert.ok(page.includes('NCM 8479.89.99 · Bem de Capital (BK)'));
+    assert.ok(page.includes('Composição do preço, impostos da NCM 8479.89.99 e créditos recuperáveis'));
+    for (const text of ['toggle-ex-tarifario', 'toggle-convenio-icms', 'ncm-tax-table', '8479.89.99', "key: 'exTarifario'", "key: 'iiRatePct'", "key: 'icmsRatePct'", "key: 'customsExpensesPct'", "key: 'creditPisCofins'", "key: 'creditIcms'", "key: 'icmsCreditFactorPct'", "lockedByNot: 'exTarifario'", 'state.exTarifario = !state.exTarifario', 'state.convenioIcms5291 = !state.convenioIcms5291', 'Ex-Tarifário: LIGADO (II = 0%)', 'Ex-Tarifário: DESLIGADO', 'Sim · Creditável', 'Não · Custo definitivo', "'4. Câmbio, Importação (NCM 8479.89.99) e Créditos'"]) {
+      assert.ok(app.includes(text), text);
+    }
+    assert.doesNotMatch(app, /key: 'importCostPct'|key: 'taxCreditPct'/);
+    assert.match(css, /\.fiscal-toggle\.is-on/);
+    assert.match(css, /\.tax-pill\.is-yes/);
   });
 
   it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {
