@@ -518,6 +518,31 @@ describe('página de modelos isolada', () => {
     assert.match(css, /@media print/);
   });
 
+  it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {
+    assert.match(app, /const shelfX0 = x0 \+ 0\.08;/);
+    assert.match(app, /const shelfX1 = x1 - 0\.34;/);
+    assert.match(app, /front: \{ lines: rowLines\(r0\)/);
+    assert.match(app, /back: \{ lines: rowLines\(r1\)/);
+    assert.match(app, /const gap = 0\.11;/);
+    assert.match(app, /const rowDepth = 0\.28;/);
+    assert.match(app, /left: \{ lines: levels\(shelfX0\)/);
+    assert.match(app, /right: \{ lines: levels\(shelfX1\)/);
+    assert.doesNotMatch(app, /\[P\(x, rackTop, r0\), P\(x, rackTop, r1\)\]/);
+    assert.match(app, /box\(x1 - 0\.22, x1 - 0\.06, railY0, railY1, 0\.1, L - 0\.08/);
+    assert.match(app, /fill: '#3f8f3a'/);
+    assert.match(app, /const dCool0 = Math\.max\(dStart \+ 0\.6, L - 0\.92\);/);
+    assert.match(app, /rack\(dCool0, dCool0 \+ coolDepth, COLORS\.cool/);
+    assert.match(app, /rack\(dCool1 - coolDepth, dCool1, COLORS\.cool/);
+    assert.match(app, /aisles = \(hasExt \? \[0\.25, 0\.75\] : \[0\.5\]\)/);
+    assert.match(app, /const hd = 0\.25;/);
+    assert.match(app, /box\(gx, carX0, gy - 0\.06, gy \+ 0\.02, dCenter - 0\.04, dCenter \+ 0\.04/);
+    assert.doesNotMatch(app, /box\(x0 \+ 0\.08, x1 - 0\.08, top - 0\.08, top/);
+    assert.match(app, /project\(P\(-d\.Wc \/ 2 \+ 0\.25, d\.H - fh \/ 2, d\.L - 0\.35\)\)/);
+    assert.match(app, /if \(cam\.pitch > 1\.05\) dimension\(P\(d\.Wc \/ 2 \+ 0\.48, 0, 0\), P\(d\.Wc \/ 2 \+ 0\.48, 0, d\.L\), model\.labels\.L/);
+    assert.match(app, /else dimension\(P\(xs - 0\.55, 0, 0\), P\(xs - 0\.55, 0, d\.L\), model\.labels\.L/);
+    assert.match(app, /project\(P\(xs - 0\.55, 0, dims\.L \/ 2\)\)/);
+  });
+
   it('não é referenciada pelas calculadoras existentes', () => {
     const untouched = [
       'index.html',
