@@ -1712,7 +1712,14 @@ function createViewer(canvas) {
         front: { fill: COLORS.anthracite, alpha: frontAlpha, decals: frontDecals, lines: shelfLines, lineColor: COLORS.shelf, lineAlpha: 0.9, children: frontChildren },
         left: { fill: sideFill, alpha: sideAlpha, decals: sideDecals(x0), lines: seams(x0), lineColor: '#5a636a', lineAlpha: 0.7, children: samChildren },
         right: { fill: sideFill, alpha: sideAlpha, decals: sideDecals(x1), lines: seams(x1), lineColor: '#5a636a', lineAlpha: 0.7 },
-        back: { fill: sideFill, alpha: sideAlpha, decals: [{ pts: quadZ(L, x1, x0, yb, H), fill: theme, alpha: fasciaAlpha }] },
+        back: {
+          fill: sideFill,
+          alpha: sideAlpha,
+          decals: [
+            { pts: quadZ(L, x1, x0, yb, H), fill: theme, alpha: fasciaAlpha },
+            ...(model.cooling ? [{ pts: quadZ(L + 0.002, x1 - cw, x0 + cw, 0.12, yb - 0.12), fill: COLORS.cool, alpha: 0.35 + 0.4 * mix, stroke: COLORS.cool, strokeAlpha: 0.9, lineWidth: 1.4 }] : []),
+          ],
+        },
         top: { fill: mixHex(theme, '#e8f4f6', mix * 0.6), alpha: topAlpha, stroke: '#0c0e10' },
       },
     });
@@ -1731,78 +1738,146 @@ function createViewer(canvas) {
     const x0 = -Wc / 2;
     const x1 = Wc / 2;
     const faces = [];
-    const aisle = Math.min(0.78, Wc * 0.42);
-    const side = (Wc - aisle) / 2 - 0.06;
-    const units = Math.max(1, Math.round(side / 0.45));
-    const unitDepth = (side - (units - 1) * 0.05) / units;
+    const hasExt = model.gripper2 && L - Lt > 0.01;
     const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04;
-    const dEnd = Lt - 0.06;
     const rackTop = H - fh - 0.06;
-    const shelfLines = (x) => {
+    /* Estantes rolantes transversais: cruzam a largura e deixam à direita o corredor do trilho e da coluna. */
+    const shelfX0 = x0 + 0.08;
+    const shelfX1 = x1 - 0.34;
+    const dCool0 = Math.max(dStart + 0.6, L - 0.92);
+    const dCool1 = L - 0.06;
+    const dEnd = model.cooling ? dCool0 - 0.04 : L - 0.06;
+    const aisleW = 0.65;
+    const gap = 0.11;
+    const rowDepth = 0.28;
+    const span = dEnd - dStart;
+    const aisles = (hasExt ? [0.25, 0.75] : [0.5]).map((t) => dStart + span * t);
+
+    /* Prateleiras e divisórias de pacotes nas faces frontal e traseira, correndo ao longo de x. */
+    const rowLines = (dd) => {
       const lines = [];
-      for (let y = 0.3; y < rackTop; y += 0.24) lines.push([P(x, y, dStart), P(x, y, dEnd)]);
-      for (let dd = dStart + 0.5; dd < dEnd; dd += 0.5) lines.push([P(x, 0.12, dd), P(x, rackTop, dd)]);
+      for (let y = 0.28; y < rackTop; y += 0.22) lines.push([P(shelfX0, y, dd), P(shelfX1, y, dd)]);
+      for (let x = shelfX0 + 0.4; x < shelfX1 - 0.05; x += 0.4) lines.push([P(x, 0.12, dd), P(x, rackTop, dd)]);
       return lines;
     };
-    for (const sign of [-1, 1]) {
-      for (let index = 0; index < units; index += 1) {
-        const outer = sign < 0 ? x0 + 0.06 + index * (unitDepth + 0.05) : x1 - 0.06 - index * (unitDepth + 0.05);
-        const a = sign < 0 ? outer : outer - unitDepth;
-        const b = sign < 0 ? outer + unitDepth : outer;
-        const cooled = model.cooling && sign < 0 && index === units - 1;
-        const fill = cooled ? COLORS.cool : COLORS.rack;
-        faces.push(
-          ...box(a, b, 0.12, rackTop, dStart, cooled ? Math.min(dEnd, dStart + 0.9) : dEnd, {
-            fill,
-            alpha: 0.5 * mix,
-            stroke: '#7d8a91',
-            faces: {
-              left: { lines: shelfLines(a), lineColor: '#56636a', lineAlpha: 0.55 * mix },
-              right: { lines: shelfLines(b), lineColor: '#56636a', lineAlpha: 0.55 * mix },
-            },
-          }),
-        );
+    const rack = (r0, r1, fill, stroke, alpha) => {
+      const mid = (r0 + r1) / 2;
+      /* Topo só com linhas ao longo de x: linhas em d se alinham na planta e parecem colunas longitudinais. */
+      const topLines = [r0 + (r1 - r0) * 0.25, mid, r0 + (r1 - r0) * 0.75].map((dd) => [P(shelfX0, rackTop, dd), P(shelfX1, rackTop, dd)]);
+      /* Níveis nas laterais: no corte, cada fileira aparece como um gabinete transversal próprio. */
+      const levels = (x) => {
+        const lines = [];
+        for (let y = 0.28; y < rackTop; y += 0.22) lines.push([P(x, y, r0), P(x, y, r1)]);
+        return lines;
+      };
+      faces.push(
+        ...box(shelfX0, shelfX1, 0.12, rackTop, r0, r1, {
+          fill,
+          alpha,
+          stroke,
+          faces: {
+            front: { lines: rowLines(r0), lineColor: '#56636a', lineAlpha: 0.55 * mix },
+            back: { lines: rowLines(r1), lineColor: '#56636a', lineAlpha: 0.55 * mix },
+            top: { lines: topLines, lineColor: '#56636a', lineAlpha: 0.4 * mix },
+            left: { lines: levels(shelfX0), lineColor: '#56636a', lineAlpha: 0.55 * mix },
+            right: { lines: levels(shelfX1), lineColor: '#56636a', lineAlpha: 0.55 * mix },
+          },
+        }),
+      );
+    };
+    const edges = [dStart, ...aisles.flatMap((c) => [c - aisleW / 2, c + aisleW / 2]), dEnd];
+    for (let index = 0; index < edges.length; index += 2) {
+      const a = edges[index];
+      const s = edges[index + 1] - a;
+      if (s < 0.12) continue;
+      const count = Math.max(1, Math.ceil((s + gap) / (rowDepth + gap)));
+      const depth = (s - (count - 1) * gap) / count;
+      for (let unit = 0; unit < count; unit += 1) {
+        const r0 = a + unit * (depth + gap);
+        rack(r0, r0 + depth, COLORS.rack, '#7d8a91', 0.5 * mix);
       }
     }
+    /* Módulo refrigerado: sempre a última seção, no fundo do robô, com duas fileiras transversais numa câmara azul. */
+    if (model.cooling) {
+      const coolDepth = (dCool1 - dCool0 - gap) / 2;
+      rack(dCool0, dCool0 + coolDepth, COLORS.cool, COLORS.cool, 0.62 * mix);
+      rack(dCool1 - coolDepth, dCool1, COLORS.cool, COLORS.cool, 0.62 * mix);
+      faces.push(
+        ...box(shelfX0 - 0.03, shelfX1 + 0.03, 0.08, rackTop + 0.04, dCool0 - 0.02, dCool1 + 0.02, {
+          fill: COLORS.cool,
+          alpha: 0.12 * mix,
+          stroke: COLORS.cool,
+          strokeAlpha: 0.85 * mix,
+          lineWidth: 1.4,
+        }).map((face) => ({ ...face, bias: -0.05 })),
+      );
+    }
+
     const railY0 = H - 0.24;
     const railY1 = H - 0.16;
     const railStyle = { fill: COLORS.rail, alpha: 0.95 * mix, stroke: '#6f7b82' };
-    faces.push(...box(x0 + 0.06, x0 + 0.14, railY0, railY1, 0.1, L - 0.08, railStyle));
-    faces.push(...box(x1 - 0.14, x1 - 0.06, railY0, railY1, 0.1, L - 0.08, railStyle));
+    /* Guia linear principal: longitudinal, no alto da lateral direita, com a faixa verde no topo e no flanco. */
+    faces.push(
+      ...box(x1 - 0.22, x1 - 0.06, railY0, railY1, 0.1, L - 0.08, {
+        ...railStyle,
+        faces: {
+          top: { decals: [{ pts: [P(x1 - 0.19, railY1 + 0.002, L - 0.1), P(x1 - 0.09, railY1 + 0.002, L - 0.1), P(x1 - 0.09, railY1 + 0.002, 0.12), P(x1 - 0.19, railY1 + 0.002, 0.12)], fill: '#3f8f3a', alpha: mix }] },
+          left: { decals: [{ pts: quadX(x1 - 0.222, railY0 + 0.02, railY1 - 0.02, 0.12, L - 0.1), fill: '#3f8f3a', alpha: mix }] },
+        },
+      }),
+    );
+    faces.push(...box(x0 + 0.06, x0 + 0.12, railY0, railY1, 0.1, L - 0.08, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    const hasExt = model.gripper2 && L - Lt > 0.01;
-    const grip = (dCenter, phase, color, accent) => {
-      const swing = Math.max(0, aisle / 2 - 0.16);
-      const gx = Math.sin(time * 0.8 + phase) * swing;
-      const top = railY0;
+    /* Carro na guia longitudinal da direita; um braço transversal fino leva a garra, comprida em d, às estantes da frente e de trás. */
+    const grip = (dCenter, phase, isSecond) => {
+      const gxMin = shelfX0 + 0.22;
+      const gxMax = shelfX1 - 0.18;
+      const gx = (gxMin + gxMax) / 2 + Math.sin(time * 0.8 + phase) * Math.max(0, (gxMax - gxMin) / 2);
       const gy = 0.45 + (rackTop - 0.9) * (0.5 + 0.5 * Math.sin(time * 1.1 + phase * 1.7));
+      const hx = 0.11;
+      const hd = 0.25;
+      const carX0 = x1 - 0.24;
+      const carY1 = railY1 + 0.03;
+      const accent = isSecond ? '#ffffff' : theme;
       const start = faces.length;
+      /* Carro longitudinal com decalque verde ao longo de d e mastro até a altura da garra. */
       faces.push(
-        ...box(x0 + 0.08, x1 - 0.08, top - 0.08, top, dCenter - 0.07, dCenter + 0.07, {
-          fill: COLORS.rail,
-          alpha: mix,
-          stroke: '#6f7b82',
-          faces: { top: { decals: [{ pts: [P(gx - 0.2, top + 0.002, dCenter + 0.06), P(gx + 0.2, top + 0.002, dCenter + 0.06), P(gx + 0.2, top + 0.002, dCenter - 0.06), P(gx - 0.2, top + 0.002, dCenter - 0.06)], fill: '#3f8f3a', alpha: mix }] } },
-        }),
-      );
-      faces.push(...box(gx - 0.035, gx + 0.035, gy, top - 0.08, dCenter - 0.035, dCenter + 0.035, { fill: '#8d989e', alpha: mix }));
-      faces.push(
-        ...box(gx - 0.2, gx + 0.2, gy - 0.2, gy, dCenter - 0.16, dCenter + 0.16, {
-          fill: color,
+        ...box(carX0, x1 - 0.05, railY0 - 0.06, carY1, dCenter - 0.22, dCenter + 0.22, {
+          fill: COLORS.grip,
           alpha: mix,
           stroke: '#3b4247',
-          faces: { front: { decals: [{ pts: quadZ(dCenter - 0.161, gx - 0.2, gx + 0.2, gy - 0.06, gy - 0.025), fill: accent, alpha: mix }] } },
+          faces: { top: { decals: [{ pts: [P(x1 - 0.17, carY1 + 0.002, dCenter + 0.19), P(x1 - 0.12, carY1 + 0.002, dCenter + 0.19), P(x1 - 0.12, carY1 + 0.002, dCenter - 0.19), P(x1 - 0.17, carY1 + 0.002, dCenter - 0.19)], fill: '#3f8f3a', alpha: mix }] } },
         }),
       );
+      faces.push(...box(carX0, carX0 + 0.07, 0.06, railY0 - 0.06, dCenter - 0.05, dCenter + 0.05, { fill: '#8d989e', alpha: mix, stroke: '#6f7b82' }));
+      faces.push(...box(gx, carX0, gy - 0.06, gy + 0.02, dCenter - 0.04, dCenter + 0.04, { fill: '#8d989e', alpha: mix, stroke: '#6f7b82' }));
+      faces.push(
+        ...box(gx - hx, gx + hx, gy - 0.2, gy, dCenter - hd, dCenter + hd, {
+          fill: COLORS.grip,
+          alpha: mix,
+          stroke: '#3b4247',
+          faces: {
+            front: { decals: [{ pts: quadZ(dCenter - hd - 0.001, gx - hx, gx + hx, gy - 0.06, gy - 0.025), fill: accent, alpha: mix }] },
+            back: { decals: [{ pts: quadZ(dCenter + hd + 0.001, gx + hx, gx - hx, gy - 0.06, gy - 0.025), fill: accent, alpha: mix }] },
+            top: { decals: [{ pts: [P(gx - 0.04, gy + 0.002, dCenter + hd - 0.04), P(gx + 0.04, gy + 0.002, dCenter + hd - 0.04), P(gx + 0.04, gy + 0.002, dCenter - hd + 0.04), P(gx - 0.04, gy + 0.002, dCenter - hd + 0.04)], fill: '#3f8f3a', alpha: mix }] },
+          },
+        }),
+      );
+      /* Mandíbulas nas pontas em d, voltadas para as fileiras transversais da frente e de trás. */
+      for (const sign of [-1, 1]) {
+        const face = dCenter + sign * hd;
+        for (const fx of [gx - hx + 0.02, gx + hx - 0.05]) {
+          faces.push(...box(fx, fx + 0.03, gy - 0.17, gy - 0.05, Math.min(face, face + sign * 0.05), Math.max(face, face + sign * 0.05), { fill: COLORS.anthracite, alpha: mix }));
+        }
+      }
       /* O gripper fica no corredor entre estantes translúcidas: pinta por último para não sumir. */
       for (let index = start; index < faces.length; index += 1) faces[index].bias = -20;
     };
-    const sweep = (from, to, phase) => from + (to - from) * (0.5 + 0.5 * Math.sin(time * 0.45 + phase));
     if (hasExt) {
-      grip(sweep(dStart + 0.2, Math.max(dStart + 0.3, (dStart + Lt) / 2 - 0.15), 0), 0, '#e9edef', theme);
-      grip(sweep(Math.min(Lt - 0.3, (dStart + Lt) / 2 + 0.15), L - 0.3, 1.9), 2.1, COLORS.grip, '#ffffff');
+      grip(aisles[0], 0, false);
+      grip(aisles[1], 2.1, true);
       faces.push(
         ...box(x0 + 0.02, x1 - 0.02, 0.03, H - 0.03, Lt, L - 0.02, {
           fill: COLORS.grip,
@@ -1813,7 +1888,7 @@ function createViewer(canvas) {
         }).map((face) => ({ ...face, bias: -0.05 })),
       );
     } else {
-      grip(sweep(dStart + 0.2, Lt - 0.3, 0), 0, '#e9edef', theme);
+      grip(aisles[0], 0, false);
     }
     return faces;
   }
@@ -1963,16 +2038,37 @@ function createViewer(canvas) {
     tag((pa.x + pb.x) / 2, (pa.y + pb.y) / 2, label, color, 'center', true);
   }
 
+  function tagWidth(text, strong = false) {
+    ctx.save();
+    ctx.font = `${strong ? 700 : 600} 12px Outfit, "Segoe UI", sans-serif`;
+    const w = ctx.measureText(text).width + 12;
+    ctx.restore();
+    return w;
+  }
+
   function drawSegmentLabels(segments) {
     const items = segments
       .map((segment) => ({ ...segment, p: project(segment.anchor) }))
       .filter((item) => item.p.z > 0.15)
       .sort((a, b) => a.p.y - b.p.y);
+    /* Em perspectiva a cota total fica à esquerda, junto aos trechos: os rótulos desviam da pílula dela. */
+    let pill = null;
+    if (cam.pitch <= 1.05) {
+      const xs = -dims.Wc / 2 - SAM_PROTRUSION_M;
+      const center = project(P(xs - 0.55, 0, dims.L / 2));
+      if (center.z > 0.15) pill = { x: center.x, y: center.y, w: tagWidth(model.labels.L, true) };
+    }
+    const hitsPill = (x, y, w) => pill && x > pill.x - pill.w / 2 - 6 && x - w < pill.x + pill.w / 2 + 6 && Math.abs(y - pill.y) < 24;
     let lastY = -Infinity;
     for (const item of items) {
-      const y = Math.max(item.p.y, lastY + 22);
-      lastY = y;
+      let y = Math.max(item.p.y, lastY + 22);
       const x = Math.max(8, item.p.x - 26);
+      const w = tagWidth(item.label);
+      if (hitsPill(x, y, w)) {
+        y = Math.max(item.p.y <= pill.y ? pill.y - 24 : pill.y + 24, lastY + 22);
+        if (hitsPill(x, y, w)) y = pill.y + 24;
+      }
+      lastY = y;
       ctx.strokeStyle = shade(item.color, 0.9, 0.9);
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -2019,7 +2115,8 @@ function createViewer(canvas) {
   function drawCoolingBadge() {
     const d = dims;
     const fh = Math.min(0.42, Math.max(0.3, d.H * 0.12));
-    const anchor = project(P(-d.Wc / 2 + 0.25, d.H - fh / 2, -0.05));
+    /* Selo no fundo, sobre o módulo refrigerado: na planta fica no alto, longe da cota frontal. */
+    const anchor = project(P(-d.Wc / 2 + 0.25, d.H - fh / 2, d.L - 0.35));
     if (anchor.z < 0.15) return;
     const radius = 13;
     ctx.save();
@@ -2092,7 +2189,9 @@ function createViewer(canvas) {
     const xs = -d.Wc / 2 - SAM_PROTRUSION_M;
     dimension(P(d.Wc / 2 + 0.22, 0, -0.08), P(d.Wc / 2 + 0.22, d.H, -0.08), model.labels.H, '#0b3d34');
     dimension(P(xs, 0, -0.45), P(d.Wc / 2, 0, -0.45), `${model.labels.Ws} c/ SAM`, '#0b3d34');
-    dimension(P(xs - 0.62, 0, 0), P(xs - 0.62, 0, d.L), model.labels.L, '#0b3d34');
+    /* Comprimento total: à direita na planta; em perspectiva, à esquerda em primeiro plano, sem cruzar o corpo do robô. */
+    if (cam.pitch > 1.05) dimension(P(d.Wc / 2 + 0.48, 0, 0), P(d.Wc / 2 + 0.48, 0, d.L), model.labels.L, '#0b3d34');
+    else dimension(P(xs - 0.55, 0, 0), P(xs - 0.55, 0, d.L), model.labels.L, '#0b3d34');
     drawSegmentLabels(segments);
     drawHud();
   }
