@@ -20,28 +20,35 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <a class="skip" href="#resultados">Ir para o resultado</a>
+    <a class="skip" href="#resultados" data-i18n="skip">Ir para o resultado</a>
     <header class="site-header wrap">
       <div class="header-bar">
         <div>
-          <p class="kicker">Uso interno · não indexar</p>
-          <h1>Modelos Gollmann</h1>
-          <p class="lede">286 configurações do GO.compact · acordo Gollmann × DPSP.</p>
+          <p class="kicker" data-i18n="kicker">Uso interno · não indexar</p>
+          <div class="title-line">
+            <h1 data-i18n="title">Modelos Gollmann</h1>
+            <div class="lang-switch no-print" role="group" aria-label="Idioma" data-i18n-aria="lang.group">
+              <button type="button" id="lang-pt" aria-pressed="true">PT</button>
+              <span aria-hidden="true">|</span>
+              <button type="button" id="lang-en" aria-pressed="false">EN</button>
+            </div>
+          </div>
+          <p class="lede" data-i18n="lede">286 configurações do GO.compact · acordo Gollmann × DPSP.</p>
         </div>
         <div class="header-actions no-print">
           <button type="button" id="toggle-params" class="params-toggle" aria-expanded="true" aria-controls="params">Parâmetros</button>
           <div class="actions">
-            <button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal">Premissas</button>
-            <button type="button" id="print">Imprimir em A4</button>
-            <button type="button" id="reset">Restaurar premissas</button>
+            <button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal" data-i18n="premissas.button">Premissas</button>
+            <button type="button" id="print" data-i18n="actions.print">Imprimir em A4</button>
+            <button type="button" id="reset" data-i18n="actions.reset">Restaurar premissas</button>
           </div>
         </div>
       </div>
-      <div class="actions presets no-print" role="group" aria-label="Exemplos da apresentação (slides 7 e 8)">
-        <button type="button" class="preset" data-preset="ex1">Ex. 1 · Robô S</button>
-        <button type="button" class="preset" data-preset="ex2">Ex. 2 · Robô L (Padrão)</button>
-        <button type="button" class="preset" data-preset="ex3">Ex. 3 · Robô XXL</button>
-        <button type="button" class="preset" data-preset="ex4">Ex. 4 · Robô 4XL</button>
+      <div class="actions presets no-print" role="group" aria-label="Exemplos da apresentação (slides 7 e 8)" data-i18n-aria="presets.group">
+        <button type="button" class="preset" data-preset="ex1" data-i18n="preset.ex1">Ex. 1 · Robô S</button>
+        <button type="button" class="preset" data-preset="ex2" data-i18n="preset.ex2">Ex. 2 · Robô L (Padrão)</button>
+        <button type="button" class="preset" data-preset="ex3" data-i18n="preset.ex3">Ex. 3 · Robô XXL</button>
+        <button type="button" class="preset" data-preset="ex4" data-i18n="preset.ex4">Ex. 4 · Robô 4XL</button>
       </div>
     </header>
     <div class="workspace wrap" id="workspace">
@@ -50,51 +57,51 @@
           <div class="viewer-bar">
             <h2 id="viewer-title">GO.compact</h2>
             <div class="viewer-tools no-print">
-              <div class="seg" role="group" aria-label="Câmera">
-                <button type="button" data-camera="iso" aria-pressed="true">Isométrica</button>
-                <button type="button" data-camera="front" aria-pressed="false">Frontal</button>
-                <button type="button" data-camera="cut" aria-pressed="false">Corte / Interna</button>
-                <button type="button" data-camera="top" aria-pressed="false">Planta (Topo)</button>
+              <div class="seg" role="group" aria-label="Câmera" data-i18n-aria="viewer.camera">
+                <button type="button" data-camera="iso" aria-pressed="true" data-i18n="viewer.iso">Isométrica</button>
+                <button type="button" data-camera="front" aria-pressed="false" data-i18n="viewer.front">Frontal</button>
+                <button type="button" data-camera="cut" aria-pressed="false" data-i18n="viewer.cut">Corte / Interna</button>
+                <button type="button" data-camera="top" aria-pressed="false" data-i18n="viewer.top">Planta (Topo)</button>
               </div>
-              <div class="seg" role="group" aria-label="Exibição">
-                <button type="button" id="xray" aria-pressed="false">Vista Interna / Raios-X</button>
-                <button type="button" id="human" aria-pressed="true">Pessoa de 1,70 m</button>
+              <div class="seg" role="group" aria-label="Exibição" data-i18n-aria="viewer.display">
+                <button type="button" id="xray" aria-pressed="false" data-i18n="viewer.xray">Vista Interna / Raios-X</button>
+                <button type="button" id="human" aria-pressed="true" data-i18n="viewer.human">Pessoa de 1,70 m</button>
               </div>
-              <div class="swatches" role="group" aria-label="Cor do GO.compact">
-                <button type="button" data-theme="azul" aria-pressed="true" title="Azul Gollmann"><i style="background:#009bb4"></i><span>Azul</span></button>
-                <button type="button" data-theme="verde" aria-pressed="false" title="Verde Lima"><i style="background:#8ab81a"></i><span>Verde</span></button>
-                <button type="button" data-theme="magenta" aria-pressed="false" title="Magenta"><i style="background:#b5124b"></i><span>Magenta</span></button>
+              <div class="swatches" role="group" aria-label="Cor do GO.compact" data-i18n-aria="viewer.color">
+                <button type="button" data-theme="azul" aria-pressed="true" title="Azul Gollmann" data-i18n-title="theme.azul.title"><i style="background:#009bb4"></i><span data-i18n="theme.azul">Azul</span></button>
+                <button type="button" data-theme="verde" aria-pressed="false" title="Verde Lima" data-i18n-title="theme.verde.title"><i style="background:#8ab81a"></i><span data-i18n="theme.verde">Verde</span></button>
+                <button type="button" data-theme="magenta" aria-pressed="false" title="Magenta" data-i18n-title="theme.magenta.title"><i style="background:#b5124b"></i><span data-i18n="theme.magenta">Magenta</span></button>
               </div>
               <label class="zoom" for="zoom">
-                <span>Zoom</span>
+                <span data-i18n="viewer.zoom">Zoom</span>
                 <input type="range" id="zoom" min="45" max="240" step="1" value="100" />
               </label>
             </div>
           </div>
           <div class="viewer-stage">
-            <canvas id="viewer" tabindex="0" role="img" aria-label="Modelo 3D do GO.compact" title="Arraste para girar. Role para zoom. Com o modelo em foco, setas giram e + / − aproximam. Duplo clique volta à isométrica."></canvas>
+            <canvas id="viewer" tabindex="0" role="img" aria-label="Modelo 3D do GO.compact" title="Arraste para girar. Role para zoom. Com o modelo em foco, setas giram e + / − aproximam. Duplo clique volta à isométrica." data-i18n-title="viewer.help"></canvas>
           </div>
           <div class="viewer-legend">
-            <span><i class="swatch swatch-body"></i> GO.compact</span>
-            <span><i class="swatch swatch-sam"></i> Largura c/ SAM</span>
-            <span><i class="swatch swatch-direct"></i> GO.direct (folga)</span>
-            <span><i class="swatch swatch-manual"></i> +0,15 m carga manual</span>
-            <span><i class="swatch swatch-speed"></i> +0,17 m speed</span>
-            <span><i class="swatch swatch-grip"></i> +0,68 m 2º braço</span>
+            <span><i class="swatch swatch-body"></i> <span data-i18n="legend.body">GO.compact</span></span>
+            <span><i class="swatch swatch-sam"></i> <span data-i18n="legend.sam">Largura c/ SAM</span></span>
+            <span><i class="swatch swatch-direct"></i> <span data-i18n="legend.direct">GO.direct (folga)</span></span>
+            <span><i class="swatch swatch-manual"></i> <span data-i18n="legend.manual">+0,15 m carga manual</span></span>
+            <span><i class="swatch swatch-speed"></i> <span data-i18n="legend.speed">+0,17 m speed</span></span>
+            <span><i class="swatch swatch-grip"></i> <span data-i18n="legend.grip">+0,68 m 2º braço</span></span>
           </div>
           <div id="dims" class="pills" aria-live="polite"></div>
         </section>
-        <section class="results" id="resultados" aria-label="Resultado">
+        <section class="results" id="resultados" aria-label="Resultado" data-i18n-aria="results.aria">
         <div class="results-head">
-          <h2>Resultado</h2>
-          <button type="button" id="ver-calculo" class="no-print" aria-expanded="false" aria-controls="memoria">
+          <h2 data-i18n="results.heading">Resultado</h2>
+          <button type="button" id="ver-calculo" class="no-print" aria-expanded="false" aria-controls="memoria" data-i18n="results.memory">
             Ver cálculo
           </button>
         </div>
         <p class="print-only" id="print-date"></p>
         <p id="model-banner" class="banner" role="status" hidden></p>
-        <div id="ex-tarifario-bar" class="fiscal-bar" role="group" aria-label="Importação da NCM 8479.89.99">
-          <span class="ncm-badge">NCM 8479.89.99 · Bem de Capital (BK)</span>
+        <div id="ex-tarifario-bar" class="fiscal-bar" role="group" aria-label="Importação da NCM 8479.89.99" data-i18n-aria="ncm.group">
+          <span class="ncm-badge" data-i18n="ncm.badge">NCM 8479.89.99 · Bem de Capital (BK)</span>
           <div class="fiscal-toggles">
             <button type="button" id="toggle-ex-tarifario" class="fiscal-toggle is-on" aria-pressed="true">Ex-Tarifário: LIGADO (II = 0%)</button>
             <button type="button" id="toggle-convenio-icms" class="fiscal-toggle is-on" aria-pressed="true">Convênio ICMS 52/91: LIGADO (ICMS 8,80%)</button>
@@ -105,13 +112,13 @@
         <p id="model-note" class="fine"></p>
 
         <section class="block" id="space-results" aria-labelledby="space-title">
-          <h3 id="space-title" class="block-title">Busca por espaço da loja</h3>
+          <h3 id="space-title" class="block-title" data-i18n="space.title">Busca por espaço da loja</h3>
           <p id="space-summary" class="fine"></p>
           <div id="space-cards" class="space-cards"></div>
         </section>
 
         <section class="block" id="price-breakdown" aria-labelledby="price-title">
-          <h3 id="price-title" class="block-title">Composição do preço, impostos da NCM 8479.89.99 e créditos recuperáveis</h3>
+          <h3 id="price-title" class="block-title" data-i18n="price.title">Composição do preço, impostos da NCM 8479.89.99 e créditos recuperáveis</h3>
           <p id="price-note" class="fine"></p>
           <div class="table-wrap">
             <table id="price-table"></table>
@@ -122,12 +129,12 @@
         </section>
 
         <section class="block" id="matrix-section" aria-labelledby="matrix-title">
-          <h3 id="matrix-title" class="block-title">Tabela oficial por altura</h3>
-          <p class="fine">
+          <h3 id="matrix-title" class="block-title" data-i18n="matrix.title">Tabela oficial por altura</h3>
+          <p class="fine" data-i18n="matrix.lead">
             Preço total do robô por classe e largura c/ SAM. Embaixo, comprimento e capacidade garantida. Clique numa
             célula para escolher o modelo.
           </p>
-          <div id="matrix-tabs" class="tabs no-print" role="tablist" aria-label="Altura do robô"></div>
+          <div id="matrix-tabs" class="tabs no-print" role="tablist" aria-label="Altura do robô" data-i18n-aria="field.heightM.label"></div>
           <div class="table-wrap">
             <table id="matrix" class="matrix"></table>
           </div>
@@ -135,7 +142,7 @@
         </section>
 
         <section class="block" id="rollout-section" aria-labelledby="rollout-title">
-          <h3 id="rollout-title" class="block-title">Desconto por volume (faixas do acordo comercial)</h3>
+          <h3 id="rollout-title" class="block-title" data-i18n="rollout.title">Desconto por volume (faixas do acordo comercial)</h3>
           <p id="rollout-note" class="fine"></p>
           <div id="rollout-kpis" class="kpis kpis-rollout"></div>
           <div class="table-wrap">
@@ -147,24 +154,24 @@
         <div id="memoria" class="memory is-collapsed"></div>
       </section>
       </main>
-      <aside class="params" id="params" aria-label="Parâmetros do robô">
+      <aside class="params" id="params" aria-label="Parâmetros do robô" data-i18n-aria="params.heading">
         <div class="params-head">
-          <h2>Parâmetros</h2>
-          <button type="button" id="close-params" class="params-close">Fechar</button>
+          <h2 data-i18n="params.heading">Parâmetros</h2>
+          <button type="button" id="close-params" class="params-close" data-i18n="params.close">Fechar</button>
         </div>
         <form id="form" autocomplete="off">
           <p id="boot">Carregando a conta…</p>
         </form>
       </aside>
     </div>
-    <button type="button" id="params-backdrop" class="params-backdrop" hidden aria-label="Fechar parâmetros"></button>
+    <button type="button" id="params-backdrop" class="params-backdrop" hidden aria-label="Fechar parâmetros" data-i18n-aria="params.backdrop"></button>
     <dialog id="premissas-modal" class="modal" aria-labelledby="premissas-title">
       <section class="sources modal-card" id="fontes">
         <div class="sources-head">
-          <h2 id="premissas-title">Premissas</h2>
-          <button type="button" id="close-premissas" class="modal-close">Fechar</button>
+          <h2 id="premissas-title" data-i18n="premissas.title">Premissas</h2>
+          <button type="button" id="close-premissas" class="modal-close" data-i18n="premissas.close">Fechar</button>
         </div>
-        <p class="lede">
+        <p class="lede" data-i18n="premissas.lede">
           Os números vêm da proposta "Framework Agreement between Gollmann and DPSP", de 21.10.2026. São 10 alturas ×
           7 larguras × 7 classes, 286 configurações, de cerca de 10.000 a 40.000 pacotes. Opcionais, transporte e
           instalação (média de € 22.500) e serviços locais em R$ ficam separados. O Preço Total aplica o desconto por
@@ -173,52 +180,52 @@
         </p>
         <ul class="source-group">
           <li>
-            <p>Tabelas dos slides 14 a 23: uma por altura, de 2,20 m a 3,55 m. São 286 configurações válidas. A largura de 3,75 m vai até 2,95 m de altura, a de 4,15 m até 2,65 m e a de 4,55 m até 2,50 m. O slide 3 fala em 8 larguras e mais de 1.000 configurações na lista de preços completa; as tabelas da proposta trazem 7 larguras, e é o que vale aqui.</p>
+            <p data-i18n="premissas.1">Tabelas dos slides 14 a 23: uma por altura, de 2,20 m a 3,55 m. São 286 configurações válidas. A largura de 3,75 m vai até 2,95 m de altura, a de 4,15 m até 2,65 m e a de 4,55 m até 2,50 m. O slide 3 fala em 8 larguras e mais de 1.000 configurações na lista de preços completa; as tabelas da proposta trazem 7 larguras, e é o que vale aqui.</p>
           </li>
           <li>
-            <p>Slide 5: todo preço de tabela já inclui a carga automática com câmera OCR e a carga manual (€ 22.000) e o SAM com 4 saídas (€ 3.000). Robô base = preço de tabela − € 25.000. O comprimento da tabela já soma +0,15 m da carga manual e +0,17 m da opção speed, que é gratuita.</p>
+            <p data-i18n="premissas.2">Slide 5: todo preço de tabela já inclui a carga automática com câmera OCR e a carga manual (€ 22.000) e o SAM com 4 saídas (€ 3.000). Robô base = preço de tabela − € 25.000. O comprimento da tabela já soma +0,15 m da carga manual e +0,17 m da opção speed, que é gratuita.</p>
           </li>
           <li>
-            <p>Slides 6 e 8: opcionais separados dos serviços. 2º braço com 2º SAM por € 14.000, com +0,68 m de comprimento; módulo refrigerado por € 8.000 por robô; esteiras sob consulta, por isso o valor é digitado. <strong>Transporte e instalação</strong> é um campo editável, com padrão na <strong>média de € 22.500</strong>: na tabela do slide 8 varia de € 18.000 no S a € 27.000 no 4XL. <strong>Serviços locais (R$)</strong> são os valores faturados diretamente no Brasil, em reais.</p>
+            <p data-i18n="premissas.3">Slides 6 e 8: opcionais separados dos serviços. 2º braço com 2º SAM por € 14.000, com +0,68 m de comprimento; módulo refrigerado por € 8.000 por robô; esteiras sob consulta, por isso o valor é digitado. <strong>Transporte e instalação</strong> é um campo editável, com padrão na <strong>média de € 22.500</strong>: na tabela do slide 8 varia de € 18.000 no S a € 27.000 no 4XL. <strong>Serviços locais (R$)</strong> são os valores faturados diretamente no Brasil, em reais.</p>
           </li>
           <li>
-            <p>Larguras: a coluna da tabela é o GO.compact com o SAM. O GO.compact sem SAM é 0,20 m mais estreito. O GO.direct aparece como referência de folga. Área = largura c/ SAM × comprimento total; volume = área × altura. No modelo 3D o SAM fica no lado esquerdo e a tela de operação no lado direito, como nas fotos de referência.</p>
+            <p data-i18n="premissas.4">Larguras: a coluna da tabela é o GO.compact com o SAM. O GO.compact sem SAM é 0,20 m mais estreito. O GO.direct aparece como referência de folga. Área = largura c/ SAM × comprimento total; volume = área × altura. No modelo 3D o SAM fica no lado esquerdo e a tela de operação no lado direito, como nas fotos de referência.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Câmbio de R$ 6,20 por euro. O Valor Aduaneiro (VA) é o pedido Gollmann líquido, já com o desconto por volume, convertido pelo câmbio. Os serviços locais faturados no Brasil somam ao Preço Total sem impostos de importação nem crédito.</p>
+            <p data-i18n="premissas.5"><span class="tag">Premissa</span> Câmbio de R$ 6,20 por euro. O Valor Aduaneiro (VA) é o pedido Gollmann líquido, já com o desconto por volume, convertido pelo câmbio. Os serviços locais faturados no Brasil somam ao Preço Total sem impostos de importação nem crédito.</p>
           </li>
           <li>
-            <p><strong>NCM 8479.89.99</strong> (outras máquinas e aparelhos mecânicos com função própria, Bem de Capital), em cascata: II de 0% com Ex-Tarifário de BK, ou 12,6% (TEC Mercosul) / 20% (Res. GECEX 852/2026) sem ele, sobre o VA; IPI de 0% na TIPI (Decreto 11.158/2022) sobre VA + II; PIS-Importação de 2,10% e COFINS-Importação de 9,65% + 0,60% de adicional em 2026 (Lei 10.865/2004 e Lei 14.973/2024), só sobre o VA; despesas aduaneiras opcionais em % do VA; e ICMS-Importação calculado por dentro, de 8,80% com o Convênio ICMS 52/91 (Anexo I, subitem 62.7) ou 18% sem ele.</p>
+            <p data-i18n="premissas.6"><strong>NCM 8479.89.99</strong> (outras máquinas e aparelhos mecânicos com função própria, Bem de Capital), em cascata: II de 0% com Ex-Tarifário de BK, ou 12,6% (TEC Mercosul) / 20% (Res. GECEX 852/2026) sem ele, sobre o VA; IPI de 0% na TIPI (Decreto 11.158/2022) sobre VA + II; PIS-Importação de 2,10% e COFINS-Importação de 9,65% + 0,60% de adicional em 2026 (Lei 10.865/2004 e Lei 14.973/2024), só sobre o VA; despesas aduaneiras opcionais em % do VA; e ICMS-Importação calculado por dentro, de 8,80% com o Convênio ICMS 52/91 (Anexo I, subitem 62.7) ou 18% sem ele.</p>
           </li>
           <li>
-            <p><span class="tag">Premissa</span> Créditos: PIS + COFINS base (11,75% do VA) no Lucro Real, em 48 meses sobre o imobilizado, ou integral via CBS; o adicional de 0,60% da COFINS não gera crédito (Lei 10.865/2004, art. 15, § 1º-A). ICMS-Importação no CIAP em 48 parcelas, na proporção das saídas tributadas (100%, 50% ou 0% para locadora sem ICMS), ou integral via IBS. II e IPI não geram crédito. Confirme as alíquotas com o despachante e o enquadramento com o contador.</p>
+            <p data-i18n="premissas.7"><span class="tag">Premissa</span> Créditos: PIS + COFINS base (11,75% do VA) no Lucro Real, em 48 meses sobre o imobilizado, ou integral via CBS; o adicional de 0,60% da COFINS não gera crédito (Lei 10.865/2004, art. 15, § 1º-A). ICMS-Importação no CIAP em 48 parcelas, na proporção das saídas tributadas (100%, 50% ou 0% para locadora sem ICMS), ou integral via IBS. II e IPI não geram crédito. Confirme as alíquotas com o despachante e o enquadramento com o contador.</p>
           </li>
           <li>
-            <p>Slides 11 e 12: faixas de desconto por volume do acordo comercial: 0% de 1 a 9 robôs, 2% de 10 a 24, 4% de 25 a 49, 6% de 50 a 99 e 8% a partir de 100 robôs. Base: pedido Gollmann (equipamento + opcionais + transporte e instalação). Cada robô é faturado com a faixa vigente no pedido; ao alcançar 10, 25, 50 e 100 robôs, a nota de crédito retroativa leva todos os robôs pedidos até ali à nova faixa. Com € 100.000 por robô, o simulador repete o slide 12: € 20.000 no 10º, € 100.000 no 25º, € 300.000 no 50º e € 800.000 no 100º robô.</p>
+            <p data-i18n="premissas.8">Slides 11 e 12: faixas de desconto por volume do acordo comercial: 0% de 1 a 9 robôs, 2% de 10 a 24, 4% de 25 a 49, 6% de 50 a 99 e 8% a partir de 100 robôs. Base: pedido Gollmann (equipamento + opcionais + transporte e instalação). Cada robô é faturado com a faixa vigente no pedido; ao alcançar 10, 25, 50 e 100 robôs, a nota de crédito retroativa leva todos os robôs pedidos até ali à nova faixa. Com € 100.000 por robô, o simulador repete o slide 12: € 20.000 no 10º, € 100.000 no 25º, € 300.000 no 50º e € 800.000 no 100º robô.</p>
           </li>
         </ul>
       </section>
     </dialog>
     <div class="dock no-print" aria-hidden="false">
       <div>
-        <span>Preço Total (R$)</span>
+        <span data-i18n="dock.total">Preço Total (R$)</span>
         <strong id="dock-net">—</strong>
       </div>
       <div>
-        <span>Robô + Opcionais</span>
+        <span data-i18n="dock.robot">Robô + Opcionais</span>
         <strong id="dock-price">—</strong>
       </div>
       <div>
-        <span>Transp. + Serviços Locais</span>
+        <span data-i18n="dock.services">Transp. + Serviços Locais</span>
         <strong id="dock-order">—</strong>
       </div>
       <div>
-        <span>Desconto Volume</span>
+        <span data-i18n="dock.discount">Desconto Volume</span>
         <strong id="dock-bonus">—</strong>
       </div>
     </div>
     <noscript>
-      <p class="wrap">Esta página precisa de JavaScript para calcular e para abrir as premissas.</p>
+      <p class="wrap" data-i18n="noscript">Esta página precisa de JavaScript para calcular e para abrir as premissas.</p>
     </noscript>
     <script type="module" src="./app.js"></script>
   </body>

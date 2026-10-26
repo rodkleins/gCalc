@@ -74,6 +74,41 @@ a { color: var(--green-dark); }
   gap: 0.45rem 1rem;
 }
 
+.title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.lang-switch button {
+  min-height: 44px;
+  min-width: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0 0.45rem;
+}
+
+.lang-switch button[aria-pressed="true"] {
+  color: var(--green-dark);
+  background: rgba(11, 61, 52, 0.08);
+}
+
+.lang-switch span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .header-actions {
   display: flex;
   flex-wrap: wrap;
