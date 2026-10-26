@@ -1,8 +1,10 @@
 /**
- * English copy for /interno/modelos/. Portuguese stays in the HTML and in the app fallbacks.
- * Keys match data-i18n / data-i18n-title / data-i18n-aria, plus the dynamic t() calls.
- * Proper names stay as written: NCM 8479.89.99, Ex-Tarifário, Convênio ICMS 52/91, PIS/COFINS, CIAP.
+ * Copy for /interno/modelos/. Portuguese stays in the HTML and in the app fallbacks.
+ * en, de and es cover the same keys. Proper names stay as written:
+ * NCM 8479.89.99, Ex-Tarifário, Convênio ICMS 52/91, PIS/COFINS, CIAP, SAM.
  */
+import { DE, ES } from './i18n.locales.js';
+
 export const I18N = {
   en: {
     'doc.title': 'Gollmann models and agreement (internal)',
@@ -38,6 +40,8 @@ export const I18N = {
     'viewer.zoom': 'Zoom',
     'viewer.help': 'Drag to rotate. Scroll to zoom. With the model focused, arrow keys rotate and + / − zoom. Double-click returns to isometric.',
     'viewer.aria': '3D model of the {model} Robot {cls}: height {h}, physical width {w}, total length {l}, {area} m², guaranteed capacity {packs}{arm}{cool}{room}.',
+    'viewer.arm': ', with 2nd arm',
+    'viewer.cool': ', with refrigerated module',
     'legend.body': 'GO.compact',
     'legend.sam': 'Width w/ SAM',
     'legend.direct': 'GO.direct (clearance)',
@@ -418,4 +422,6 @@ export const I18N = {
     'room.width': 'width',
     'room.length': 'length',
   },
+  de: DE,
+  es: ES,
 };

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'vitest';
+import { I18N } from '../../public/interno/modelos/i18n.js';
 import {
   AVERAGE_SERVICES_EUR,
   CLASSES,
@@ -28,6 +29,7 @@ import {
   findSpace,
   formatBRL,
   formatEUR,
+  formatPacks,
   fitsRoom,
   getConfig,
   maxHeightOf,
@@ -862,11 +864,15 @@ describe('página de modelos isolada', () => {
   it('traduz a interface com PT | EN sem mudar a conta', () => {
     assert.match(page, /id="lang-pt"/);
     assert.match(page, /id="lang-en"/);
+    assert.match(page, /id="lang-de"/);
+    assert.match(page, /id="lang-es"/);
     assert.match(page, /data-i18n="title"/);
     assert.match(page, /data-i18n="premissas.lede"/);
     assert.match(app, /gcalc\.modelos\.interno\.lang/);
     assert.match(app, /documentElement\.lang/);
     assert.match(app, /en-US/);
+    assert.match(app, /de-DE/);
+    assert.match(app, /es-ES/);
     assert.match(app, /from '\.\/i18n\.js'/);
     assert.match(readFileSync(join(root, dir, 'i18n.js'), 'utf8'), /Gollmann models/);
     assert.match(formatBRL(1234.5), /1\.234,50/);
@@ -886,6 +892,47 @@ describe('página de modelos isolada', () => {
     assert.match(en, /CIAP/);
     assert.doesNotMatch(en, /Filtro da sala desligado/);
     assert.equal(evaluate({}).totalGrossBrl, evaluate({ fxRate: 6.2 }).totalGrossBrl);
+    for (const code of ['de', 'es']) {
+      const missing = Object.keys(I18N.en).filter((key) => typeof I18N[code][key] !== 'string' || I18N[code][key] === '');
+      assert.deepEqual(missing, []);
+    }
+    assert.match(I18N.de.title, /Kommissionierautomat/);
+    assert.match(I18N.de['model.classLine'], /Klasse/);
+    assert.match(I18N.de['field.modelLine.label'], /Modell/);
+    assert.match(I18N.es.title, /Modelos Gollmann/);
+    assert.match(I18N.es['model.classLine'], /Clase/);
+    assert.match(I18N.es['field.modelLine.label'], /Modelo/);
+    for (const dict of [I18N.de, I18N.es]) {
+      const blob = Object.values(dict).join('\n');
+      assert.match(blob, /Ex-Tarifário/);
+      assert.match(blob, /NCM 8479\.89\.99/);
+      assert.match(blob, /Convênio ICMS 52\/91/);
+      assert.match(blob, /PIS/);
+      assert.match(blob, /COFINS/);
+      assert.match(blob, /CIAP/);
+      assert.match(blob, /GO\.compact/);
+      assert.match(blob, /GO\.direct/);
+    }
+    for (const locale of ['de-DE', 'es-ES']) {
+      assert.match(formatBRL(1234.5, locale), /R\$/);
+      assert.doesNotMatch(formatBRL(1234.5, locale), /BRL/);
+      assert.match(formatBRL(1234.5, locale), /1\.234,50/);
+      assert.match(formatEUR(22500, locale), /€/);
+      assert.match(formatEUR(22500, locale), /22\.500/);
+      const text = explain(evaluate({}), locale).map((block) => `${block.title}\n${block.lines.join('\n')}`).join('\n');
+      assert.match(text, /Ex-Tarifário/);
+      assert.match(text, /NCM 8479\.89\.99/);
+      assert.match(text, /Convênio ICMS 52\/91/);
+      assert.match(text, /PIS/);
+      assert.match(text, /COFINS/);
+      assert.match(text, /CIAP/);
+      assert.doesNotMatch(text, /Filtro da sala desligado/);
+      assert.equal(evaluate({}).totalGrossBrl, evaluate({ modelLine: 'direct' }).totalGrossBrl);
+    }
+    assert.match(formatPacks(20500, 'de-DE'), /Packungen/);
+    assert.match(formatPacks(20500, 'es-ES'), /paquetes/);
+    assert.match(explain(evaluate({ modelLine: 'direct' }), 'de-DE').map((block) => block.lines.join('\n')).join('\n'), /GO\.direct/);
+    assert.match(explain(evaluate({ modelLine: 'direct' }), 'es-ES').map((block) => block.lines.join('\n')).join('\n'), /GO\.direct/);
   });
 
   it('escolhe GO.compact ou GO.direct sem mudar o preço da classe', () => {
