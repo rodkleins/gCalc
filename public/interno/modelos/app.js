@@ -1991,7 +1991,9 @@ function createViewer(canvas) {
     const d = dims;
     const xLeft = -d.Wc / 2 - (d.sam || 0);
     const target = [(xLeft + d.Wc / 2) / 2, d.H * 0.42, -d.L / 2];
-    let radius = 0.5 * Math.hypot(d.Wc + 1.6, d.H, d.L + 1.2);
+    // A distância usa a maior das duas linhas, para a troca de modelo não afastar a câmera.
+    const envelope = Math.max(d.Wc + (d.sam || 0), d.Wd);
+    let radius = 0.5 * Math.hypot(envelope + 1.6, d.H, d.L + 1.2);
     if (model?.room) radius = Math.max(radius, 0.5 * Math.hypot(d.roomW, d.roomH, d.roomL) + 0.2);
     const fit = Math.min(width, height * 1.25);
     const focal = (height / 2) / Math.tan(FOV / 2);
