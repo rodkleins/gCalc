@@ -32,14 +32,18 @@ import {
 import { I18N } from './i18n.js';
 
 const LANG_KEY = 'gcalc.modelos.interno.lang';
+const LANGS = ['pt', 'en', 'de', 'es'];
+const HTML_LANG = { pt: 'pt-BR', en: 'en', de: 'de', es: 'es' };
+const UI_LOCALE = { pt: 'pt-BR', en: 'en-US', de: 'de-DE', es: 'es-ES' };
 let lang = 'pt';
 
 function uiLocale() {
-  return lang === 'en' ? 'en-US' : 'pt-BR';
+  return UI_LOCALE[lang] ?? 'pt-BR';
 }
 
 function t(key, fallback, vars) {
-  let text = lang === 'en' ? (I18N.en[key] ?? fallback ?? key) : (fallback ?? key);
+  const dict = lang === 'pt' ? null : I18N[lang];
+  let text = dict ? (dict[key] ?? fallback ?? key) : (fallback ?? key);
   if (vars) {
     for (const [name, value] of Object.entries(vars)) text = text.split(`{${name}}`).join(String(value ?? ''));
   }
@@ -74,42 +78,44 @@ function explain(result) {
 function loadLang() {
   try {
     const stored = localStorage.getItem(LANG_KEY);
-    if (stored === 'en' || stored === 'pt') lang = stored;
+    if (LANGS.includes(stored)) lang = stored;
   } catch {
     /* navegador sem armazenamento */
   }
 }
 
 function applyI18n() {
-  document.documentElement.lang = lang === 'en' ? 'en' : 'pt-BR';
+  const translated = lang !== 'pt';
+  document.documentElement.lang = HTML_LANG[lang] ?? 'pt-BR';
   document.title = t('doc.title', 'Modelos e acordo Gollmann (interno)');
   const meta = document.querySelector('meta[name="description"]');
   if (meta) {
     if (meta.dataset.i18nPt == null) meta.dataset.i18nPt = meta.getAttribute('content') ?? '';
-    meta.setAttribute('content', lang === 'en' ? t('doc.description', meta.dataset.i18nPt) : meta.dataset.i18nPt);
+    meta.setAttribute('content', translated ? t('doc.description', meta.dataset.i18nPt) : meta.dataset.i18nPt);
   }
   document.querySelectorAll('[data-i18n]').forEach((node) => {
     if (node.dataset.i18nPt == null) node.dataset.i18nPt = node.innerHTML;
     const key = node.dataset.i18n;
-    if (lang === 'en') node.textContent = t(key, node.textContent);
+    if (translated) node.textContent = t(key, node.textContent);
     else node.innerHTML = node.dataset.i18nPt;
   });
   document.querySelectorAll('[data-i18n-title]').forEach((node) => {
     if (node.dataset.i18nTitlePt == null) node.dataset.i18nTitlePt = node.getAttribute('title') ?? '';
     const key = node.dataset.i18nTitle;
-    node.setAttribute('title', lang === 'en' ? t(key, node.dataset.i18nTitlePt) : node.dataset.i18nTitlePt);
+    node.setAttribute('title', translated ? t(key, node.dataset.i18nTitlePt) : node.dataset.i18nTitlePt);
   });
   document.querySelectorAll('[data-i18n-aria]').forEach((node) => {
     if (node.dataset.i18nAriaPt == null) node.dataset.i18nAriaPt = node.getAttribute('aria-label') ?? '';
     const key = node.dataset.i18nAria;
-    node.setAttribute('aria-label', lang === 'en' ? t(key, node.dataset.i18nAriaPt) : node.dataset.i18nAriaPt);
+    node.setAttribute('aria-label', translated ? t(key, node.dataset.i18nAriaPt) : node.dataset.i18nAriaPt);
   });
-  document.getElementById('lang-pt')?.setAttribute('aria-pressed', lang === 'pt' ? 'true' : 'false');
-  document.getElementById('lang-en')?.setAttribute('aria-pressed', lang === 'en' ? 'true' : 'false');
+  for (const code of LANGS) {
+    document.getElementById(`lang-${code}`)?.setAttribute('aria-pressed', lang === code ? 'true' : 'false');
+  }
 }
 
 function setLang(next) {
-  lang = next === 'en' ? 'en' : 'pt';
+  lang = LANGS.includes(next) ? next : 'pt';
   try {
     localStorage.setItem(LANG_KEY, lang);
   } catch {
@@ -867,7 +873,29 @@ function syncQuick() {
 
 function compactBRL(value) {
   if (value == null || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat(uiLocale(), {
+  const locale = uiLocale();
+  if (locale === 'de-DE' || locale === 'es-ES') {
+    const abs = Math.abs(value);
+    const scales = locale === 'de-DE'
+      ? [[1e9, ' Mrd.'], [1e6, ' Mio.'], [1e3, ' Tsd.']]
+      : [[1e9, ' mil M'], [1e6, ' M'], [1e3, ' mil']];
+    let scaled = value;
+    let suffix = '';
+    for (const [div, label] of scales) {
+      if (abs >= div) {
+        scaled = value / div;
+        suffix = label;
+        break;
+      }
+    }
+    const digits = suffix ? 1 : 2;
+    const num = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(scaled);
+    return locale === 'de-DE' ? `${num}${suffix}\u00a0R$` : `R$\u00a0${num}${suffix}`;
+  }
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'BRL',
     notation: 'compact',
@@ -1607,7 +1635,7 @@ function renderDock(result) {
   const { quote } = result;
   document.getElementById('dock-net').textContent = compactBRL(result.totalGrossBrl);
   document.getElementById('dock-price').textContent = formatEUR(quote.equipmentEur);
-  const local = quote.localServicesBrl > 0 ? compactBRL(quote.localServicesBrl) : (lang === 'en' ? formatBRL(0) : 'R$ 0');
+  const local = quote.localServicesBrl > 0 ? compactBRL(quote.localServicesBrl) : (lang === 'pt' ? 'R$ 0' : formatBRL(0));
   document.getElementById('dock-order').textContent = `${formatEUR(quote.servicesEur)} + ${local}`;
   document.getElementById('dock-bonus').textContent = `${pct(quote.discountPct)} · −${formatEUR(quote.discountEur)}`;
 }
@@ -1943,8 +1971,8 @@ function createViewer(canvas) {
         l: formatMeters(quote.totalLengthM),
         area: formatFixed(picked.area, 2),
         packs: formatPacks(quote.capacityPacks),
-        arm: quote.secondGripper ? (lang === 'en' ? ', with 2nd arm' : ', com 2º braço') : '',
-        cool: quote.coolingModule ? (lang === 'en' ? ', with refrigerated module' : ', com módulo refrigerado') : '',
+        arm: quote.secondGripper ? t('viewer.arm', ', com 2º braço') : '',
+        cool: quote.coolingModule ? t('viewer.cool', ', com módulo refrigerado') : '',
         room: result.roomFilterOn ? (result.room.roomOk ? t('matrix.fit', ', cabe na sala') : t('matrix.out', ', não cabe na sala')) : '',
       }),
     );
@@ -3158,12 +3186,11 @@ let viewer = null;
 
 function bindChrome() {
   document.getElementById('form').addEventListener('submit', (event) => event.preventDefault());
-  document.getElementById('lang-pt')?.addEventListener('click', () => {
-    if (lang !== 'pt') setLang('pt');
-  });
-  document.getElementById('lang-en')?.addEventListener('click', () => {
-    if (lang !== 'en') setLang('en');
-  });
+  for (const code of LANGS) {
+    document.getElementById(`lang-${code}`)?.addEventListener('click', () => {
+      if (lang !== code) setLang(code);
+    });
+  }
   document.getElementById('ver-calculo').addEventListener('click', () => {
     const memory = document.getElementById('memoria');
     const button = document.getElementById('ver-calculo');

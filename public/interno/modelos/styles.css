@@ -84,19 +84,21 @@ a { color: var(--green-dark); }
 .lang-switch {
   display: inline-flex;
   align-items: center;
-  gap: 0.05rem;
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 0;
 }
 
 .lang-switch button {
   min-height: 44px;
-  min-width: 44px;
+  min-width: 2.4rem;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 0 0.45rem;
+  letter-spacing: 0.04em;
+  padding: 0 0.35rem;
 }
 
 .lang-switch button[aria-pressed="true"] {
@@ -579,6 +581,14 @@ tfoot th, tfoot td { font-weight: 700; }
 }
 
 .print-only { display: none; }
+
+@media (max-width: 420px) {
+  .lang-switch button {
+    min-width: 2.15rem;
+    padding: 0 0.2rem;
+    letter-spacing: 0.02em;
+  }
+}
 
 @media (min-width: 680px) {
   .fields { grid-template-columns: 1fr 1fr; }
