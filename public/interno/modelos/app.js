@@ -25,6 +25,7 @@ import {
   formatPacks as formatPacksLocale,
   maxHeightOf,
   parseBr,
+  physicalWidthM,
   widthsAt,
   configLabel as configLabelLocale,
 } from './calc.js';
@@ -148,6 +149,13 @@ const SECTIONS = [
         keep: 'width',
         wide: true,
         tooltip: 'A coluna da tabela é o GO.compact com o SAM, que soma 0,20 m. 3,75 m vai até 2,95 m de altura, 4,15 m até 2,65 m e 4,55 m até 2,50 m.',
+      },
+      {
+        key: 'modelLine',
+        label: 'Modelo',
+        kind: 'select',
+        wide: true,
+        tooltip: 'GO.compact é o padrão: a largura física é a do corpo, sem o SAM. GO.direct usa a largura física da outra linha. O preço continua o da classe (coluna com SAM). Exemplo: Classe 2,80 m · GO.direct 3,00 m.',
       },
       {
         key: 'classId',
@@ -570,6 +578,12 @@ function selectOptions(key) {
       };
     });
   }
+  if (key === 'modelLine') {
+    return [
+      { value: 'compact', label: t('model.compact', 'GO.compact') },
+      { value: 'direct', label: t('model.direct', 'GO.direct') },
+    ];
+  }
   if (key === 'classId') {
     const valid = classesAt(state.heightM, state.widthSam);
     return CLASSES.map((cls) => ({
@@ -887,6 +901,25 @@ function renderKpi(host, spec) {
 
 const CHANGE_LABELS = { heightM: 'a altura', widthSam: 'a largura', classId: 'a classe' };
 
+/** Largura física da linha escolhida. O preço e o footprintM2 da classe não entram aqui. */
+function selectedLine(result) {
+  const quote = result.quote;
+  const line = result.modelLine === 'direct' ? 'direct' : 'compact';
+  const name = line === 'direct' ? 'GO.direct' : 'GO.compact';
+  const width = physicalWidthM(quote.widthSam, line);
+  const area = Math.round(width * quote.totalLengthM * 10000) / 10000;
+  const volume = Math.round(area * quote.heightM * 10000) / 10000;
+  return { line, name, width, area, volume };
+}
+
+function classLine(result, model = selectedLine(result)) {
+  return t('model.classLine', `Classe ${formatMeters(result.quote.widthSam)} · ${model.name} ${formatMeters(model.width)}`, {
+    cls: formatMeters(result.quote.widthSam),
+    model: model.name,
+    width: formatMeters(model.width),
+  });
+}
+
 function adjustMessage(selection) {
   const { requested } = selection;
   const parts = selection.changed.map((key) => t(`change.${key}`, CHANGE_LABELS[key]));
@@ -907,6 +940,7 @@ function renderStatus(result) {
   if (status) {
     status.classList.toggle('is-adjusted', Boolean(lastAdjust));
     status.replaceChildren(
+      el('span', 'mode-line', classLine(result)),
       el('span', 'mode-result', lastAdjust ? t('status.adjusted', 'Combinação ajustada') : t('status.valid', 'Combinação válida da tabela de {height}', { height: formatMeters(config.heightM) })),
       el(
         'span',
@@ -925,6 +959,7 @@ function renderStatus(result) {
 
 function renderHero(result) {
   const { quote, brazil } = result;
+  const model = selectedLine(result);
   const hero = document.getElementById('hero-kpis');
   hero.replaceChildren();
   renderKpi(hero, {
@@ -953,7 +988,7 @@ function renderHero(result) {
     label: t('kpi.robot', 'Preço do Robô (Tabela)'),
     value: formatEUR(quote.tablePriceEur),
     exact: formatBRL(result.brl.tablePrice),
-    sub: `${formatPacks(quote.capacityPacks)} · ${formatFixed(quote.heightM, 2)} × ${formatFixed(quote.widthSam, 2)} × ${formatFixed(quote.totalLengthM, 2)} m`,
+    sub: `${formatPacks(quote.capacityPacks)} · ${formatFixed(quote.heightM, 2)} × ${formatFixed(model.width, 2)} × ${formatFixed(quote.totalLengthM, 2)} m`,
     title: `${formatEUR(quote.baseRobotEur)} + ${formatEUR(quote.autoLoadingEur)} + ${formatEUR(quote.samEur)}`,
     hero: true,
   });
@@ -1001,13 +1036,16 @@ function renderHero(result) {
     }),
   });
   const note = document.getElementById('model-note');
-  note.textContent = configLabel(quote.config);
-  note.title = t('note.title', `GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`, {
+  note.textContent = `${classLine(result, model)} · ${configLabel(quote.config)}`;
+  note.title = t('note.title', `${model.name} ${formatMeters(model.width)}. GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área do modelo ${m2(model.area)}. Área da classe ${m2(quote.footprintM2)}.`, {
+    model: model.name,
+    width: formatMeters(model.width),
     compact: formatMeters(quote.widthCompact),
     direct: formatMeters(quote.widthDirect),
     table: formatMeters(quote.tableLengthM),
     arm: quote.secondGripper ? t('note.arm', `, ${formatMeters(quote.totalLengthM)} com o 2º braço`, { length: formatMeters(quote.totalLengthM) }) : '',
-    area: m2(quote.footprintM2),
+    area: m2(model.area),
+    classArea: m2(quote.footprintM2),
   });
   const options = document.getElementById('options-hint');
   if (options) {
@@ -1065,6 +1103,7 @@ function renderFiscalBar(result) {
 
 function renderDims(result) {
   const { quote, room } = result;
+  const model = selectedLine(result);
   const host = document.getElementById('dims');
   const status = (dim) => {
     if (!result.roomFilterOn) return '';
@@ -1074,10 +1113,10 @@ function renderDims(result) {
   const pills = [
     [t('pill.height', 'Altura'), formatMeters(quote.heightM), status('height')],
     [t('pill.width', 'Largura c/ SAM'), formatMeters(quote.widthSam), result.roomWidthRef === 'sam' ? status('width') : ''],
-    [t('pill.direct', 'GO.compact · GO.direct'), `${formatFixed(quote.widthCompact, 2)} · ${formatFixed(quote.widthDirect, 2)} m`, result.roomWidthRef === 'sam' ? '' : status('width')],
+    [model.name, formatMeters(model.width), result.roomWidthRef === model.line ? status('width') : ''],
     [t('pill.length', 'Comprimento total'), formatMeters(quote.totalLengthM), status('length')],
-    [t('pill.area', 'Área m²'), m2(quote.footprintM2), ''],
-    [t('pill.volume', 'Volume m³'), `${formatFixed(quote.volumeM3, 2)} m³`, ''],
+    [t('pill.area', 'Área do modelo'), m2(model.area), ''],
+    [t('pill.volume', 'Volume do modelo'), `${formatFixed(model.volume, 2)} m³`, ''],
     [t('pill.capacity', 'Capacidade garantida'), formatPacks(quote.capacityPacks), result.roomFilterOn && !room.capacityOk ? 'is-over' : ''],
   ];
   host.replaceChildren(
@@ -1593,10 +1632,29 @@ function getId(preset) {
   return `${preset.heightM.toFixed(2)}|${preset.widthSam.toFixed(2)}|${preset.classId}`;
 }
 
+function renderModelChrome(result) {
+  const model = selectedLine(result);
+  const title = document.getElementById('viewer-title');
+  if (title) title.textContent = model.name;
+  const classLineNode = document.getElementById('model-class-line');
+  if (classLineNode) classLineNode.textContent = classLine(result, model);
+  const legendBody = document.querySelector('[data-i18n="legend.body"]');
+  if (legendBody) legendBody.textContent = model.name;
+  const legendOther = document.querySelector('[data-i18n="legend.direct"]');
+  if (legendOther) {
+    legendOther.textContent = model.line === 'direct'
+      ? t('legend.otherCompact', 'GO.compact (referência)')
+      : t('legend.direct', 'GO.direct (folga)');
+  }
+  const colorGroup = document.querySelector('.swatches');
+  if (colorGroup) colorGroup.setAttribute('aria-label', t('viewer.colorModel', `Cor do ${model.name}`, { model: model.name }));
+}
+
 function render(result) {
   current = result;
   syncLocks();
   syncQuick();
+  renderModelChrome(result);
   renderStatus(result);
   renderFiscalBar(result);
   renderHero(result);
@@ -1632,6 +1690,10 @@ function commit(keep = null) {
     fillControls();
   }
   if (previousHeight !== result.quote.heightM) matrixHeight = result.quote.heightM;
+  if (state.modelLine !== result.modelLine) {
+    state.modelLine = result.modelLine;
+    fillControls();
+  }
   // A alíquota de ICMS digitada decide o convênio: o botão do convênio acompanha o que entrou na conta.
   state.convenioIcms5291 = result.brazil.convenioIcms5291;
   render(result);
@@ -1834,14 +1896,16 @@ function createViewer(canvas) {
 
   function setModel(result) {
     const { quote } = result;
+    const picked = selectedLine(result);
     const next = {
       H: quote.heightM,
-      Wc: quote.widthCompact,
-      Wd: quote.widthDirect,
+      Wc: picked.width,
+      Wd: picked.line === 'direct' ? quote.widthCompact : quote.widthDirect,
+      sam: picked.line === 'direct' ? 0 : SAM_PROTRUSION_M,
       Lt: quote.tableLengthM,
       L: quote.totalLengthM,
       roomH: result.roomHeightM ?? quote.heightM + 0.4,
-      roomW: result.roomWidthM ?? quote.widthDirect + 0.6,
+      roomW: result.roomWidthM ?? Math.max(quote.widthSam, picked.width) + 0.6,
       roomL: result.roomLengthM ?? quote.totalLengthM + 0.8,
     };
     dimsTarget = next;
@@ -1852,6 +1916,8 @@ function createViewer(canvas) {
         ? 'tight'
         : 'ok';
     model = {
+      line: picked.line,
+      name: picked.name,
       classId: quote.classId,
       capacity: quote.capacityPacks,
       gripper2: quote.secondGripper,
@@ -1862,18 +1928,20 @@ function createViewer(canvas) {
       labels: {
         H: formatMeters(quote.heightM),
         Ws: formatMeters(quote.widthSam),
+        physical: `${picked.name} ${formatMeters(picked.width)}`,
         L: formatMeters(quote.totalLengthM),
         core: formatMeters(quote.coreLengthM),
       },
     };
     canvas.setAttribute(
       'aria-label',
-      t('viewer.aria', `Modelo 3D do GO.compact Robô ${quote.classId}: altura ${formatMeters(quote.heightM)}, largura com SAM ${formatMeters(quote.widthSam)}, comprimento total ${formatMeters(quote.totalLengthM)}, ${formatFixed(quote.footprintM2, 2)} m², capacidade garantida ${formatPacks(quote.capacityPacks)}${quote.secondGripper ? ', com 2º braço' : ''}${quote.coolingModule ? ', com módulo refrigerado' : ''}${result.roomFilterOn ? (result.room.roomOk ? ', cabe na sala' : ', não cabe na sala') : ''}.`, {
+      t('viewer.aria', `Modelo 3D do ${picked.name} Robô ${quote.classId}: altura ${formatMeters(quote.heightM)}, largura física ${formatMeters(picked.width)}, comprimento total ${formatMeters(quote.totalLengthM)}, ${formatFixed(picked.area, 2)} m², capacidade garantida ${formatPacks(quote.capacityPacks)}${quote.secondGripper ? ', com 2º braço' : ''}${quote.coolingModule ? ', com módulo refrigerado' : ''}${result.roomFilterOn ? (result.room.roomOk ? ', cabe na sala' : ', não cabe na sala') : ''}.`, {
+        model: picked.name,
         cls: quote.classId,
         h: formatMeters(quote.heightM),
-        w: formatMeters(quote.widthSam),
+        w: formatMeters(picked.width),
         l: formatMeters(quote.totalLengthM),
-        area: formatFixed(quote.footprintM2, 2),
+        area: formatFixed(picked.area, 2),
         packs: formatPacks(quote.capacityPacks),
         arm: quote.secondGripper ? (lang === 'en' ? ', with 2nd arm' : ', com 2º braço') : '',
         cool: quote.coolingModule ? (lang === 'en' ? ', with refrigerated module' : ', com módulo refrigerado') : '',
@@ -1921,9 +1989,11 @@ function createViewer(canvas) {
   /* Câmera: órbita em torno do centro do robô; a distância cobre o robô, a pessoa e a sala. */
   function computeBasis() {
     const d = dims;
-    const xLeft = -d.Wc / 2 - SAM_PROTRUSION_M;
+    const xLeft = -d.Wc / 2 - (d.sam || 0);
     const target = [(xLeft + d.Wc / 2) / 2, d.H * 0.42, -d.L / 2];
-    let radius = 0.5 * Math.hypot(d.Wc + 1.6, d.H, d.L + 1.2);
+    // A distância usa a maior das duas linhas, para a troca de modelo não afastar a câmera.
+    const envelope = Math.max(d.Wc + (d.sam || 0), d.Wd);
+    let radius = 0.5 * Math.hypot(envelope + 1.6, d.H, d.L + 1.2);
     if (model?.room) radius = Math.max(radius, 0.5 * Math.hypot(d.roomW, d.roomH, d.roomL) + 0.2);
     const fit = Math.min(width, height * 1.25);
     const focal = (height / 2) / Math.tan(FOV / 2);
@@ -2127,7 +2197,7 @@ function createViewer(canvas) {
         fill: null,
         w: 200,
         h: 48,
-        draw: lettering('GO.compact', 'rgba(255,255,255,0.95)'),
+        draw: lettering(model.name || 'GO.compact', 'rgba(255,255,255,0.95)'),
       },
     ];
     const winCount = Math.max(2, Math.min(4, Math.round(bayW / 0.6)));
@@ -2185,13 +2255,16 @@ function createViewer(canvas) {
       }),
     );
 
-    const samChildren = box(x0 - SAM_PROTRUSION_M, x0, 0.92, 1.3, 0.06, 0.62, {
-      fill: COLORS.chute,
-      stroke: '#000000',
-      faces: {
-        left: { decals: [{ pts: quadX(x0 - SAM_PROTRUSION_M - 0.001, 0.98, 1.22, 0.14, 0.54), fill: '#2f363b', alpha: 1 }] },
-      },
-    });
+    const sam = d.sam || 0;
+    const samChildren = sam > 0.01
+      ? box(x0 - sam, x0, 0.92, 1.3, 0.06, 0.62, {
+          fill: COLORS.chute,
+          stroke: '#000000',
+          faces: {
+            left: { decals: [{ pts: quadX(x0 - sam - 0.001, 0.98, 1.22, 0.14, 0.54), fill: '#2f363b', alpha: 1 }] },
+          },
+        })
+      : [];
 
     const shell = box(x0, x1, 0, H, 0, L, {
       fill: COLORS.anthracite,
@@ -2696,7 +2769,7 @@ function createViewer(canvas) {
     const theme = THEMES[view.theme].color;
     const x0 = -d.Wc / 2;
     const x1 = d.Wc / 2;
-    const xs = x0 - SAM_PROTRUSION_M;
+    const xs = x0 - (d.sam || 0);
     let gx0 = Math.floor(Math.min(-d.Wd / 2, xs) - 1.6);
     let gx1 = Math.ceil(Math.max(d.Wd / 2, x1) + 1.6);
     let gd0 = -2;
@@ -2880,7 +2953,7 @@ function createViewer(canvas) {
   function drawRoom() {
     const d = dims;
     const room = model.room;
-    const xs = -d.Wc / 2 - SAM_PROTRUSION_M;
+    const xs = -d.Wc / 2 - (d.sam || 0);
     const cx = room.ref === 'sam' ? (xs + d.Wc / 2) / 2 : 0;
     const a = cx - d.roomW / 2;
     const b = cx + d.roomW / 2;
@@ -2950,7 +3023,7 @@ function createViewer(canvas) {
     ctx.font = '700 14px Outfit, "Segoe UI", sans-serif';
     ctx.fillStyle = '#1a2421';
     ctx.textBaseline = 'top';
-    ctx.fillText(`GO.compact · Robô ${model.classId}`, 14, 12);
+    ctx.fillText(t('hud.title', `${model.name} · Robô ${model.classId}`, { model: model.name, cls: model.classId }), 14, 12);
     ctx.font = '500 12px Outfit, "Segoe UI", sans-serif';
     ctx.fillStyle = '#5c675f';
     ctx.fillText(`${formatFlex(model.capacity)} ${t('hud.packs', 'pacotes')} · ${t(`hud.theme.${view.theme}`, THEMES[view.theme].label)}${xrayMix > 0.5 ? ` · ${t('hud.xray', 'raios-X')}` : ''}`, 14, 31);
@@ -2986,7 +3059,7 @@ function createViewer(canvas) {
     if (model.room) drawRoom();
     const xs = -d.Wc / 2 - SAM_PROTRUSION_M;
     dimension(P(d.Wc / 2 + 0.22, 0, -0.08), P(d.Wc / 2 + 0.22, d.H, -0.08), model.labels.H, '#0b3d34');
-    dimension(P(xs, 0, -0.45), P(d.Wc / 2, 0, -0.45), t('dim.withSam', `${model.labels.Ws} c/ SAM`, { width: model.labels.Ws }), '#0b3d34');
+    dimension(P(-d.Wc / 2, 0, -0.45), P(d.Wc / 2, 0, -0.45), model.labels.physical, '#0b3d34');
     /* Comprimento total: à direita na planta; em perspectiva, à esquerda em primeiro plano, sem cruzar o corpo do robô. */
     if (cam.pitch > 1.05) dimension(P(d.Wc / 2 + 0.48, 0, 0), P(d.Wc / 2 + 0.48, 0, d.L), model.labels.L, '#0b3d34');
     else dimension(P(xs - 0.55, 0, 0), P(xs - 0.55, 0, d.L), model.labels.L, '#0b3d34');

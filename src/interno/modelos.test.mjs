@@ -37,6 +37,7 @@ import {
   quoteRobot,
   resolveSelection,
   rollout,
+  physicalWidthM,
   sanitize,
   toCents,
   volumeBonusPct,
@@ -214,6 +215,7 @@ describe('composição do preço e exemplos dos slides 7 e 8', () => {
     assert.equal(base.quote.netOrderEur, 130500);
     assert.equal(base.quote.footprintM2, 12.8);
     assert.equal(base.quote.volumeM3, 37.76);
+    assert.equal(base.modelLine, 'compact');
   });
 });
 
@@ -884,6 +886,54 @@ describe('página de modelos isolada', () => {
     assert.match(en, /CIAP/);
     assert.doesNotMatch(en, /Filtro da sala desligado/);
     assert.equal(evaluate({}).totalGrossBrl, evaluate({ fxRate: 6.2 }).totalGrossBrl);
+  });
+
+  it('escolhe GO.compact ou GO.direct sem mudar o preço da classe', () => {
+    assert.equal(DEFAULTS.modelLine, 'compact');
+    assert.equal(sanitize({ modelLine: 'direct' }).modelLine, 'direct');
+    assert.equal(sanitize({ modelLine: 'nope' }).modelLine, 'compact');
+    assert.deepEqual(
+      WIDTHS.map((width) => [width.sam, physicalWidthM(width.sam, 'compact'), physicalWidthM(width.sam, 'direct')]),
+      [
+        [1.89, 1.69, 2.2],
+        [2.4, 2.2, 2.6],
+        [2.8, 2.6, 3],
+        [3.2, 3, 3.4],
+        [3.75, 3.55, 3.95],
+        [4.15, 3.95, 4.35],
+        [4.55, 4.35, 4.75],
+      ],
+    );
+    const compact = evaluate({});
+    const direct = evaluate({ modelLine: 'direct' });
+    assert.equal(direct.totalGrossBrl, compact.totalGrossBrl);
+    assert.equal(direct.quote.tablePriceEur, compact.quote.tablePriceEur);
+    assert.equal(direct.quote.netOrderEur, compact.quote.netOrderEur);
+    assert.equal(compact.quote.footprintM2, 12.8);
+    assert.equal(direct.quote.footprintM2, 12.8);
+    assert.equal(direct.quote.volumeM3, 37.76);
+    assert.equal(physicalWidthM(3.2, 'compact'), 3);
+    assert.equal(physicalWidthM(2.8, 'direct'), 3);
+    assert.equal(Math.round(physicalWidthM(3.2, 'direct') * direct.quote.totalLengthM * 10000) / 10000, 13.6);
+    const narrow = explain(evaluate({ widthSam: 2.8, classId: 'S', modelLine: 'direct' }))
+      .map((block) => block.lines.join('\n'))
+      .join('\n');
+    assert.match(narrow, /Linha selecionada: GO\.direct/);
+    assert.match(narrow, /Classe|classe 2,80 m|da classe 2,80 m/);
+    assert.match(narrow, /3,00 m/);
+    assert.match(narrow, /O preço permanece o da classe/);
+    const en = explain(evaluate({ modelLine: 'direct' }), 'en-US')
+      .map((block) => block.lines.join('\n'))
+      .join('\n');
+    assert.match(en, /Selected line: GO\.direct/);
+    assert.match(en, /physical width 3\.40 m/);
+    assert.match(page, /id="model-class-line"/);
+    assert.match(page, /Classe 2,80 m · GO\.direct 3,00 m/);
+    assert.match(app, /key: 'modelLine'/);
+    assert.match(app, /gcalc\.modelos\.interno\.v3/);
+    assert.match(calc, /modelLine: 'compact'/);
+    assert.match(readFileSync(join(root, dir, 'i18n.js'), 'utf8'), /field\.modelLine\.label/);
+    assert.match(readFileSync(join(root, dir, 'i18n.js'), 'utf8'), /Class \{cls\}/);
   });
 
   it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {

@@ -108,9 +108,10 @@ export function formatPacks(value, locale = 'pt-BR') {
 export const HEIGHTS = [2.2, 2.35, 2.5, 2.65, 2.8, 2.95, 3.1, 3.25, 3.4, 3.55];
 
 /**
- * As 7 larguras das tabelas. A chave é a largura do GO.compact com o SAM, que é a coluna dos slides.
- * O SAM soma 0,20 m ao GO.compact. O GO.direct é a largura de referência da outra linha, só para comparar.
- * O slide 3 fala em 8 larguras, mas as tabelas trazem 7: valem as tabelas.
+ * As 7 larguras das tabelas. A chave é a classe (GO.compact com o SAM), que é a coluna dos slides e do preço.
+ * A largura física muda com a linha: GO.compact = classe − 0,20 m, salvo a leitura da tabela; GO.direct é a
+ * outra linha (na classe 1,89 m o direct é 2,20 m, não 2,09 m). O slide 3 fala em 8 larguras, mas as tabelas
+ * trazem 7: valem as tabelas.
  */
 export const WIDTHS = [
   { key: '1.89', sam: 1.89, compact: 1.69, direct: 2.2 },
@@ -121,6 +122,13 @@ export const WIDTHS = [
   { key: '4.15', sam: 4.15, compact: 3.95, direct: 4.35 },
   { key: '4.55', sam: 4.55, compact: 4.35, direct: 4.75 },
 ];
+
+/** Linha do corpo. O preço não muda: continua a célula da classe (coluna com SAM). */
+export function physicalWidthM(widthSam, modelLine = 'compact') {
+  const row = WIDTHS.find((width) => Math.abs(width.sam - Number(widthSam)) < 1e-9);
+  if (!row) return Number(widthSam);
+  return modelLine === 'direct' ? row.direct : row.compact;
+}
 
 export const SAM_PROTRUSION_M = 0.2;
 
@@ -430,6 +438,7 @@ export const DEFAULTS = {
   heightM: 2.95,
   widthSam: 3.2,
   classId: 'L',
+  modelLine: 'compact',
   secondGripper: false,
   coolingModule: false,
   conveyorEur: 0,
@@ -499,6 +508,7 @@ export function sanitize(raw = {}) {
     num(raw.widthSam, DEFAULTS.widthSam),
   );
   input.classId = classOf(raw.classId) ? raw.classId : DEFAULTS.classId;
+  input.modelLine = raw.modelLine === 'direct' ? 'direct' : 'compact';
   for (const key of ['secondGripper', 'coolingModule', 'includeServices', 'roomFilterOn', 'exTarifario', 'convenioIcms5291', 'creditPisCofins', 'creditIcms']) {
     if (typeof raw[key] === 'boolean') input[key] = raw[key];
   }
@@ -1278,6 +1288,7 @@ function explainPt(result) {
       lines: [
         changedText,
         `Largura c/ SAM ${formatMeters(quote.widthSam)} = GO.compact ${formatMeters(quote.widthCompact)} + SAM ${formatMeters(SAM_PROTRUSION_M)}. GO.direct de referência: ${formatMeters(quote.widthDirect)}.`,
+        `Linha selecionada: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'}, largura física ${formatMeters(physicalWidthM(quote.widthSam, result.modelLine))}. O preço permanece o da classe ${formatMeters(quote.widthSam)} (coluna com SAM). A área e o volume exibidos usam a largura física.`,
         `Comprimento da tabela ${formatMeters(quote.tableLengthM)} = núcleo de armazenagem ${formatMeters(quote.coreLengthM)} + ${formatMeters(LENGTH_INCLUDED.manualLoadingM)} da carga manual + ${formatMeters(LENGTH_INCLUDED.speedOptionM)} da opção speed.${quote.secondGripper ? ` Com o 2º braço: + ${formatMeters(OPTIONS.secondGripperLengthM)} = ${formatMeters(quote.totalLengthM)}.` : ''}`,
         `Área = ${formatMeters(quote.widthSam)} × ${formatMeters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2)} m². Volume = área × ${formatMeters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2)} m³. Capacidade garantida: ${formatPacks(quote.capacityPacks)} (classe ${cls.id}, aprox. ${formatPacks(cls.approxPacks)}).`,
       ],
@@ -1379,6 +1390,7 @@ function explainEn(result) {
       lines: [
         changedText,
         `Width w/ SAM ${meters(quote.widthSam)} = GO.compact ${meters(quote.widthCompact)} + SAM ${meters(SAM_PROTRUSION_M)}. GO.direct reference: ${meters(quote.widthDirect)}.`,
+        `Selected line: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'}, physical width ${meters(physicalWidthM(quote.widthSam, result.modelLine))}. The price stays on class ${meters(quote.widthSam)} (column including SAM). The displayed area and volume use the physical width.`,
         `Table length ${meters(quote.tableLengthM)} = storage core ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} manual loading + ${meters(LENGTH_INCLUDED.speedOptionM)} speed option.${quote.secondGripper ? ` With the 2nd arm: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Area = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volume = area × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Guaranteed capacity: ${packs(quote.capacityPacks)} (class ${cls.id}, approx. ${packs(cls.approxPacks)}).`,
       ],
