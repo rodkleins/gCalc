@@ -22,20 +22,20 @@
   <body>
     <a class="skip" href="#resultados">Ir para o resultado</a>
     <header class="site-header wrap">
-      <p class="kicker">Uso interno · não indexar</p>
-      <h1>Simulador de Modelos e Acordo Comercial Gollmann</h1>
-      <p class="lede">
-        Escolha o GO.compact pela tabela da proposta: 10 alturas × 7 larguras × 7 classes, 286 configurações
-        válidas, de cerca de 10.000 a 40.000 pacotes. Veja separados os opcionais (2º braço, refrigeração,
-        esteiras), o transporte e instalação (editável, com a média de € 22.500 como padrão) e os serviços locais
-        faturados em R$ no Brasil. O Preço Total aplica a faixa de desconto por volume do acordo (0% a 8%) e os
-        impostos de importação da NCM 8479.89.99 em cascata, com o Ex-Tarifário ligado ou desligado e os créditos
-        recuperáveis.
-      </p>
-      <div class="actions no-print">
-        <button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal">Premissas</button>
-        <button type="button" id="print">Imprimir em A4</button>
-        <button type="button" id="reset">Restaurar premissas</button>
+      <div class="header-bar">
+        <div>
+          <p class="kicker">Uso interno · não indexar</p>
+          <h1>Modelos Gollmann</h1>
+          <p class="lede">286 configurações do GO.compact · acordo Gollmann × DPSP.</p>
+        </div>
+        <div class="header-actions no-print">
+          <button type="button" id="toggle-params" class="params-toggle" aria-expanded="true" aria-controls="params">Parâmetros</button>
+          <div class="actions">
+            <button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal">Premissas</button>
+            <button type="button" id="print">Imprimir em A4</button>
+            <button type="button" id="reset">Restaurar premissas</button>
+          </div>
+        </div>
       </div>
       <div class="actions presets no-print" role="group" aria-label="Exemplos da apresentação (slides 7 e 8)">
         <button type="button" class="preset" data-preset="ex1">Ex. 1 · Robô S</button>
@@ -44,11 +44,47 @@
         <button type="button" class="preset" data-preset="ex4">Ex. 4 · Robô 4XL</button>
       </div>
     </header>
-    <main class="layout wrap">
-      <form id="form" autocomplete="off">
-        <p id="boot">Carregando a conta…</p>
-      </form>
-      <section class="results" id="resultados" aria-label="Resultado">
+    <div class="workspace wrap" id="workspace">
+      <main class="stage">
+        <section class="viewer-card" id="viewer-card" aria-labelledby="viewer-title">
+          <div class="viewer-bar">
+            <h2 id="viewer-title">GO.compact</h2>
+            <div class="viewer-tools no-print">
+              <div class="seg" role="group" aria-label="Câmera">
+                <button type="button" data-camera="iso" aria-pressed="true">Isométrica</button>
+                <button type="button" data-camera="front" aria-pressed="false">Frontal</button>
+                <button type="button" data-camera="cut" aria-pressed="false">Corte / Interna</button>
+                <button type="button" data-camera="top" aria-pressed="false">Planta (Topo)</button>
+              </div>
+              <div class="seg" role="group" aria-label="Exibição">
+                <button type="button" id="xray" aria-pressed="false">Vista Interna / Raios-X</button>
+                <button type="button" id="human" aria-pressed="true">Pessoa de 1,70 m</button>
+              </div>
+              <div class="swatches" role="group" aria-label="Cor do GO.compact">
+                <button type="button" data-theme="azul" aria-pressed="true" title="Azul Gollmann"><i style="background:#009bb4"></i><span>Azul</span></button>
+                <button type="button" data-theme="verde" aria-pressed="false" title="Verde Lima"><i style="background:#8ab81a"></i><span>Verde</span></button>
+                <button type="button" data-theme="magenta" aria-pressed="false" title="Magenta"><i style="background:#b5124b"></i><span>Magenta</span></button>
+              </div>
+              <label class="zoom" for="zoom">
+                <span>Zoom</span>
+                <input type="range" id="zoom" min="45" max="240" step="1" value="100" />
+              </label>
+            </div>
+          </div>
+          <div class="viewer-stage">
+            <canvas id="viewer" tabindex="0" role="img" aria-label="Modelo 3D do GO.compact" title="Arraste para girar. Role para zoom. Com o modelo em foco, setas giram e + / − aproximam. Duplo clique volta à isométrica."></canvas>
+          </div>
+          <div class="viewer-legend">
+            <span><i class="swatch swatch-body"></i> GO.compact</span>
+            <span><i class="swatch swatch-sam"></i> Largura c/ SAM</span>
+            <span><i class="swatch swatch-direct"></i> GO.direct (folga)</span>
+            <span><i class="swatch swatch-manual"></i> +0,15 m carga manual</span>
+            <span><i class="swatch swatch-speed"></i> +0,17 m speed</span>
+            <span><i class="swatch swatch-grip"></i> +0,68 m 2º braço</span>
+          </div>
+          <div id="dims" class="pills" aria-live="polite"></div>
+        </section>
+        <section class="results" id="resultados" aria-label="Resultado">
         <div class="results-head">
           <h2>Resultado</h2>
           <button type="button" id="ver-calculo" class="no-print" aria-expanded="false" aria-controls="memoria">
@@ -67,46 +103,6 @@
         </div>
         <div id="hero-kpis" class="kpis kpis-hero"></div>
         <p id="model-note" class="fine"></p>
-
-        <section class="viewer-card" id="viewer-card" aria-labelledby="viewer-title">
-          <div class="block-head">
-            <h3 id="viewer-title">GO.compact em 3D</h3>
-            <p class="fine">Arraste para girar. Clique no modelo e role para dar zoom, ou use o controle. Com o modelo em foco, setas giram e + / − aproximam. Duplo clique volta à isométrica.</p>
-          </div>
-          <div class="viewer-tools no-print">
-            <div class="seg" role="group" aria-label="Câmera">
-              <button type="button" data-camera="iso" aria-pressed="true">Isométrica</button>
-              <button type="button" data-camera="front" aria-pressed="false">Frontal</button>
-              <button type="button" data-camera="cut" aria-pressed="false">Corte / Interna</button>
-              <button type="button" data-camera="top" aria-pressed="false">Planta (Topo)</button>
-            </div>
-            <div class="seg" role="group" aria-label="Exibição">
-              <button type="button" id="xray" aria-pressed="false">Vista Interna / Raios-X</button>
-              <button type="button" id="human" aria-pressed="true">Pessoa de 1,70 m</button>
-            </div>
-            <div class="swatches" role="group" aria-label="Cor do GO.compact">
-              <button type="button" data-theme="azul" aria-pressed="true" title="Azul Gollmann"><i style="background:#009bb4"></i><span>Azul</span></button>
-              <button type="button" data-theme="verde" aria-pressed="false" title="Verde Lima"><i style="background:#8ab81a"></i><span>Verde</span></button>
-              <button type="button" data-theme="magenta" aria-pressed="false" title="Magenta"><i style="background:#b5124b"></i><span>Magenta</span></button>
-            </div>
-            <label class="zoom" for="zoom">
-              <span>Zoom</span>
-              <input type="range" id="zoom" min="45" max="240" step="1" value="100" />
-            </label>
-          </div>
-          <div class="viewer-stage">
-            <canvas id="viewer" tabindex="0" role="img" aria-label="Modelo 3D do GO.compact"></canvas>
-          </div>
-          <div class="viewer-legend">
-            <span><i class="swatch swatch-body"></i> GO.compact</span>
-            <span><i class="swatch swatch-sam"></i> Largura c/ SAM</span>
-            <span><i class="swatch swatch-direct"></i> GO.direct (folga)</span>
-            <span><i class="swatch swatch-manual"></i> +0,15 m carga manual</span>
-            <span><i class="swatch swatch-speed"></i> +0,17 m speed</span>
-            <span><i class="swatch swatch-grip"></i> +0,68 m 2º braço</span>
-          </div>
-          <div id="dims" class="pills" aria-live="polite"></div>
-        </section>
 
         <section class="block" id="space-results" aria-labelledby="space-title">
           <h3 id="space-title" class="block-title">Busca por espaço da loja</h3>
@@ -150,7 +146,18 @@
 
         <div id="memoria" class="memory is-collapsed"></div>
       </section>
-    </main>
+      </main>
+      <aside class="params" id="params" aria-label="Parâmetros do robô">
+        <div class="params-head">
+          <h2>Parâmetros</h2>
+          <button type="button" id="close-params" class="params-close">Fechar</button>
+        </div>
+        <form id="form" autocomplete="off">
+          <p id="boot">Carregando a conta…</p>
+        </form>
+      </aside>
+    </div>
+    <button type="button" id="params-backdrop" class="params-backdrop" hidden aria-label="Fechar parâmetros"></button>
     <dialog id="premissas-modal" class="modal" aria-labelledby="premissas-title">
       <section class="sources modal-card" id="fontes">
         <div class="sources-head">
@@ -158,8 +165,11 @@
           <button type="button" id="close-premissas" class="modal-close">Fechar</button>
         </div>
         <p class="lede">
-          Os números vêm da proposta "Framework Agreement between Gollmann and DPSP", de 21.10.2026. Onde a proposta
-          não fecha o número, o campo nasce como premissa e pode ser editado.
+          Os números vêm da proposta "Framework Agreement between Gollmann and DPSP", de 21.10.2026. São 10 alturas ×
+          7 larguras × 7 classes, 286 configurações, de cerca de 10.000 a 40.000 pacotes. Opcionais, transporte e
+          instalação (média de € 22.500) e serviços locais em R$ ficam separados. O Preço Total aplica o desconto por
+          volume (0% a 8%) e os impostos da NCM 8479.89.99, com Ex-Tarifário e créditos. Onde a proposta não fecha o
+          número, o campo nasce como premissa e pode ser editado.
         </p>
         <ul class="source-group">
           <li>

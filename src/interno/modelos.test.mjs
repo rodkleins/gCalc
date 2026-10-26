@@ -789,7 +789,17 @@ describe('página de modelos isolada', () => {
       assert.match(page, new RegExp(`id="${id}"`), id);
     }
     assert.match(page, /Uso interno · não indexar/);
-    assert.match(page, /Simulador de Modelos e Acordo Comercial Gollmann/);
+    assert.match(page, /<h1>Modelos Gollmann<\/h1>/);
+    assert.match(page, /286 configurações do GO\.compact/);
+    assert.ok(page.indexOf('id="viewer-card"') < page.indexOf('id="hero-kpis"'));
+    assert.match(page, /id="toggle-params"/);
+    assert.match(page, /id="workspace"/);
+    assert.match(page, /id="params"/);
+    assert.match(app, /gcalc\.modelos\.interno\.params/);
+    assert.match(app, /params-collapsed/);
+    assert.match(app, /params-drawer/);
+    assert.match(css, /\.workspace\.params-collapsed/);
+    assert.match(css, /\.params \{[^}]*position: sticky;/);
     assert.match(page, /Imprimir em A4/);
     assert.match(page, /Restaurar premissas/);
     for (const label of ['Ex. 1 · Robô S', 'Ex. 2 · Robô L (Padrão)', 'Ex. 3 · Robô XXL', 'Ex. 4 · Robô 4XL', 'Isométrica', 'Frontal', 'Corte / Interna', 'Planta (Topo)', 'Vista Interna / Raios-X']) {
