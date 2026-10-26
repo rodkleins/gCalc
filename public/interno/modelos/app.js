@@ -71,7 +71,7 @@ const SECTIONS = [
     id: 'opcionais',
     title: '2. Opcionais e Serviços',
     open: true,
-    intro: 'Opcionais do slide 6, transporte e instalação do slide 8 e serviços locais faturados no Brasil, cada um separado. O desconto por volume incide sobre opcionais e transporte; os serviços locais ficam fora.',
+    intro: 'Opcionais, transporte (média € 22.500) e serviços locais em R$, separados.',
     fields: [
       {
         key: 'secondGripper',
@@ -205,7 +205,7 @@ const SECTIONS = [
     id: 'cambio',
     title: '4. Câmbio, Importação (NCM 8479.89.99) e Créditos',
     open: true,
-    intro: 'Cálculo oficial em cascata da NCM 8479.89.99 (Bem de Capital) sobre o pedido Gollmann líquido em euro: II (com ou sem Ex-Tarifário), IPI (0%), PIS (2,10%), COFINS (9,65% + 0,60% adic. 2026) e ICMS por dentro (8,80% Conv. 52/91 ou 18%). Escolha também quais impostos geram crédito recuperável.',
+    intro: 'NCM 8479.89.99 em cascata: II, IPI 0%, PIS 2,10%, COFINS 10,25% e ICMS por dentro.',
     fields: [
       {
         key: 'fxRate',
@@ -369,6 +369,44 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, view }));
   } catch {
     /* navegador sem armazenamento */
+  }
+}
+
+const PARAMS_KEY = 'gcalc.modelos.interno.params';
+const paramsQuery = window.matchMedia('(min-width: 900px)');
+
+function paramsWide() {
+  return paramsQuery.matches;
+}
+
+function storedParamsOpen() {
+  try {
+    const value = localStorage.getItem(PARAMS_KEY);
+    if (value === 'closed') return false;
+    if (value === 'open') return true;
+  } catch {
+    /* navegador sem armazenamento */
+  }
+  return true;
+}
+
+function syncParams(open, { persistChoice = false } = {}) {
+  const workspace = document.getElementById('workspace');
+  const button = document.getElementById('toggle-params');
+  const backdrop = document.getElementById('params-backdrop');
+  const wide = paramsWide();
+  workspace.classList.toggle('params-collapsed', wide && !open);
+  workspace.classList.toggle('params-drawer', !wide && open);
+  button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  button.textContent = wide && open ? 'Recolher' : 'Parâmetros';
+  if (backdrop) backdrop.hidden = wide || !open;
+  document.body.classList.toggle('params-lock', !wide && open);
+  if (persistChoice) {
+    try {
+      localStorage.setItem(PARAMS_KEY, open ? 'open' : 'closed');
+    } catch {
+      /* navegador sem armazenamento */
+    }
   }
 }
 
@@ -743,12 +781,12 @@ function renderHero(result) {
     label: '1. Preço Total (1 Robô)',
     value: compactBRL(result.totalGrossBrl),
     exact: `${formatBRL(result.totalGrossBrl)} · ≈ ${formatEUR(result.totalEurApprox)}`,
-    sub: `${
-      quote.discountPct > 0
-        ? `c/ ${pct(quote.discountPct)} desc. volume (−${formatEUR(quote.discountEur)})`
-        : `pedido Gollmann ${formatEUR(quote.netOrderEur)} + local ${formatBRL(quote.localServicesBrl)}`
-    } · ${brazil.exTarifario ? 'Ex-Tarifário ligado (II 0%)' : `sem Ex-Tarifário (II ${pct(brazil.effectiveIiPct)}: ${formatBRL(brazil.iiBrl)})`} · impostos de importação ${formatBRL(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} s/ VA)`,
-    title: `VA ${formatBRL(brazil.vaBrl)} + impostos da NCM ${NCM_INFO.code} ${formatBRL(brazil.importBrl)} + serviços locais em R$`,
+    sub: [
+      quote.discountPct > 0 ? `−${pct(quote.discountPct)} volume` : null,
+      brazil.exTarifario ? 'II 0%' : `II ${pct(brazil.effectiveIiPct)}`,
+      `imp. ${formatBRL(brazil.importBrl)}`,
+    ].filter(Boolean).join(' · '),
+    title: `VA ${formatBRL(brazil.vaBrl)} + impostos da NCM ${NCM_INFO.code} ${formatBRL(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} s/ VA) + serviços locais ${formatBRL(quote.localServicesBrl)}. Pedido Gollmann ${formatEUR(quote.netOrderEur)}${quote.discountPct > 0 ? `, desconto ${pct(quote.discountPct)} (−${formatEUR(quote.discountEur)})` : ''}.`,
     hero: true,
   });
   renderKpi(hero, {
@@ -777,27 +815,27 @@ function renderHero(result) {
     label: '2. Transporte e Instalação',
     value: formatEUR(quote.servicesEur),
     exact: formatBRL(result.brl.services),
-    sub:
-      quote.servicesEur === AVERAGE_SERVICES_EUR
-        ? `média padrão · classe ${quote.classId}: ${formatEUR(quote.classServicesEur)}`
-        : `valor editado · média € 22.500 · ${quote.classId}: ${formatEUR(quote.classServicesEur)}`,
+    sub: quote.servicesEur === AVERAGE_SERVICES_EUR ? 'média' : 'editado',
+    title: `Classe ${quote.classId}: ${formatEUR(quote.classServicesEur)}. Média da proposta: € 22.500.`,
   });
   renderKpi(hero, {
     id: 'local-services',
     label: '3. Serviços Locais (Brasil)',
     value: formatBRL(quote.localServicesBrl),
     exact: `≈ ${formatEUR(quote.localServicesEurApprox)} pelo câmbio`,
-    sub: 'faturado em R$ no Brasil (sem imp. importação)',
+    title: 'Faturado em R$ no Brasil, fora dos impostos de importação e do desconto por volume.',
   });
   renderKpi(hero, {
     id: 'net-brl',
     label: 'Investimento Líquido Pós-Crédito',
     value: compactBRL(result.totalNetBrl),
     exact: formatBRL(result.totalNetBrl),
-    sub: `créditos −${formatBRL(brazil.creditBrl)} (PIS + COFINS ${formatBRL(brazil.creditPisCofinsBrl)} · ICMS ${formatBRL(brazil.creditIcmsBrl)}) · custo tributário não recuperável ${formatBRL(brazil.nonRecoverableBrl)}${brazil.exTarifario ? '' : ', com o II'}`,
-    title: `${formatBRL(result.totalGrossBrl)} − créditos ${formatBRL(brazil.creditBrl)} = ${formatBRL(result.totalNetBrl)}`,
+    sub: `créditos −${formatBRL(brazil.creditBrl)}`,
+    title: `${formatBRL(result.totalGrossBrl)} − créditos ${formatBRL(brazil.creditBrl)} = ${formatBRL(result.totalNetBrl)}. PIS + COFINS ${formatBRL(brazil.creditPisCofinsBrl)} · ICMS ${formatBRL(brazil.creditIcmsBrl)}. Custo não recuperável ${formatBRL(brazil.nonRecoverableBrl)}${brazil.exTarifario ? '' : ', com o II'}.`,
   });
-  document.getElementById('model-note').textContent = `${configLabel(quote.config)}. GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`;
+  const note = document.getElementById('model-note');
+  note.textContent = configLabel(quote.config);
+  note.title = `GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`;
   const options = document.getElementById('options-hint');
   if (options) {
     options.textContent = `Robô ${formatEUR(quote.tablePriceEur)} + opcionais ${formatEUR(quote.optionsEur)} + transporte e instalação ${formatEUR(quote.servicesEur)} = pedido Gollmann de ${formatEUR(quote.orderEur)} por robô.`;
@@ -823,13 +861,15 @@ function renderFiscalBar(result) {
   convButton.classList.toggle('is-on', brazil.convenioIcms5291);
   convButton.classList.toggle('is-warn', !brazil.convenioIcms5291);
   convButton.textContent = `Convênio ICMS 52/91: ${brazil.convenioIcms5291 ? 'LIGADO' : 'DESLIGADO'} (ICMS ${formatFixed(brazil.icmsRatePct, 2)}%)`;
-  const load = `Carga de importação: ${formatFixed(brazil.effectiveImportPct, 2)}% s/ VA`;
+  const load = `Carga ${formatFixed(brazil.effectiveImportPct, 2)}% s/ VA`;
   if (brazil.exTarifario) {
     // O que o Ex-Tarifário poupa: o II e o reflexo dele no IPI e no ICMS por dentro.
     const without = brazilCost(quote.netOrderEur, { ...state, exTarifario: false });
-    summary.textContent = `${load} · Economia de II: ${formatBRL(without.iiBrl)} (total ${formatBRL(without.importBrl - brazil.importBrl)} c/ reflexo no ICMS)`;
+    summary.textContent = `${load} · II −${formatBRL(without.iiBrl)}`;
+    summary.title = `Economia de II ${formatBRL(without.iiBrl)}. Com o reflexo no ICMS, ${formatBRL(without.importBrl - brazil.importBrl)}.`;
   } else {
-    summary.textContent = `${load} · +${formatBRL(brazil.iiBrl)} de II não creditável`;
+    summary.textContent = `${load} · II ${formatBRL(brazil.iiBrl)}`;
+    summary.title = `II ${formatBRL(brazil.iiBrl)} não gera crédito e entra na base do IPI e do ICMS.`;
   }
 }
 
@@ -2848,17 +2888,35 @@ function bindChrome() {
       persist();
     });
   });
+  const closeParams = () => syncParams(false, { persistChoice: true });
+  document.getElementById('toggle-params').addEventListener('click', () => {
+    const workspace = document.getElementById('workspace');
+    const open = paramsWide()
+      ? workspace.classList.contains('params-collapsed')
+      : !workspace.classList.contains('params-drawer');
+    syncParams(open, { persistChoice: true });
+  });
+  document.getElementById('close-params').addEventListener('click', closeParams);
+  document.getElementById('params-backdrop').addEventListener('click', closeParams);
+  paramsQuery.addEventListener('change', () => {
+    syncParams(paramsWide() ? storedParamsOpen() : false);
+  });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (modal.open) {
       event.preventDefault();
       closeModal();
+    } else if (!paramsWide() && document.getElementById('workspace').classList.contains('params-drawer')) {
+      event.preventDefault();
+      closeParams();
+      document.getElementById('toggle-params').focus();
     }
     document.querySelectorAll('.tip').forEach((node) => {
       node.hidden = true;
     });
     document.querySelectorAll('.tip-btn').forEach((node) => node.setAttribute('aria-expanded', 'false'));
   });
+  syncParams(paramsWide() ? storedParamsOpen() : false);
 }
 
 loadState();
