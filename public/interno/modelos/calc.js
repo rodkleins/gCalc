@@ -47,27 +47,32 @@ function roundM(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function formatFixed(value, digits) {
+/** pt-BR é o padrão. en / en-US só muda a pontuação; a moeda continua R$ ou €. */
+function intlLocale(locale) {
+  return locale === 'en' || locale === 'en-US' ? 'en-US' : 'pt-BR';
+}
+
+export function formatFixed(value, digits, locale = 'pt-BR') {
   if (value == null || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat(intlLocale(locale), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);
 }
 
-export function formatFlex(value, maxDigits = 2) {
+export function formatFlex(value, maxDigits = 2, locale = 'pt-BR') {
   if (value == null || !Number.isFinite(value)) return '—';
   const factor = 10 ** maxDigits;
   const rounded = Math.round((value + Number.EPSILON) * factor) / factor;
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat(intlLocale(locale), {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxDigits,
   }).format(rounded);
 }
 
-export function formatBRL(value) {
+export function formatBRL(value, locale = 'pt-BR') {
   if (value == null || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat(intlLocale(locale), {
     style: 'currency',
     currency: 'BRL',
     minimumFractionDigits: 2,
@@ -76,11 +81,11 @@ export function formatBRL(value) {
 }
 
 /** Euro no padrão brasileiro: "€ 108.000". Centavos só aparecem quando existem (desconto por volume). */
-export function formatEUR(value) {
+export function formatEUR(value, locale = 'pt-BR') {
   if (value == null || !Number.isFinite(value)) return '—';
   const rounded = roundMoney(value);
   const digits = Number.isInteger(rounded) ? 0 : 2;
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat(intlLocale(locale), {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: digits,
@@ -88,14 +93,15 @@ export function formatEUR(value) {
   }).format(rounded);
 }
 
-export function formatMeters(value) {
+export function formatMeters(value, locale = 'pt-BR') {
   if (value == null || !Number.isFinite(value)) return '—';
-  return `${formatFixed(value, 2)} m`;
+  return `${formatFixed(value, 2, locale)} m`;
 }
 
-export function formatPacks(value) {
+export function formatPacks(value, locale = 'pt-BR') {
   if (value == null || !Number.isFinite(value)) return '—';
-  return `${formatFlex(value, 0)} pacotes`;
+  const word = intlLocale(locale) === 'en-US' ? 'packages' : 'pacotes';
+  return `${formatFlex(value, 0, locale)} ${word}`;
 }
 
 /** Os 10 pés-direitos de robô (slides 14 a 23). */
@@ -1160,9 +1166,11 @@ export function volumeTiersTable(unitOrderEur, raw = {}) {
   };
 }
 
-/** Rótulo de uma configuração: "2,95 m × 3,20 m · Robô L". */
-export function configLabel(config) {
-  return `${formatMeters(config.heightM)} × ${formatMeters(config.widthSam)} · Robô ${config.classId}`;
+/** Rótulo de uma configuração: "2,95 m × 3,20 m · Robô L". O idioma só troca a palavra e a pontuação. */
+export function configLabel(config, locale = 'pt-BR') {
+  const loc = locale === 'en' || locale === 'en-US' ? 'en-US' : 'pt-BR';
+  const robot = loc === 'en-US' ? 'Robot' : 'Robô';
+  return `${formatMeters(config.heightM, loc)} × ${formatMeters(config.widthSam, loc)} · ${robot} ${config.classId}`;
 }
 
 /**
@@ -1229,7 +1237,13 @@ function pct(value) {
 
 const DIM_LABELS = { height: 'Pé-direito', width: 'Largura', length: 'Comprimento' };
 
-export function explain(result) {
+/** locale en-US traduz o texto e a pontuação. Sem locale, a memória continua em português. */
+export function explain(result, locale = 'pt-BR') {
+  if (locale === 'en' || locale === 'en-US') return explainEn(result);
+  return explainPt(result);
+}
+
+function explainPt(result) {
   const { quote, brazil, selection, volume, room, space } = result;
   const cls = classOf(quote.classId);
   const range = classPriceRange(quote.classId);
@@ -1316,5 +1330,106 @@ export function explain(result) {
       ],
     },
     { title: 'Espaço da loja', lines: roomLines },
+  ];
+}
+
+function explainEn(result) {
+  const loc = 'en-US';
+  const eur = (value) => formatEUR(value, loc);
+  const brl = (value) => formatBRL(value, loc);
+  const pct = (value) => `${formatFlex(value, 2, loc)}%`;
+  const meters = (value) => formatMeters(value, loc);
+  const packs = (value) => formatPacks(value, loc);
+  const flex = (value, digits = 2) => formatFlex(value, digits, loc);
+  const cfg = (config) => configLabel(config, loc);
+  const any = 'any';
+  const { quote, brazil, selection, volume, room, space } = result;
+  const cls = classOf(quote.classId);
+  const range = classPriceRange(quote.classId);
+  const widthName = { sam: 'GO.compact w/ SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
+  const dims = { height: 'Ceiling height', width: 'Width', length: 'Length' };
+  const changedText = selection.changed.length
+    ? `The requested combination (${meters(selection.requested.heightM)} × ${meters(selection.requested.widthSam)} · Robot ${selection.requested.classId}) is not in the table. The calculation uses the nearest valid cell: ${cfg(selection.config)}.`
+    : `The combination ${cfg(selection.config)} exists in the ${meters(quote.heightM)} table.`;
+  const roomLines = result.roomFilterOn
+    ? [
+        `Room: ceiling ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, width ${result.roomWidthM == null ? any : meters(result.roomWidthM)} measured as ${widthName}, length ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ' (already including +0.68 m for the 2nd arm)' : ''}, minimum capacity ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
+        `${flex(space.count, 0)} of ${flex(space.total, 0)} configurations fit.${space.cheapest ? ` Cheapest: ${cfg(space.cheapest.config)}, ${eur(space.cheapest.orderEur)}.` : ''}${space.smallest ? ` Smallest footprint: ${cfg(space.smallest.config)}, ${formatFixed(space.smallest.footprintM2, 2, loc)} m².` : ''}${space.largest ? ` Highest capacity: ${cfg(space.largest.config)}, ${packs(space.largest.capacityPacks)}.` : ''}`,
+        ...room.checks.map((item) =>
+          item.limit == null
+            ? `${dims[item.dim]}: no limit.`
+            : `${dims[item.dim]}: robot ${meters(item.need)} in a room of ${meters(item.limit)}, clearance ${meters(item.marginM)}${item.ok ? '' : ' — does not fit'}.`,
+        ),
+      ]
+    : ['Room filter is off. Turn it on to see how many of the 286 configurations fit the store.'];
+  const robots = (count) => `${flex(count, 0)} ${count === 1 ? 'robot' : 'robots'}`;
+  const servicesText =
+    quote.servicesEur === AVERAGE_SERVICES_EUR
+      ? `${eur(quote.servicesEur)}, the standard average of the 7 classes`
+      : `${eur(quote.servicesEur)}, edited value (standard average ${eur(AVERAGE_SERVICES_EUR)})`;
+  const creditLines = volume.tiers
+    .filter((tier) => tier.pct > 0)
+    .map(
+      (tier) =>
+        `Milestone at robot ${flex(tier.from, 0)}: tier ${pct(tier.pct)}, retroactive credit note of ${eur(tier.creditNoteEur)} (${brl(tier.creditNoteBrl)}); discount accumulated up to that point ${eur(tier.bonusToDateEur)}.`,
+    );
+  return [
+    {
+      title: 'Model and dimensions',
+      lines: [
+        changedText,
+        `Width w/ SAM ${meters(quote.widthSam)} = GO.compact ${meters(quote.widthCompact)} + SAM ${meters(SAM_PROTRUSION_M)}. GO.direct reference: ${meters(quote.widthDirect)}.`,
+        `Table length ${meters(quote.tableLengthM)} = storage core ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} manual loading + ${meters(LENGTH_INCLUDED.speedOptionM)} speed option.${quote.secondGripper ? ` With the 2nd arm: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
+        `Area = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volume = area × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Guaranteed capacity: ${packs(quote.capacityPacks)} (class ${cls.id}, approx. ${packs(cls.approxPacks)}).`,
+      ],
+    },
+    {
+      title: 'Robot price (table)',
+      lines: [
+        `Table price ${eur(quote.tablePriceEur)}. In class ${cls.id} the table runs from ${eur(range.min)} to ${eur(range.max)} across ${flex(range.count, 0)} cells; slide 4 says "from ${eur(cls.fromEur)}".`,
+        `Base robot = ${eur(quote.tablePriceEur)} − ${eur(PRICE_BUILD_UP.bundledEur)} = ${eur(quote.baseRobotEur)}. + Automatic loading with OCR and manual loading ${eur(quote.autoLoadingEur)} + SAM with 4 outputs ${eur(quote.samEur)} = ${eur(quote.robotPriceEur)}.`,
+      ],
+    },
+    {
+      title: 'Options and services (separate)',
+      lines: [
+        `Options: 2nd arm with 2nd SAM ${quote.secondGripper ? eur(quote.secondGripperEur) : 'no'}, cooling ${quote.coolingModule ? eur(quote.coolingEur) : 'no'}, conveyors ${eur(quote.conveyorEur)}. Options subtotal ${eur(quote.optionsEur)}; robot + options = ${eur(quote.equipmentEur)}.`,
+        `Transport and installation: ${servicesText}. On the slide 8 table, class ${cls.id} costs ${eur(quote.classServicesEur)} (from ${eur(18000)} for S to ${eur(27000)} for 4XL).`,
+        `Gross Gollmann order per robot = ${eur(quote.equipmentEur)} + ${eur(quote.servicesEur)} = ${eur(quote.orderEur)}. This is the base of the volume discount.`,
+        `Local services invoiced in Brazil: ${brl(quote.localServicesBrl)} (≈ ${eur(quote.localServicesEurApprox)} at the exchange rate). They stay outside the euro order, import taxes, and credits.`,
+      ],
+    },
+    {
+      title: 'Volume discount',
+      lines: [
+        `Agreement tiers by robot quantity: 0% from 1 to 9, 2% from 10 to 24, 4% from 25 to 49, 6% from 50 to 99, and 8% from 100.`,
+        `With ${robots(volume.count)}: tier of ${pct(quote.discountPct)}. Discount = ${pct(quote.discountPct)} × ${eur(quote.orderEur)} = ${eur(quote.discountEur)} per robot. Net Gollmann order ${eur(quote.netOrderEur)}.${volume.next ? ` ${robots(volume.next.from - volume.count)} left to reach ${pct(volume.next.pct)}.` : ' Top tier.'}`,
+        `Fleet of ${robots(volume.count)}: gross ${eur(volume.fleetGrossEur)}, discount ${eur(volume.fleetDiscountEur)}, net ${eur(volume.fleetNetEur)}; total price in Brazil ${brl(volume.fleetTotalGrossBrl)}.`,
+        `Each robot is invoiced at the tier in force for that order. At 10, 25, 50, and 100 robots, a credit note brings every robot ordered so far up to the new tier:`,
+        ...creditLines,
+      ],
+    },
+    {
+      title: `Brazil cost (NCM ${NCM_INFO.code}) and total price`,
+      lines: [
+        `Customs value (VA) = net Gollmann order ${eur(quote.netOrderEur)} × exchange rate ${flex(brazil.fxRate, 4)} = ${brl(brazil.vaBrl)}.`,
+        brazil.exTarifario
+          ? `Ex-Tarifário on: Import Duty (II) = 0% of the customs value = ${brl(brazil.iiBrl)} (without it, it would be ${pct(brazil.iiRatePct)}).`
+          : `Ex-Tarifário off: II = ${pct(brazil.effectiveIiPct)} × ${brl(brazil.vaBrl)} = ${brl(brazil.iiBrl)}, a final cost with no credit.`,
+        `IPI = ${pct(brazil.ipiRatePct)} × (customs value + II) ${brl(brazil.ipiBaseBrl)} = ${brl(brazil.ipiBrl)}. PIS-Importação = ${pct(brazil.pisRatePct)} × customs value = ${brl(brazil.pisBrl)}. COFINS-Importação = base ${pct(brazil.cofinsBaseRatePct)} (${brl(brazil.cofinsBaseBrl)}) + 2026 surcharge ${pct(brazil.cofinsAddRatePct)} (${brl(brazil.cofinsAddBrl)}) = ${pct(brazil.cofinsRatePct)}, ${brl(brazil.cofinsBrl)}.`,
+        `Customs expenses / Siscomex / AFRMM = ${pct(brazil.customsExpensesPct)} × customs value = ${brl(brazil.customsExpensesBrl)}.`,
+        `Import ICMS grossed up (${pct(brazil.icmsRatePct)}${brazil.convenioIcms5291 ? ', Convênio ICMS 52/91' : ', full São Paulo rate'}): base = ${brl(brazil.icmsNumeratorBrl)} ÷ (1 − ${pct(brazil.icmsRatePct)}) = ${brl(brazil.icmsBaseBrl)}; ICMS = ${brl(brazil.icmsBrl)}.`,
+        `Total import taxes ${brl(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} effective on the customs value). Landed cost = customs value + taxes = ${brl(brazil.landedBrl)}.`,
+        `Gross total price = ${brl(brazil.landedBrl)} + local services ${brl(quote.localServicesBrl)} = ${brl(result.totalGrossBrl)} (≈ ${eur(result.totalEurApprox)}).`,
+        brazil.creditPisCofins
+          ? `PIS + base COFINS credit = ${pct(brazil.pisRatePct + brazil.cofinsBaseRatePct)} of the customs value = ${brl(brazil.creditPisCofinsBrl)}. The COFINS surcharge of ${pct(brazil.cofinsAddRatePct)} (${brl(brazil.cofinsAddBrl)}) does not generate a credit (Law 10,865/2004, art. 15, § 1-A).`
+          : `PIS + COFINS credit is off. The COFINS surcharge of ${pct(brazil.cofinsAddRatePct)} (${brl(brazil.cofinsAddBrl)}) never generates a credit.`,
+        brazil.creditIcms
+          ? `ICMS credit (CIAP / IBS) = ${pct(brazil.icmsCreditFactorPct)} × ${brl(brazil.icmsBrl)} = ${brl(brazil.creditIcmsBrl)}.`
+          : 'ICMS credit is off.',
+        `Credits ${brl(brazil.creditBrl)}; non-recoverable tax cost ${brl(brazil.nonRecoverableBrl)} (${pct(brazil.effectiveNetTaxPct)} of the customs value). Net investment after credits = ${brl(result.totalGrossBrl)} − ${brl(brazil.creditBrl)} = ${brl(result.totalNetBrl)}, or ${brl(result.brlPerPack)} per package of capacity.`,
+      ],
+    },
+    { title: 'Store space', lines: roomLines },
   ];
 }

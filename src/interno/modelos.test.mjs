@@ -26,6 +26,8 @@ import {
   evaluate,
   explain,
   findSpace,
+  formatBRL,
+  formatEUR,
   fitsRoom,
   getConfig,
   maxHeightOf,
@@ -789,7 +791,7 @@ describe('página de modelos isolada', () => {
       assert.match(page, new RegExp(`id="${id}"`), id);
     }
     assert.match(page, /Uso interno · não indexar/);
-    assert.match(page, /<h1>Modelos Gollmann<\/h1>/);
+    assert.match(page, /<h1[^>]*>Modelos Gollmann<\/h1>/);
     assert.match(page, /286 configurações do GO\.compact/);
     assert.ok(page.indexOf('id="viewer-card"') < page.indexOf('id="hero-kpis"'));
     assert.match(page, /id="toggle-params"/);
@@ -819,7 +821,7 @@ describe('página de modelos isolada', () => {
 
   it('abre as premissas num modal e separa preço, opcionais, serviços e serviços locais', () => {
     assert.match(page, /<dialog id="premissas-modal" class="modal" aria-labelledby="premissas-title">/);
-    assert.match(page, /<button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal">Premissas<\/button>/);
+    assert.match(page, /<button type="button" id="open-premissas" aria-haspopup="dialog" aria-controls="premissas-modal"[^>]*>Premissas<\/button>/);
     assert.match(page, /id="close-premissas"/);
     const dialog = page.slice(page.indexOf('<dialog'), page.indexOf('</dialog>'));
     assert.match(dialog, /id="fontes"/);
@@ -853,6 +855,35 @@ describe('página de modelos isolada', () => {
     assert.doesNotMatch(app, /key: 'importCostPct'|key: 'taxCreditPct'/);
     assert.match(css, /\.fiscal-toggle\.is-on/);
     assert.match(css, /\.tax-pill\.is-yes/);
+  });
+
+  it('traduz a interface com PT | EN sem mudar a conta', () => {
+    assert.match(page, /id="lang-pt"/);
+    assert.match(page, /id="lang-en"/);
+    assert.match(page, /data-i18n="title"/);
+    assert.match(page, /data-i18n="premissas.lede"/);
+    assert.match(app, /gcalc\.modelos\.interno\.lang/);
+    assert.match(app, /documentElement\.lang/);
+    assert.match(app, /en-US/);
+    assert.match(app, /from '\.\/i18n\.js'/);
+    assert.match(readFileSync(join(root, dir, 'i18n.js'), 'utf8'), /Gollmann models/);
+    assert.match(formatBRL(1234.5), /1\.234,50/);
+    assert.match(formatBRL(1234.5, 'en-US'), /R\$/);
+    assert.match(formatBRL(1234.5, 'en-US'), /1,234\.50/);
+    assert.match(formatEUR(22500), /22\.500/);
+    assert.match(formatEUR(22500, 'en-US'), /€/);
+    assert.match(formatEUR(22500, 'en-US'), /22,500/);
+    const pt = explain(evaluate({})).map((block) => block.lines.join('\n')).join('\n');
+    const en = explain(evaluate({}), 'en-US').map((block) => `${block.title}\n${block.lines.join('\n')}`).join('\n');
+    assert.match(pt, /Filtro da sala desligado/);
+    assert.match(en, /Ex-Tarifário/);
+    assert.match(en, /NCM 8479\.89\.99/);
+    assert.match(en, /Convênio ICMS 52\/91/);
+    assert.match(en, /PIS/);
+    assert.match(en, /COFINS/);
+    assert.match(en, /CIAP/);
+    assert.doesNotMatch(en, /Filtro da sala desligado/);
+    assert.equal(evaluate({}).totalGrossBrl, evaluate({ fxRate: 6.2 }).totalGrossBrl);
   });
 
   it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {

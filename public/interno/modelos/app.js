@@ -15,19 +15,112 @@ import {
   brazilCost,
   classOf,
   classesAt,
-  configLabel,
   evaluate,
-  explain,
-  formatBRL,
-  formatEUR,
-  formatFixed,
-  formatFlex,
-  formatMeters,
-  formatPacks,
+  explain as explainResult,
+  formatBRL as formatBRLLocale,
+  formatEUR as formatEURLocale,
+  formatFixed as formatFixedLocale,
+  formatFlex as formatFlexLocale,
+  formatMeters as formatMetersLocale,
+  formatPacks as formatPacksLocale,
   maxHeightOf,
   parseBr,
   widthsAt,
+  configLabel as configLabelLocale,
 } from './calc.js';
+import { I18N } from './i18n.js';
+
+const LANG_KEY = 'gcalc.modelos.interno.lang';
+let lang = 'pt';
+
+function uiLocale() {
+  return lang === 'en' ? 'en-US' : 'pt-BR';
+}
+
+function t(key, fallback, vars) {
+  let text = lang === 'en' ? (I18N.en[key] ?? fallback ?? key) : (fallback ?? key);
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) text = text.split(`{${name}}`).join(String(value ?? ''));
+  }
+  return text;
+}
+
+function formatBRL(value) {
+  return formatBRLLocale(value, uiLocale());
+}
+function formatEUR(value) {
+  return formatEURLocale(value, uiLocale());
+}
+function formatFixed(value, digits) {
+  return formatFixedLocale(value, digits, uiLocale());
+}
+function formatFlex(value, maxDigits = 2) {
+  return formatFlexLocale(value, maxDigits, uiLocale());
+}
+function formatMeters(value) {
+  return formatMetersLocale(value, uiLocale());
+}
+function formatPacks(value) {
+  return formatPacksLocale(value, uiLocale());
+}
+function configLabel(config) {
+  return configLabelLocale(config, uiLocale());
+}
+function explain(result) {
+  return explainResult(result, uiLocale());
+}
+
+function loadLang() {
+  try {
+    const stored = localStorage.getItem(LANG_KEY);
+    if (stored === 'en' || stored === 'pt') lang = stored;
+  } catch {
+    /* navegador sem armazenamento */
+  }
+}
+
+function applyI18n() {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'pt-BR';
+  document.title = t('doc.title', 'Modelos e acordo Gollmann (interno)');
+  const meta = document.querySelector('meta[name="description"]');
+  if (meta) {
+    if (meta.dataset.i18nPt == null) meta.dataset.i18nPt = meta.getAttribute('content') ?? '';
+    meta.setAttribute('content', lang === 'en' ? t('doc.description', meta.dataset.i18nPt) : meta.dataset.i18nPt);
+  }
+  document.querySelectorAll('[data-i18n]').forEach((node) => {
+    if (node.dataset.i18nPt == null) node.dataset.i18nPt = node.innerHTML;
+    const key = node.dataset.i18n;
+    if (lang === 'en') node.textContent = t(key, node.textContent);
+    else node.innerHTML = node.dataset.i18nPt;
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((node) => {
+    if (node.dataset.i18nTitlePt == null) node.dataset.i18nTitlePt = node.getAttribute('title') ?? '';
+    const key = node.dataset.i18nTitle;
+    node.setAttribute('title', lang === 'en' ? t(key, node.dataset.i18nTitlePt) : node.dataset.i18nTitlePt);
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach((node) => {
+    if (node.dataset.i18nAriaPt == null) node.dataset.i18nAriaPt = node.getAttribute('aria-label') ?? '';
+    const key = node.dataset.i18nAria;
+    node.setAttribute('aria-label', lang === 'en' ? t(key, node.dataset.i18nAriaPt) : node.dataset.i18nAriaPt);
+  });
+  document.getElementById('lang-pt')?.setAttribute('aria-pressed', lang === 'pt' ? 'true' : 'false');
+  document.getElementById('lang-en')?.setAttribute('aria-pressed', lang === 'en' ? 'true' : 'false');
+}
+
+function setLang(next) {
+  lang = next === 'en' ? 'en' : 'pt';
+  try {
+    localStorage.setItem(LANG_KEY, lang);
+  } catch {
+    /* navegador sem armazenamento */
+  }
+  applyI18n();
+  syncParams(paramsAreOpen());
+  buildForm();
+  fillControls();
+  if (current) render(current);
+  else commit();
+}
 
 const STORAGE_KEY = 'gcalc.modelos.interno.v3';
 
@@ -390,6 +483,13 @@ function storedParamsOpen() {
   return true;
 }
 
+function paramsAreOpen() {
+  const workspace = document.getElementById('workspace');
+  if (!workspace) return true;
+  if (paramsWide()) return !workspace.classList.contains('params-collapsed');
+  return workspace.classList.contains('params-drawer');
+}
+
 function syncParams(open, { persistChoice = false } = {}) {
   const workspace = document.getElementById('workspace');
   const button = document.getElementById('toggle-params');
@@ -398,7 +498,7 @@ function syncParams(open, { persistChoice = false } = {}) {
   workspace.classList.toggle('params-collapsed', wide && !open);
   workspace.classList.toggle('params-drawer', !wide && open);
   button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  button.textContent = wide && open ? 'Recolher' : 'Parâmetros';
+  button.textContent = wide && open ? t('params.toggleClose', 'Recolher') : t('params.toggleOpen', 'Parâmetros');
   if (backdrop) backdrop.hidden = wide || !open;
   document.body.classList.toggle('params-lock', !wide && open);
   if (persistChoice) {
@@ -430,9 +530,23 @@ function toDisplay(field, value) {
   return formatFlex(value, field.integer ? 0 : field.digits ?? 2);
 }
 
+function parseInput(raw) {
+  const text = String(raw)
+    .trim()
+    .replace(/[\s ]/g, '')
+    .replace(/R\$|€|EUR/gi, '')
+    .replace(/%/g, '')
+    .replace(/m$/i, '');
+  if (!text || text === '-' || text === ',' || text === '.') return null;
+  const value = Number(text.replace(/,/g, ''));
+  return Number.isFinite(value) ? value : null;
+}
+
 function fromDisplay(field, raw) {
   if (field.allowEmpty && String(raw).trim() === '') return null;
-  const parsed = parseBr(raw, { decimalDot: field.decimalDot || String(field.suffix ?? '').includes('%') });
+  const parsed = lang === 'en'
+    ? parseInput(raw)
+    : parseBr(raw, { decimalDot: field.decimalDot || String(field.suffix ?? '').includes('%') });
   if (parsed == null) return undefined;
   return clampField(field, parsed);
 }
@@ -443,7 +557,7 @@ function selectOptions(key) {
   if (key === 'heightM') {
     return HEIGHTS.map((heightM) => ({
       value: heightM.toFixed(2),
-      label: `${formatMeters(heightM)} · ${widthsAt(heightM).length} larguras`,
+      label: `${formatMeters(heightM)} · ${widthsAt(heightM).length} ${t('opt.widths', 'larguras')}`,
     }));
   }
   if (key === 'widthSam') {
@@ -452,7 +566,7 @@ function selectOptions(key) {
       const off = state.heightM > max + 1e-9;
       return {
         value: width.key,
-        label: `${formatMeters(width.sam)} c/ SAM · GO.compact ${formatFixed(width.compact, 2)} · GO.direct ${formatFixed(width.direct, 2)}${off ? ` (até ${formatMeters(max)})` : ''}`,
+        label: `${formatMeters(width.sam)} ${t('opt.withSam', 'c/ SAM')} · GO.compact ${formatFixed(width.compact, 2)} · GO.direct ${formatFixed(width.direct, 2)}${off ? ` (${t('opt.upTo', 'até')} ${formatMeters(max)})` : ''}`,
       };
     });
   }
@@ -460,11 +574,14 @@ function selectOptions(key) {
     const valid = classesAt(state.heightM, state.widthSam);
     return CLASSES.map((cls) => ({
       value: cls.id,
-      label: `Robô ${cls.id} · aprox. ${formatPacks(cls.approxPacks)}${valid.includes(cls.id) ? '' : ' — não existe nesta largura'}`,
+      label: `${t('opt.robot', 'Robô')} ${cls.id} · ${t('opt.approx', 'aprox.')} ${formatPacks(cls.approxPacks)}${valid.includes(cls.id) ? '' : ` — ${t('opt.missing', 'não existe nesta largura')}`}`,
     }));
   }
   if (key === 'roomWidthRef') {
-    return Object.entries(WIDTH_REF_LABELS).map(([value, label]) => ({ value, label }));
+    return Object.entries(WIDTH_REF_LABELS).map(([value, label]) => ({
+      value,
+      label: t(`ref.${value}`, label),
+    }));
   }
   return [];
 }
@@ -480,18 +597,44 @@ function readSelect(key, raw) {
   return raw;
 }
 
+function fieldLabel(field) {
+  return t(`field.${field.key}.label`, field.label);
+}
+
+function fieldTip(field) {
+  return t(`field.${field.key}.tip`, field.tooltip);
+}
+
+function fieldCheck(field) {
+  return t(`field.${field.key}.check`, field.checkLabel || 'Ligado');
+}
+
+function fieldPlaceholder(field) {
+  if (!field.placeholder) return '';
+  return t(`field.${field.key}.placeholder`, field.placeholder);
+}
+
+function fieldSuffix(field) {
+  if (!field.suffix) return '';
+  return t(`field.${field.key}.suffix`, field.suffix);
+}
+
+function quickLabel(field, item) {
+  return t(`quick.${field.key}.${item.value}`, item.label);
+}
+
 function renderField(field) {
   const wrap = el('div', field.wide || field.slider ? 'field field-wide' : 'field');
   const head = el('div', 'field-head');
-  const label = el(field.kind === 'pills' ? 'span' : 'label', null, field.label);
+  const label = el(field.kind === 'pills' ? 'span' : 'label', null, fieldLabel(field));
   if (field.kind !== 'pills') label.htmlFor = field.kind === 'check' || field.kind === 'select' ? field.key : `${field.key}-text`;
   label.id = `lbl-${field.key}`;
   head.append(label);
-  const tipBtn = el('button', 'tip-btn', 'Ajuda');
+  const tipBtn = el('button', 'tip-btn', t('field.help', 'Ajuda'));
   tipBtn.type = 'button';
   tipBtn.setAttribute('aria-expanded', 'false');
   tipBtn.setAttribute('aria-controls', `tip-${field.key}`);
-  const tip = el('p', 'tip', field.tooltip);
+  const tip = el('p', 'tip', fieldTip(field));
   tip.id = `tip-${field.key}`;
   tip.hidden = true;
   tipBtn.addEventListener('click', () => toggleTip(tipBtn, tip));
@@ -507,7 +650,7 @@ function renderField(field) {
       state[field.key] = input.checked;
       commit();
     });
-    row.append(input, el('span', null, field.checkLabel || 'Ligado'));
+    row.append(input, el('span', null, fieldCheck(field)));
     wrap.append(row);
     controls.set(field.key, { field, check: input, wrap });
     return wrap;
@@ -556,7 +699,7 @@ function renderField(field) {
   text.id = `${field.key}-text`;
   text.inputMode = field.integer ? 'numeric' : 'decimal';
   text.autocomplete = 'off';
-  if (field.placeholder) text.placeholder = field.placeholder;
+  if (field.placeholder) text.placeholder = fieldPlaceholder(field);
   text.setAttribute('aria-describedby', tip.id);
   text.addEventListener('input', () => {
     const value = fromDisplay(field, text.value);
@@ -569,7 +712,7 @@ function renderField(field) {
     text.value = state[field.key] == null ? '' : toDisplay(field, state[field.key]);
   });
   affix.append(text);
-  if (field.suffix) affix.append(el('span', 'affix-label', field.suffix));
+  if (field.suffix) affix.append(el('span', 'affix-label', fieldSuffix(field)));
   control.append(affix);
   wrap.append(control);
   if (field.quick) {
@@ -601,9 +744,9 @@ function quickValue(value) {
 function quickRow(field, apply) {
   const row = el('div', 'quick');
   row.setAttribute('role', 'group');
-  row.setAttribute('aria-label', `Atalhos: ${field.label}`);
+  row.setAttribute('aria-label', `${t('field.shortcuts', 'Atalhos')}: ${fieldLabel(field)}`);
   for (const item of field.quick) {
-    const button = el('button', null, item.label);
+    const button = el('button', null, quickLabel(field, item));
     button.type = 'button';
     button.dataset.quick = String(item.value);
     button.setAttribute('aria-pressed', 'false');
@@ -627,15 +770,17 @@ function toggleTip(button, tip) {
 
 function buildForm() {
   const form = document.getElementById('form');
+  const openState = new Map([...form.querySelectorAll('details')].map((node) => [node.id, node.open]));
   form.replaceChildren();
   for (const section of SECTIONS) {
     const card = el('details', 'card fold');
     card.id = `sec-${section.id}`;
-    if (section.open) card.open = true;
+    if (openState.has(card.id)) card.open = openState.get(card.id);
+    else if (section.open) card.open = true;
     const summary = el('summary');
-    summary.append(el('span', 'fold-title', section.title));
+    summary.append(el('span', 'fold-title', t(`section.${section.id}.title`, section.title)));
     const body = el('div', 'fold-body');
-    body.append(el('p', 'intro', section.intro));
+    body.append(el('p', 'intro', t(`section.${section.id}.intro`, section.intro)));
     const grid = el('div', 'fields');
     for (const field of section.fields) grid.append(renderField(field));
     body.append(grid);
@@ -708,7 +853,7 @@ function syncQuick() {
 
 function compactBRL(value) {
   if (value == null || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', {
+  return new Intl.NumberFormat(uiLocale(), {
     style: 'currency',
     currency: 'BRL',
     notation: 'compact',
@@ -744,9 +889,14 @@ const CHANGE_LABELS = { heightM: 'a altura', widthSam: 'a largura', classId: 'a 
 
 function adjustMessage(selection) {
   const { requested } = selection;
-  const parts = selection.changed.map((key) => CHANGE_LABELS[key]);
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : parts[0];
-  return `${formatMeters(requested.heightM)} × ${formatMeters(requested.widthSam)} · Robô ${requested.classId} não existe na tabela. Ajustei ${list}: ${configLabel(selection.config)}.`;
+  const parts = selection.changed.map((key) => t(`change.${key}`, CHANGE_LABELS[key]));
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ${t('change.and', 'e')} ${parts[parts.length - 1]}` : parts[0];
+  return t('adjust.message', '{size} · Robô {cls} não existe na tabela. Ajustei {list}: {config}.', {
+    size: `${formatMeters(requested.heightM)} × ${formatMeters(requested.widthSam)}`,
+    cls: requested.classId,
+    list,
+    config: configLabel(selection.config),
+  });
 }
 
 function renderStatus(result) {
@@ -757,14 +907,15 @@ function renderStatus(result) {
   if (status) {
     status.classList.toggle('is-adjusted', Boolean(lastAdjust));
     status.replaceChildren(
-      el('span', 'mode-result', lastAdjust ? 'Combinação ajustada' : `Combinação válida da tabela de ${formatMeters(config.heightM)}`),
+      el('span', 'mode-result', lastAdjust ? t('status.adjusted', 'Combinação ajustada') : t('status.valid', 'Combinação válida da tabela de {height}', { height: formatMeters(config.heightM) })),
       el(
         'span',
         'mode-reason',
         lastAdjust ??
-          `Nesta largura e altura existem as classes ${valid.join(', ')}. Larguras nesta altura: ${widthsAt(config.heightM)
-            .map((width) => formatFixed(width.sam, 2))
-            .join(' · ')} m.`,
+          t('status.classes', 'Nesta largura e altura existem as classes {classes}. Larguras nesta altura: {widths} m.', {
+            classes: valid.join(', '),
+            widths: widthsAt(config.heightM).map((width) => formatFixed(width.sam, 2)).join(' · '),
+          }),
       ),
     );
   }
@@ -778,20 +929,28 @@ function renderHero(result) {
   hero.replaceChildren();
   renderKpi(hero, {
     id: 'total-price',
-    label: '1. Preço Total (1 Robô)',
+    label: t('kpi.total', '1. Preço Total (1 Robô)'),
     value: compactBRL(result.totalGrossBrl),
     exact: `${formatBRL(result.totalGrossBrl)} · ≈ ${formatEUR(result.totalEurApprox)}`,
     sub: [
-      quote.discountPct > 0 ? `−${pct(quote.discountPct)} volume` : null,
-      brazil.exTarifario ? 'II 0%' : `II ${pct(brazil.effectiveIiPct)}`,
-      `imp. ${formatBRL(brazil.importBrl)}`,
+      quote.discountPct > 0 ? t('kpi.totalSubVolume', `−${pct(quote.discountPct)} volume`, { pct: pct(quote.discountPct) }) : null,
+      brazil.exTarifario ? t('kpi.totalSubIi0', 'II 0%') : t('kpi.totalSubIi', `II ${pct(brazil.effectiveIiPct)}`, { pct: pct(brazil.effectiveIiPct) }),
+      t('kpi.totalSubImport', `imp. ${formatBRL(brazil.importBrl)}`, { value: formatBRL(brazil.importBrl) }),
     ].filter(Boolean).join(' · '),
-    title: `VA ${formatBRL(brazil.vaBrl)} + impostos da NCM ${NCM_INFO.code} ${formatBRL(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} s/ VA) + serviços locais ${formatBRL(quote.localServicesBrl)}. Pedido Gollmann ${formatEUR(quote.netOrderEur)}${quote.discountPct > 0 ? `, desconto ${pct(quote.discountPct)} (−${formatEUR(quote.discountEur)})` : ''}.`,
+    title: t('kpi.totalTitle', `VA ${formatBRL(brazil.vaBrl)} + impostos da NCM ${NCM_INFO.code} ${formatBRL(brazil.importBrl)} (${pct(brazil.effectiveImportPct)} s/ VA) + serviços locais ${formatBRL(quote.localServicesBrl)}. Pedido Gollmann ${formatEUR(quote.netOrderEur)}${quote.discountPct > 0 ? `, desconto ${pct(quote.discountPct)} (−${formatEUR(quote.discountEur)})` : ''}.`, {
+      va: formatBRL(brazil.vaBrl),
+      ncm: NCM_INFO.code,
+      tax: formatBRL(brazil.importBrl),
+      pct: pct(brazil.effectiveImportPct),
+      local: formatBRL(quote.localServicesBrl),
+      order: formatEUR(quote.netOrderEur),
+      discount: quote.discountPct > 0 ? t('kpi.totalDiscount', `, desconto ${pct(quote.discountPct)} (−${formatEUR(quote.discountEur)})`, { pct: pct(quote.discountPct), value: formatEUR(quote.discountEur) }) : '',
+    }),
     hero: true,
   });
   renderKpi(hero, {
     id: 'robot-price',
-    label: 'Preço do Robô (Tabela)',
+    label: t('kpi.robot', 'Preço do Robô (Tabela)'),
     value: formatEUR(quote.tablePriceEur),
     exact: formatBRL(result.brl.tablePrice),
     sub: `${formatPacks(quote.capacityPacks)} · ${formatFixed(quote.heightM, 2)} × ${formatFixed(quote.widthSam, 2)} × ${formatFixed(quote.totalLengthM, 2)} m`,
@@ -799,49 +958,74 @@ function renderHero(result) {
     hero: true,
   });
   const chosen = [
-    quote.secondGripper && '2º braço',
-    quote.coolingModule && 'refrigeração',
-    quote.conveyorEur > 0 && 'esteiras',
+    quote.secondGripper && t('kpi.optArm', '2º braço'),
+    quote.coolingModule && t('kpi.optCool', 'refrigeração'),
+    quote.conveyorEur > 0 && t('kpi.optBelt', 'esteiras'),
   ].filter(Boolean);
   renderKpi(hero, {
     id: 'options-price',
-    label: '2. Opcionais (Separado)',
+    label: t('kpi.options', '2. Opcionais (Separado)'),
     value: formatEUR(quote.optionsEur),
     exact: formatBRL(result.brl.options),
-    sub: chosen.length ? chosen.join(' · ') : 'nenhum opcional selecionado',
+    sub: chosen.length ? chosen.join(' · ') : t('kpi.optionsNone', 'nenhum opcional selecionado'),
   });
   renderKpi(hero, {
     id: 'services-price',
-    label: '2. Transporte e Instalação',
+    label: t('kpi.transport', '2. Transporte e Instalação'),
     value: formatEUR(quote.servicesEur),
     exact: formatBRL(result.brl.services),
-    sub: quote.servicesEur === AVERAGE_SERVICES_EUR ? 'média' : 'editado',
-    title: `Classe ${quote.classId}: ${formatEUR(quote.classServicesEur)}. Média da proposta: € 22.500.`,
+    sub: quote.servicesEur === AVERAGE_SERVICES_EUR ? t('kpi.average', 'média') : t('kpi.edited', 'editado'),
+    title: t('kpi.transportTitle', `Classe ${quote.classId}: ${formatEUR(quote.classServicesEur)}. Média da proposta: € 22.500.`, { cls: quote.classId, value: formatEUR(quote.classServicesEur) }),
   });
   renderKpi(hero, {
     id: 'local-services',
-    label: '3. Serviços Locais (Brasil)',
+    label: t('kpi.local', '3. Serviços Locais (Brasil)'),
     value: formatBRL(quote.localServicesBrl),
-    exact: `≈ ${formatEUR(quote.localServicesEurApprox)} pelo câmbio`,
-    title: 'Faturado em R$ no Brasil, fora dos impostos de importação e do desconto por volume.',
+    exact: t('kpi.localExact', `≈ ${formatEUR(quote.localServicesEurApprox)} pelo câmbio`, { value: formatEUR(quote.localServicesEurApprox) }),
+    title: t('kpi.localTitle', 'Faturado em R$ no Brasil, fora dos impostos de importação e do desconto por volume.'),
   });
   renderKpi(hero, {
     id: 'net-brl',
-    label: 'Investimento Líquido Pós-Crédito',
+    label: t('kpi.net', 'Investimento Líquido Pós-Crédito'),
     value: compactBRL(result.totalNetBrl),
     exact: formatBRL(result.totalNetBrl),
-    sub: `créditos −${formatBRL(brazil.creditBrl)}`,
-    title: `${formatBRL(result.totalGrossBrl)} − créditos ${formatBRL(brazil.creditBrl)} = ${formatBRL(result.totalNetBrl)}. PIS + COFINS ${formatBRL(brazil.creditPisCofinsBrl)} · ICMS ${formatBRL(brazil.creditIcmsBrl)}. Custo não recuperável ${formatBRL(brazil.nonRecoverableBrl)}${brazil.exTarifario ? '' : ', com o II'}.`,
+    sub: t('kpi.netSub', `créditos −${formatBRL(brazil.creditBrl)}`, { value: formatBRL(brazil.creditBrl) }),
+    title: t('kpi.netTitle', `${formatBRL(result.totalGrossBrl)} − créditos ${formatBRL(brazil.creditBrl)} = ${formatBRL(result.totalNetBrl)}. PIS + COFINS ${formatBRL(brazil.creditPisCofinsBrl)} · ICMS ${formatBRL(brazil.creditIcmsBrl)}. Custo não recuperável ${formatBRL(brazil.nonRecoverableBrl)}${brazil.exTarifario ? '' : ', com o II'}.`, {
+      gross: formatBRL(result.totalGrossBrl),
+      credit: formatBRL(brazil.creditBrl),
+      net: formatBRL(result.totalNetBrl),
+      pis: formatBRL(brazil.creditPisCofinsBrl),
+      icms: formatBRL(brazil.creditIcmsBrl),
+      left: formatBRL(brazil.nonRecoverableBrl),
+      ii: brazil.exTarifario ? '' : t('kpi.netIi', ', com o II'),
+    }),
   });
   const note = document.getElementById('model-note');
   note.textContent = configLabel(quote.config);
-  note.title = `GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`;
+  note.title = t('note.title', `GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área ${m2(quote.footprintM2)}.`, {
+    compact: formatMeters(quote.widthCompact),
+    direct: formatMeters(quote.widthDirect),
+    table: formatMeters(quote.tableLengthM),
+    arm: quote.secondGripper ? t('note.arm', `, ${formatMeters(quote.totalLengthM)} com o 2º braço`, { length: formatMeters(quote.totalLengthM) }) : '',
+    area: m2(quote.footprintM2),
+  });
   const options = document.getElementById('options-hint');
   if (options) {
-    options.textContent = `Robô ${formatEUR(quote.tablePriceEur)} + opcionais ${formatEUR(quote.optionsEur)} + transporte e instalação ${formatEUR(quote.servicesEur)} = pedido Gollmann de ${formatEUR(quote.orderEur)} por robô.`;
+    options.textContent = t('hint.options', `Robô ${formatEUR(quote.tablePriceEur)} + opcionais ${formatEUR(quote.optionsEur)} + transporte e instalação ${formatEUR(quote.servicesEur)} = pedido Gollmann de ${formatEUR(quote.orderEur)} por robô.`, {
+      robot: formatEUR(quote.tablePriceEur),
+      options: formatEUR(quote.optionsEur),
+      services: formatEUR(quote.servicesEur),
+      order: formatEUR(quote.orderEur),
+    });
   }
   const fx = document.getElementById('fx-hint');
-  if (fx) fx.textContent = `Valor Aduaneiro: ${formatEUR(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${formatBRL(brazil.vaBrl)}.`;
+  if (fx) {
+    fx.textContent = t('hint.fx', `Valor Aduaneiro: ${formatEUR(quote.netOrderEur)} × ${formatFlex(brazil.fxRate, 4)} = ${formatBRL(brazil.vaBrl)}.`, {
+      eur: formatEUR(quote.netOrderEur),
+      fx: formatFlex(brazil.fxRate, 4),
+      brl: formatBRL(brazil.vaBrl),
+    });
+  }
 }
 
 /** Barra do Ex-Tarifário e do Convênio ICMS 52/91, acima dos quadrantes. */
@@ -855,21 +1039,27 @@ function renderFiscalBar(result) {
   exButton.classList.toggle('is-on', brazil.exTarifario);
   exButton.classList.toggle('is-warn', !brazil.exTarifario);
   exButton.textContent = brazil.exTarifario
-    ? 'Ex-Tarifário: LIGADO (II = 0%)'
-    : `Ex-Tarifário: DESLIGADO (II = ${pct(brazil.effectiveIiPct)})`;
+    ? t('fiscal.exOn', 'Ex-Tarifário: LIGADO (II = 0%)')
+    : t('fiscal.exOff', `Ex-Tarifário: DESLIGADO (II = ${pct(brazil.effectiveIiPct)})`, { pct: pct(brazil.effectiveIiPct) });
   convButton.setAttribute('aria-pressed', brazil.convenioIcms5291 ? 'true' : 'false');
   convButton.classList.toggle('is-on', brazil.convenioIcms5291);
   convButton.classList.toggle('is-warn', !brazil.convenioIcms5291);
-  convButton.textContent = `Convênio ICMS 52/91: ${brazil.convenioIcms5291 ? 'LIGADO' : 'DESLIGADO'} (ICMS ${formatFixed(brazil.icmsRatePct, 2)}%)`;
-  const load = `Carga ${formatFixed(brazil.effectiveImportPct, 2)}% s/ VA`;
+  convButton.textContent = t('fiscal.conv', `Convênio ICMS 52/91: ${brazil.convenioIcms5291 ? 'LIGADO' : 'DESLIGADO'} (ICMS ${formatFixed(brazil.icmsRatePct, 2)}%)`, {
+    state: brazil.convenioIcms5291 ? t('fiscal.on', 'LIGADO') : t('fiscal.off', 'DESLIGADO'),
+    pct: formatFixed(brazil.icmsRatePct, 2),
+  });
+  const load = t('fiscal.load', `Carga ${formatFixed(brazil.effectiveImportPct, 2)}% s/ VA`, { pct: formatFixed(brazil.effectiveImportPct, 2) });
   if (brazil.exTarifario) {
     // O que o Ex-Tarifário poupa: o II e o reflexo dele no IPI e no ICMS por dentro.
     const without = brazilCost(quote.netOrderEur, { ...state, exTarifario: false });
-    summary.textContent = `${load} · II −${formatBRL(without.iiBrl)}`;
-    summary.title = `Economia de II ${formatBRL(without.iiBrl)}. Com o reflexo no ICMS, ${formatBRL(without.importBrl - brazil.importBrl)}.`;
+    summary.textContent = t('fiscal.save', `${load} · II −${formatBRL(without.iiBrl)}`, { load, value: formatBRL(without.iiBrl) });
+    summary.title = t('fiscal.saveTitle', `Economia de II ${formatBRL(without.iiBrl)}. Com o reflexo no ICMS, ${formatBRL(without.importBrl - brazil.importBrl)}.`, {
+      ii: formatBRL(without.iiBrl),
+      total: formatBRL(without.importBrl - brazil.importBrl),
+    });
   } else {
-    summary.textContent = `${load} · II ${formatBRL(brazil.iiBrl)}`;
-    summary.title = `II ${formatBRL(brazil.iiBrl)} não gera crédito e entra na base do IPI e do ICMS.`;
+    summary.textContent = t('fiscal.pay', `${load} · II ${formatBRL(brazil.iiBrl)}`, { load, value: formatBRL(brazil.iiBrl) });
+    summary.title = t('fiscal.payTitle', `II ${formatBRL(brazil.iiBrl)} não gera crédito e entra na base do IPI e do ICMS.`, { value: formatBRL(brazil.iiBrl) });
   }
 }
 
@@ -882,13 +1072,13 @@ function renderDims(result) {
     return check?.status === 'over' ? 'is-over' : check?.status === 'tight' ? 'is-tight' : '';
   };
   const pills = [
-    ['Altura', formatMeters(quote.heightM), status('height')],
-    ['Largura c/ SAM', formatMeters(quote.widthSam), result.roomWidthRef === 'sam' ? status('width') : ''],
-    ['GO.compact · GO.direct', `${formatFixed(quote.widthCompact, 2)} · ${formatFixed(quote.widthDirect, 2)} m`, result.roomWidthRef === 'sam' ? '' : status('width')],
-    ['Comprimento total', formatMeters(quote.totalLengthM), status('length')],
-    ['Área m²', m2(quote.footprintM2), ''],
-    ['Volume m³', `${formatFixed(quote.volumeM3, 2)} m³`, ''],
-    ['Capacidade garantida', formatPacks(quote.capacityPacks), result.roomFilterOn && !room.capacityOk ? 'is-over' : ''],
+    [t('pill.height', 'Altura'), formatMeters(quote.heightM), status('height')],
+    [t('pill.width', 'Largura c/ SAM'), formatMeters(quote.widthSam), result.roomWidthRef === 'sam' ? status('width') : ''],
+    [t('pill.direct', 'GO.compact · GO.direct'), `${formatFixed(quote.widthCompact, 2)} · ${formatFixed(quote.widthDirect, 2)} m`, result.roomWidthRef === 'sam' ? '' : status('width')],
+    [t('pill.length', 'Comprimento total'), formatMeters(quote.totalLengthM), status('length')],
+    [t('pill.area', 'Área m²'), m2(quote.footprintM2), ''],
+    [t('pill.volume', 'Volume m³'), `${formatFixed(quote.volumeM3, 2)} m³`, ''],
+    [t('pill.capacity', 'Capacidade garantida'), formatPacks(quote.capacityPacks), result.roomFilterOn && !room.capacityOk ? 'is-over' : ''],
   ];
   host.replaceChildren(
     ...pills.map(([label, value, cls]) => {
@@ -915,27 +1105,39 @@ function renderSpace(result) {
   const host = document.getElementById('space-cards');
   host.replaceChildren();
   if (!result.roomFilterOn) {
-    summary.textContent = 'Filtro desligado. Ligue "Filtrar por medidas da sala" no bloco 3 para buscar entre as 286 configurações as que cabem na loja.';
+    summary.textContent = t('space.off', 'Filtro desligado. Ligue "Filtrar por medidas da sala" no bloco 3 para buscar entre as 286 configurações as que cabem na loja.');
     return;
   }
-  const limit = (value) => (value == null ? 'livre' : formatMeters(value));
-  const fitText = room.fits
-    ? 'O modelo atual cabe.'
-    : `O modelo atual não cabe: ${[
-        ...room.checks
-          .filter((item) => !item.ok)
-          .map((item) => `${{ height: 'altura', width: 'largura', length: 'comprimento' }[item.dim]} excede ${formatMeters(-item.marginM)}`),
-        ...(room.capacityOk ? [] : [`capacidade ${formatPacks(quote.capacityPacks)} abaixo do mínimo`]),
-      ].join(', ')}.`;
-  summary.textContent = `${formatFlex(space.count)} de ${formatFlex(space.total)} configurações cabem: pé-direito ${limit(result.roomHeightM)}, largura ${limit(result.roomWidthM)} (${WIDTH_REF_LABELS[result.roomWidthRef]}), comprimento ${limit(result.roomLengthM)}${result.secondGripper ? ' já com +0,68 m do 2º braço' : ''}, capacidade mínima ${result.minCapacity == null ? 'livre' : formatPacks(result.minCapacity)}. ${fitText}`;
+  const limit = (value) => (value == null ? t('free', 'livre') : formatMeters(value));
+  const reasons = [
+    ...room.checks
+      .filter((item) => !item.ok)
+      .map((item) => t('space.over', `${{ height: 'altura', width: 'largura', length: 'comprimento' }[item.dim]} excede ${formatMeters(-item.marginM)}`, {
+        dim: t(`space.dim.${item.dim}`, { height: 'altura', width: 'largura', length: 'comprimento' }[item.dim]),
+        margin: formatMeters(-item.marginM),
+      })),
+    ...(room.capacityOk ? [] : [t('space.capacity', `capacidade ${formatPacks(quote.capacityPacks)} abaixo do mínimo`, { packs: formatPacks(quote.capacityPacks) })]),
+  ];
+  const fitText = room.fits ? t('space.fits', 'O modelo atual cabe.') : t('space.miss', `O modelo atual não cabe: ${reasons.join(', ')}.`, { reasons: reasons.join(', ') });
+  summary.textContent = t('space.summary', `${formatFlex(space.count)} de ${formatFlex(space.total)} configurações cabem: pé-direito ${limit(result.roomHeightM)}, largura ${limit(result.roomWidthM)} (${WIDTH_REF_LABELS[result.roomWidthRef]}), comprimento ${limit(result.roomLengthM)}${result.secondGripper ? ' já com +0,68 m do 2º braço' : ''}, capacidade mínima ${result.minCapacity == null ? 'livre' : formatPacks(result.minCapacity)}. ${fitText}`, {
+    count: formatFlex(space.count),
+    total: formatFlex(space.total),
+    height: limit(result.roomHeightM),
+    width: limit(result.roomWidthM),
+    ref: t(`ref.${result.roomWidthRef}`, WIDTH_REF_LABELS[result.roomWidthRef]),
+    length: limit(result.roomLengthM),
+    arm: result.secondGripper ? t('space.arm', ' já com +0,68 m do 2º braço') : '',
+    capacity: result.minCapacity == null ? t('free', 'livre') : formatPacks(result.minCapacity),
+    fit: fitText,
+  });
   if (!space.count) {
-    host.append(el('p', 'banner', 'Nenhuma configuração cabe. Afrouxe uma medida, troque a referência de largura ou baixe a capacidade mínima.'));
+    host.append(el('p', 'banner', t('space.none', 'Nenhuma configuração cabe. Afrouxe uma medida, troque a referência de largura ou baixe a capacidade mínima.')));
     return;
   }
   const cards = [
-    { id: 'cheapest', title: 'Mais barato', pick: space.cheapest, main: (item) => formatEUR(item.orderEur) },
-    { id: 'smallest', title: 'Menor área (m²)', pick: space.smallest, main: (item) => m2(item.footprintM2) },
-    { id: 'largest', title: 'Maior capacidade', pick: space.largest, main: (item) => formatPacks(item.capacityPacks) },
+    { id: 'cheapest', title: t('space.cheapest', 'Mais barato'), pick: space.cheapest, main: (item) => formatEUR(item.orderEur) },
+    { id: 'smallest', title: t('space.smallest', 'Menor área (m²)'), pick: space.smallest, main: (item) => m2(item.footprintM2) },
+    { id: 'largest', title: t('space.largest', 'Maior capacidade'), pick: space.largest, main: (item) => formatPacks(item.capacityPacks) },
   ];
   for (const card of cards) {
     const item = card.pick;
@@ -952,7 +1154,7 @@ function renderSpace(result) {
         `${formatEUR(item.orderEur)} · ${m2(item.footprintM2)} · ${formatPacks(item.capacityPacks)} · ${formatMeters(item.totalLengthM)}`,
       ),
     );
-    const button = el('button', null, isCurrent ? 'Em uso' : 'Aplicar esta configuração');
+    const button = el('button', null, isCurrent ? t('space.use', 'Em uso') : t('space.apply', 'Aplicar esta configuração'));
     button.type = 'button';
     button.disabled = isCurrent;
     button.addEventListener('click', () => applyConfig(item.config));
@@ -966,50 +1168,54 @@ function renderPrice(result) {
   const fx = brazil.fxRate;
   const approx = (value) => `≈ ${formatEUR(value / fx)}`;
   const cls = classOf(quote.classId);
-  const fleet = `${formatFlex(result.fleetRobots)} ${result.fleetRobots === 1 ? 'robô' : 'robôs'}`;
+  const fleetWord = result.fleetRobots === 1 ? t('price.one', 'robô') : t('price.many', 'robôs');
+  const fleet = `${formatFlex(result.fleetRobots)} ${fleetWord}`;
+  const armExtra = quote.secondGripper
+    ? t('price.armOn', ` (+${formatFixed(OPTIONS.secondGripperLengthM, 2)} m)`, { m: formatFixed(OPTIONS.secondGripperLengthM, 2) })
+    : t('price.armOff', ' (não)');
   const rows = [
-    ['Robô base (tabela − € 25.000)', formatEUR(quote.baseRobotEur), formatBRL(brl.baseRobot)],
-    ['+ Carga automática c/ OCR e carga manual', formatEUR(quote.autoLoadingEur), formatBRL(brl.autoLoading)],
-    ['+ SAM c/ 4 saídas', formatEUR(quote.samEur), formatBRL(brl.sam)],
-    ['= Preço de tabela do robô', formatEUR(quote.tablePriceEur), formatBRL(brl.tablePrice), 'is-total'],
-    [`+ 2º braço c/ 2º SAM${quote.secondGripper ? ` (+${formatFixed(OPTIONS.secondGripperLengthM, 2)} m)` : ' (não)'}`, formatEUR(quote.secondGripperEur), formatBRL(brl.secondGripper)],
-    [`+ Módulo refrigerado${quote.coolingModule ? '' : ' (não)'}`, formatEUR(quote.coolingEur), formatBRL(brl.cooling)],
-    ['+ Tecnologia de esteiras', formatEUR(quote.conveyorEur), formatBRL(brl.conveyor)],
-    ['= Subtotal de opcionais', formatEUR(quote.optionsEur), formatBRL(brl.options), 'is-total'],
-    [`+ Transporte e instalação (média € 22.500; classe ${cls.id}: ${formatEUR(quote.classServicesEur)})`, formatEUR(quote.servicesEur), formatBRL(brl.services)],
-    ['= Pedido Gollmann bruto (1 robô)', formatEUR(quote.orderEur), formatBRL(brl.order), 'is-total'],
-    [`− Desconto por volume (${pct(quote.discountPct)} p/ ${fleet})`, `−${formatEUR(quote.discountEur)}`, `−${formatBRL(brl.discount)}`, 'is-minus'],
-    ['= Pedido Gollmann líquido (Valor Aduaneiro — VA)', formatEUR(quote.netOrderEur), formatBRL(brazil.vaBrl), 'is-total is-key'],
-    [`+ II — Imposto de Importação (${brazil.exTarifario ? '0% c/ Ex-Tarifário BK' : `${pct(brazil.effectiveIiPct)} s/ Ex-Tarifário`})`, approx(brazil.iiBrl), formatBRL(brazil.iiBrl)],
-    [`+ IPI — NCM ${NCM_INFO.code} (${pct(brazil.ipiRatePct)} na TIPI)`, approx(brazil.ipiBrl), formatBRL(brazil.ipiBrl)],
-    [`+ PIS-Importação (${pct(brazil.pisRatePct)} s/ VA)`, approx(brazil.pisBrl), formatBRL(brazil.pisBrl)],
-    [`+ COFINS-Importação base (${pct(brazil.cofinsBaseRatePct)} s/ VA)`, approx(brazil.cofinsBaseBrl), formatBRL(brazil.cofinsBaseBrl)],
-    [`+ Adicional COFINS-Importação 2026 (${pct(brazil.cofinsAddRatePct)} s/ VA — Lei 14.973/24, não creditável)`, approx(brazil.cofinsAddBrl), formatBRL(brazil.cofinsAddBrl)],
+    [t('price.base', 'Robô base (tabela − € 25.000)'), formatEUR(quote.baseRobotEur), formatBRL(brl.baseRobot)],
+    [t('price.auto', '+ Carga automática c/ OCR e carga manual'), formatEUR(quote.autoLoadingEur), formatBRL(brl.autoLoading)],
+    [t('price.sam', '+ SAM c/ 4 saídas'), formatEUR(quote.samEur), formatBRL(brl.sam)],
+    [t('price.table', '= Preço de tabela do robô'), formatEUR(quote.tablePriceEur), formatBRL(brl.tablePrice), 'is-total'],
+    [t('price.arm', `+ 2º braço c/ 2º SAM${armExtra}`, { extra: armExtra }), formatEUR(quote.secondGripperEur), formatBRL(brl.secondGripper)],
+    [t('price.cool', `+ Módulo refrigerado${quote.coolingModule ? '' : ' (não)'}`, { extra: quote.coolingModule ? '' : t('price.coolOff', ' (não)') }), formatEUR(quote.coolingEur), formatBRL(brl.cooling)],
+    [t('price.belt', '+ Tecnologia de esteiras'), formatEUR(quote.conveyorEur), formatBRL(brl.conveyor)],
+    [t('price.options', '= Subtotal de opcionais'), formatEUR(quote.optionsEur), formatBRL(brl.options), 'is-total'],
+    [t('price.transport', `+ Transporte e instalação (média € 22.500; classe ${cls.id}: ${formatEUR(quote.classServicesEur)})`, { cls: cls.id, value: formatEUR(quote.classServicesEur) }), formatEUR(quote.servicesEur), formatBRL(brl.services)],
+    [t('price.order', '= Pedido Gollmann bruto (1 robô)'), formatEUR(quote.orderEur), formatBRL(brl.order), 'is-total'],
+    [t('price.discount', `− Desconto por volume (${pct(quote.discountPct)} p/ ${fleet})`, { pct: pct(quote.discountPct), fleet }), `−${formatEUR(quote.discountEur)}`, `−${formatBRL(brl.discount)}`, 'is-minus'],
+    [t('price.net', '= Pedido Gollmann líquido (Valor Aduaneiro — VA)'), formatEUR(quote.netOrderEur), formatBRL(brazil.vaBrl), 'is-total is-key'],
+    [t('price.ii', `+ II — Imposto de Importação (${brazil.exTarifario ? '0% c/ Ex-Tarifário BK' : `${pct(brazil.effectiveIiPct)} s/ Ex-Tarifário`})`, { rate: brazil.exTarifario ? t('price.iiOn', '0% c/ Ex-Tarifário BK') : t('price.iiOff', `${pct(brazil.effectiveIiPct)} s/ Ex-Tarifário`, { pct: pct(brazil.effectiveIiPct) }) }), approx(brazil.iiBrl), formatBRL(brazil.iiBrl)],
+    [t('price.ipi', `+ IPI — NCM ${NCM_INFO.code} (${pct(brazil.ipiRatePct)} na TIPI)`, { ncm: NCM_INFO.code, pct: pct(brazil.ipiRatePct) }), approx(brazil.ipiBrl), formatBRL(brazil.ipiBrl)],
+    [t('price.pis', `+ PIS-Importação (${pct(brazil.pisRatePct)} s/ VA)`, { pct: pct(brazil.pisRatePct) }), approx(brazil.pisBrl), formatBRL(brazil.pisBrl)],
+    [t('price.cofins', `+ COFINS-Importação base (${pct(brazil.cofinsBaseRatePct)} s/ VA)`, { pct: pct(brazil.cofinsBaseRatePct) }), approx(brazil.cofinsBaseBrl), formatBRL(brazil.cofinsBaseBrl)],
+    [t('price.cofinsAdd', `+ Adicional COFINS-Importação 2026 (${pct(brazil.cofinsAddRatePct)} s/ VA — Lei 14.973/24, não creditável)`, { pct: pct(brazil.cofinsAddRatePct) }), approx(brazil.cofinsAddBrl), formatBRL(brazil.cofinsAddBrl)],
     ...(brazil.customsExpensesBrl > 0
-      ? [[`+ Despesas aduaneiras / Siscomex / AFRMM (${pct(brazil.customsExpensesPct)} s/ VA)`, approx(brazil.customsExpensesBrl), formatBRL(brazil.customsExpensesBrl)]]
+      ? [[t('price.customs', `+ Despesas aduaneiras / Siscomex / AFRMM (${pct(brazil.customsExpensesPct)} s/ VA)`, { pct: pct(brazil.customsExpensesPct) }), approx(brazil.customsExpensesBrl), formatBRL(brazil.customsExpensesBrl)]]
       : []),
-    [`+ ICMS-Importação por dentro (${pct(brazil.icmsRatePct)}${brazil.convenioIcms5291 ? ' · Convênio ICMS 52/91' : ' · Alíquota cheia'})`, approx(brazil.icmsBrl), formatBRL(brazil.icmsBrl)],
-    [`= Total de impostos de importação (${pct(brazil.effectiveImportPct)} efetivo s/ VA)`, approx(brazil.importBrl), formatBRL(brazil.importBrl), 'is-total'],
-    ['= Parte importada nacionalizada (VA + impostos)', approx(brazil.landedBrl), formatBRL(brazil.landedBrl), 'is-total'],
-    ['+ Serviços locais faturados no Brasil (R$)', `≈ ${formatEUR(quote.localServicesEurApprox)}`, formatBRL(brl.localServices)],
-    ['= 1. Preço Total Bruto no Brasil (1 robô)', `≈ ${formatEUR(result.totalEurApprox)}`, formatBRL(result.totalGrossBrl), 'is-total is-key'],
-    [`− Crédito recuperável PIS + COFINS (${brazil.creditPisCofins ? '2,10% + 9,65% = 11,75% s/ VA' : 'desligado'})`, `≈ −${formatEUR(brazil.creditPisCofinsBrl / fx)}`, `−${formatBRL(brazil.creditPisCofinsBrl)}`, 'is-minus'],
-    [`− Crédito recuperável ICMS (${brazil.creditIcms ? `${pct(brazil.icmsCreditFactorPct)} do ICMS pago` : 'desligado'})`, `≈ −${formatEUR(brazil.creditIcmsBrl / fx)}`, `−${formatBRL(brazil.creditIcmsBrl)}`, 'is-minus'],
-    [`= Total de créditos tributários recuperáveis (${pct(brazil.effectiveCreditOnVaPct)} s/ VA · ${pct(brazil.effectiveCreditOnLandedPct)} s/ nacionalizado)`, `≈ −${formatEUR(brazil.creditBrl / fx)}`, `−${formatBRL(brazil.creditBrl)}`, 'is-minus is-total'],
-    ['= Investimento Líquido Efetivo Pós-Créditos (1 robô)', approx(result.totalNetBrl), formatBRL(result.totalNetBrl), 'is-total is-key'],
-    [`Custo tributário líquido não recuperável (impostos − créditos · ${pct(brazil.effectiveNetTaxPct)} s/ VA)`, approx(brazil.nonRecoverableBrl), formatBRL(brazil.nonRecoverableBrl)],
+    [t('price.icms', `+ ICMS-Importação por dentro (${pct(brazil.icmsRatePct)}${brazil.convenioIcms5291 ? ' · Convênio ICMS 52/91' : ' · Alíquota cheia'})`, { pct: pct(brazil.icmsRatePct), extra: brazil.convenioIcms5291 ? t('price.icmsOn', ' · Convênio ICMS 52/91') : t('price.icmsOff', ' · Alíquota cheia') }), approx(brazil.icmsBrl), formatBRL(brazil.icmsBrl)],
+    [t('price.import', `= Total de impostos de importação (${pct(brazil.effectiveImportPct)} efetivo s/ VA)`, { pct: pct(brazil.effectiveImportPct) }), approx(brazil.importBrl), formatBRL(brazil.importBrl), 'is-total'],
+    [t('price.landed', '= Parte importada nacionalizada (VA + impostos)'), approx(brazil.landedBrl), formatBRL(brazil.landedBrl), 'is-total'],
+    [t('price.local', '+ Serviços locais faturados no Brasil (R$)'), `≈ ${formatEUR(quote.localServicesEurApprox)}`, formatBRL(brl.localServices)],
+    [t('price.gross', '= 1. Preço Total Bruto no Brasil (1 robô)'), `≈ ${formatEUR(result.totalEurApprox)}`, formatBRL(result.totalGrossBrl), 'is-total is-key'],
+    [t('price.creditPis', `− Crédito recuperável PIS + COFINS (${brazil.creditPisCofins ? '2,10% + 9,65% = 11,75% s/ VA' : 'desligado'})`, { state: brazil.creditPisCofins ? t('price.creditPisOn', '2,10% + 9,65% = 11,75% s/ VA') : t('price.creditPisOff', 'desligado') }), `≈ −${formatEUR(brazil.creditPisCofinsBrl / fx)}`, `−${formatBRL(brazil.creditPisCofinsBrl)}`, 'is-minus'],
+    [t('price.creditIcms', `− Crédito recuperável ICMS (${brazil.creditIcms ? `${pct(brazil.icmsCreditFactorPct)} do ICMS pago` : 'desligado'})`, { state: brazil.creditIcms ? t('price.creditIcmsOn', `${pct(brazil.icmsCreditFactorPct)} do ICMS pago`, { pct: pct(brazil.icmsCreditFactorPct) }) : t('price.creditIcmsOff', 'desligado') }), `≈ −${formatEUR(brazil.creditIcmsBrl / fx)}`, `−${formatBRL(brazil.creditIcmsBrl)}`, 'is-minus'],
+    [t('price.credits', `= Total de créditos tributários recuperáveis (${pct(brazil.effectiveCreditOnVaPct)} s/ VA · ${pct(brazil.effectiveCreditOnLandedPct)} s/ nacionalizado)`, { va: pct(brazil.effectiveCreditOnVaPct), landed: pct(brazil.effectiveCreditOnLandedPct) }), `≈ −${formatEUR(brazil.creditBrl / fx)}`, `−${formatBRL(brazil.creditBrl)}`, 'is-minus is-total'],
+    [t('price.netInvest', '= Investimento Líquido Efetivo Pós-Créditos (1 robô)'), approx(result.totalNetBrl), formatBRL(result.totalNetBrl), 'is-total is-key'],
+    [t('price.nonRec', `Custo tributário líquido não recuperável (impostos − créditos · ${pct(brazil.effectiveNetTaxPct)} s/ VA)`, { pct: pct(brazil.effectiveNetTaxPct) }), approx(brazil.nonRecoverableBrl), formatBRL(brazil.nonRecoverableBrl)],
     [
-      `Custo por pacote de capacidade (${formatPacks(quote.capacityPacks)})`,
-      `${formatEUR(quote.eurPerPack)} (pedido líquido)`,
-      `${formatBRL(result.brlPerPack)} (líquido)`,
+      t('price.perPack', `Custo por pacote de capacidade (${formatPacks(quote.capacityPacks)})`, { packs: formatPacks(quote.capacityPacks) }),
+      t('price.perPackEur', `${formatEUR(quote.eurPerPack)} (pedido líquido)`, { value: formatEUR(quote.eurPerPack) }),
+      t('price.perPackBrl', `${formatBRL(result.brlPerPack)} (líquido)`, { value: formatBRL(result.brlPerPack) }),
     ],
   ];
   const table = document.getElementById('price-table');
   table.replaceChildren();
-  table.append(el('caption', null, `${configLabel(quote.config)} · câmbio R$ ${formatFlex(fx, 4)} por €`));
+  table.append(el('caption', null, t('price.caption', `${configLabel(quote.config)} · câmbio R$ ${formatFlex(fx, 4)} por €`, { config: configLabel(quote.config), fx: formatFlex(fx, 4) })));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  for (const [label, cls2] of [['Item', null], ['EUR', 'num'], ['R$', 'num']]) {
+  for (const [label, cls2] of [[t('price.item', 'Item'), null], ['EUR', 'num'], ['R$', 'num']]) {
     const th = el('th', cls2, label);
     th.scope = 'col';
     hr.append(th);
@@ -1025,8 +1231,49 @@ function renderPrice(result) {
     body.append(tr);
   }
   table.append(head, body);
-  document.getElementById('price-note').textContent = `Na tabela o preço já inclui a carga automática (${formatEUR(22000)}) e o SAM (${formatEUR(3000)}). Opcionais, transporte e instalação e serviços locais vêm separados. O desconto por volume vale para o pedido Gollmann, que é o Valor Aduaneiro da NCM ${NCM_INFO.code}; os impostos de importação e os créditos valem só para essa parte importada. Os serviços locais entram em reais, sem câmbio. Linhas em euro marcadas com ≈ são o equivalente pelo câmbio.`;
+  document.getElementById('price-note').textContent = t('price.note', `Na tabela o preço já inclui a carga automática (${formatEUR(22000)}) e o SAM (${formatEUR(3000)}). Opcionais, transporte e instalação e serviços locais vêm separados. O desconto por volume vale para o pedido Gollmann, que é o Valor Aduaneiro da NCM ${NCM_INFO.code}; os impostos de importação e os créditos valem só para essa parte importada. Os serviços locais entram em reais, sem câmbio. Linhas em euro marcadas com ≈ são o equivalente pelo câmbio.`, {
+    auto: formatEUR(22000),
+    sam: formatEUR(3000),
+    ncm: NCM_INFO.code,
+  });
   renderNcmTable(brazil);
+}
+
+function taxView(line, brazil) {
+  const pill = line.creditable ? t('tax.yes', 'Sim · Creditável') : t('tax.no', 'Não · Custo definitivo');
+  if (lang !== 'en') {
+    return {
+      label: line.label,
+      base: `Base: ${line.baseLabel}`,
+      rate: line.rateLabel,
+      legal: line.legalBasis,
+      pill,
+      rule: line.creditRule,
+    };
+  }
+  const rates = {
+    ii: brazil.exTarifario
+      ? t('tax.ii.rateOn', '0% c/ Ex-Tarifário')
+      : t('tax.ii.rateOff', line.rateLabel, {
+          pct: pct(brazil.effectiveIiPct),
+          tec: pct(NCM_INFO.iiTecPct),
+          gecex: pct(NCM_INFO.iiGecex2026Pct),
+        }),
+    ipi: pct(brazil.ipiRatePct),
+    pis: pct(brazil.pisRatePct),
+    cofins: pct(brazil.cofinsBaseRatePct),
+    cofinsAdd: pct(brazil.cofinsAddRatePct),
+    customs: pct(brazil.customsExpensesPct),
+    icms: `${formatFlex(brazil.icmsRatePct, 2)}%`,
+  };
+  return {
+    label: t(`tax.${line.key}.label`, line.label),
+    base: t('tax.base', `Base: ${line.baseLabel}`, { base: t(`tax.${line.key}.base`, line.baseLabel) }),
+    rate: rates[line.key] ?? line.rateLabel,
+    legal: t(`tax.${line.key}.legal`, line.legalBasis),
+    pill,
+    rule: t(`tax.${line.key}.rule`, line.creditRule),
+  };
 }
 
 /** Tabela de referência: impostos da NCM 8479.89.99, o que gera crédito e o custo que fica. */
@@ -1034,16 +1281,16 @@ function renderNcmTable(brazil) {
   const table = document.getElementById('ncm-tax-table');
   if (!table) return;
   table.replaceChildren();
-  table.append(el('caption', null, `Tabela de Referência: Impostos da NCM ${NCM_INFO.code} e O Que Pode Creditar`));
+  table.append(el('caption', null, t('tax.caption', `Tabela de Referência: Impostos da NCM ${NCM_INFO.code} e O Que Pode Creditar`, { ncm: NCM_INFO.code })));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
   const columns = [
-    [`Tributo / Encargo (NCM ${NCM_INFO.code})`, null],
-    ['Alíquota e Base Legal', null],
-    ['Pago na Importação (R$)', 'num'],
-    ['Gera Crédito?', null],
-    ['Crédito no Cálculo (R$)', 'num'],
-    ['Custo Líquido (R$)', 'num'],
+    [t('tax.col.tax', `Tributo / Encargo (NCM ${NCM_INFO.code})`, { ncm: NCM_INFO.code }), null],
+    [t('tax.col.legal', 'Alíquota e Base Legal'), null],
+    [t('tax.col.paid', 'Pago na Importação (R$)'), 'num'],
+    [t('tax.col.credit', 'Gera Crédito?'), null],
+    [t('tax.col.amount', 'Crédito no Cálculo (R$)'), 'num'],
+    [t('tax.col.net', 'Custo Líquido (R$)'), 'num'],
   ];
   for (const [label, cls] of columns) {
     const th = el('th', cls, label);
@@ -1053,17 +1300,18 @@ function renderNcmTable(brazil) {
   head.append(hr);
   const body = document.createElement('tbody');
   for (const line of brazil.taxLines) {
+    const view = taxView(line, brazil);
     const tr = document.createElement('tr');
-    const th = el('th', null, line.label);
+    const th = el('th', null, view.label);
     th.scope = 'row';
-    th.append(document.createElement('br'), el('small', null, `Base: ${line.baseLabel}`));
+    th.append(document.createElement('br'), el('small', null, view.base));
     const rate = el('td', 'tax-legal');
-    rate.append(el('strong', null, line.rateLabel), document.createElement('br'), el('small', null, line.legalBasis));
+    rate.append(el('strong', null, view.rate), document.createElement('br'), el('small', null, view.legal));
     const credit = el('td', 'tax-credit');
     credit.append(
-      el('span', line.creditable ? 'tax-pill is-yes' : 'tax-pill is-no', line.creditable ? 'Sim · Creditável' : 'Não · Custo definitivo'),
+      el('span', line.creditable ? 'tax-pill is-yes' : 'tax-pill is-no', view.pill),
       document.createElement('br'),
-      el('small', null, line.creditRule),
+      el('small', null, view.rule),
     );
     tr.append(
       th,
@@ -1078,13 +1326,13 @@ function renderNcmTable(brazil) {
   const foot = document.createElement('tfoot');
   const fr = document.createElement('tr');
   fr.className = 'is-total is-key';
-  const label = el('th', null, 'Total Pago na Importação · Total Creditável · Custo Tributário Definitivo (Não Recuperável)');
+  const label = el('th', null, t('tax.foot', 'Total Pago na Importação · Total Creditável · Custo Tributário Definitivo (Não Recuperável)'));
   label.scope = 'row';
   label.colSpan = 2;
   fr.append(
     label,
     el('td', 'num', formatBRL(brazil.importBrl)),
-    el('td', null, `${pct(brazil.effectiveCreditOnVaPct)} do VA volta como crédito`),
+    el('td', null, t('tax.footBack', `${pct(brazil.effectiveCreditOnVaPct)} do VA volta como crédito`, { pct: pct(brazil.effectiveCreditOnVaPct) })),
     el('td', 'num', `−${formatBRL(brazil.creditBrl)}`),
     el('td', 'num', formatBRL(brazil.nonRecoverableBrl)),
   );
@@ -1114,7 +1362,7 @@ function renderMatrix(result) {
       tab.tabIndex = selected ? 0 : -1;
       const fits = result.roomFilterOn && space.matches.some((item) => item.heightM === heightM);
       if (fits) tab.classList.add('has-fit');
-      if (heightM === quote.heightM) tab.title = 'Altura do modelo atual';
+      if (heightM === quote.heightM) tab.title = t('matrix.current', 'Altura do modelo atual');
       tab.addEventListener('click', () => {
         matrixHeight = heightM;
         renderMatrix(current);
@@ -1128,11 +1376,11 @@ function renderMatrix(result) {
   );
   const table = document.getElementById('matrix');
   table.replaceChildren();
-  table.append(el('caption', null, `Robô de ${formatMeters(matrixHeight)} de altura`));
+  table.append(el('caption', null, t('matrix.caption', `Robô de ${formatMeters(matrixHeight)} de altura`, { height: formatMeters(matrixHeight) })));
   const available = widthsAt(matrixHeight).map((width) => width.key);
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  const corner = el('th', null, 'Classe / largura c/ SAM');
+  const corner = el('th', null, t('matrix.corner', 'Classe / largura c/ SAM'));
   corner.scope = 'col';
   hr.append(corner);
   for (const width of WIDTHS) {
@@ -1147,9 +1395,9 @@ function renderMatrix(result) {
   const body = document.createElement('tbody');
   for (const cls of CLASSES) {
     const tr = document.createElement('tr');
-    const th = el('th', null, `Robô ${cls.id}`);
+    const th = el('th', null, t('matrix.robot', `Robô ${cls.id}`, { id: cls.id }));
     th.scope = 'row';
-    th.append(document.createElement('br'), el('small', null, `aprox. ${formatFlex(cls.approxPacks)}`));
+    th.append(document.createElement('br'), el('small', null, t('matrix.approx', `aprox. ${formatFlex(cls.approxPacks)}`, { n: formatFlex(cls.approxPacks) })));
     tr.append(th);
     for (const width of WIDTHS) {
       const config = CONFIGURATIONS.find(
@@ -1169,7 +1417,15 @@ function renderMatrix(result) {
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
       button.setAttribute(
         'aria-label',
-        `Robô ${cls.id}, ${formatMeters(width.sam)} c/ SAM, altura ${formatMeters(matrixHeight)}: ${formatEUR(config.priceEur)}, ${formatMeters(config.lengthM)}, ${formatPacks(config.capacityPacks)}${result.roomFilterOn ? (fit ? ', cabe na sala' : ', não cabe na sala') : ''}`,
+        t('matrix.cell', `Robô ${cls.id}, ${formatMeters(width.sam)} c/ SAM, altura ${formatMeters(matrixHeight)}: ${formatEUR(config.priceEur)}, ${formatMeters(config.lengthM)}, ${formatPacks(config.capacityPacks)}${result.roomFilterOn ? (fit ? ', cabe na sala' : ', não cabe na sala') : ''}`, {
+          cls: cls.id,
+          width: formatMeters(width.sam),
+          height: formatMeters(matrixHeight),
+          price: formatEUR(config.priceEur),
+          length: formatMeters(config.lengthM),
+          packs: formatPacks(config.capacityPacks),
+          fit: result.roomFilterOn ? (fit ? t('matrix.fit', ', cabe na sala') : t('matrix.out', ', não cabe na sala')) : '',
+        }),
       );
       button.append(
         el('strong', null, formatEUR(config.priceEur)),
@@ -1183,9 +1439,11 @@ function renderMatrix(result) {
   }
   table.append(head, body);
   const fitCount = result.roomFilterOn ? space.matches.filter((item) => item.heightM === matrixHeight).length : null;
-  document.getElementById('matrix-legend').textContent = `${available.length} larguras nesta altura. Célula escura: modelo atual.${
-    fitCount == null ? '' : ` Verde: cabe na sala (${formatFlex(fitCount)} nesta altura); apagada: não cabe.`
-  } "–": a proposta não oferece a combinação.`;
+  const fitLegend = fitCount == null ? '' : t('matrix.fitLegend', ` Verde: cabe na sala (${formatFlex(fitCount)} nesta altura); apagada: não cabe.`, { n: formatFlex(fitCount) });
+  document.getElementById('matrix-legend').textContent = t('matrix.legend', `${available.length} larguras nesta altura. Célula escura: modelo atual.${fitLegend} "–": a proposta não oferece a combinação.`, {
+    n: available.length,
+    fit: fitLegend,
+  });
 }
 
 function setFleet(count) {
@@ -1196,44 +1454,55 @@ function setFleet(count) {
 
 function renderRollout(result) {
   const { quote, volume } = result;
-  const robots = (count) => `${formatFlex(count)} ${count === 1 ? 'robô' : 'robôs'}`;
+  const robots = (count) => `${formatFlex(count)} ${count === 1 ? t('price.one', 'robô') : t('price.many', 'robôs')}`;
   const kpis = document.getElementById('rollout-kpis');
   kpis.replaceChildren();
   renderKpi(kpis, {
     id: 'fleet-tier',
-    label: 'Faixa aplicada',
+    label: t('rollout.tier', 'Faixa aplicada'),
     value: pct(volume.pct),
-    sub: `${robots(volume.count)} · ${volume.next ? `faltam ${formatFlex(volume.next.from - volume.count)} p/ ${pct(volume.next.pct)}` : 'faixa máxima'}`,
+    sub: `${robots(volume.count)} · ${volume.next ? t('rollout.next', `faltam ${formatFlex(volume.next.from - volume.count)} p/ ${pct(volume.next.pct)}`, { n: formatFlex(volume.next.from - volume.count), pct: pct(volume.next.pct) }) : t('rollout.top', 'faixa máxima')}`,
   });
   renderKpi(kpis, {
     id: 'fleet-unit-discount',
-    label: 'Desconto por robô',
+    label: t('rollout.unit', 'Desconto por robô'),
     value: formatEUR(volume.unitDiscountEur),
     sub: formatBRL(volume.unitDiscountBrl),
   });
   renderKpi(kpis, {
     id: 'fleet-unit-net',
-    label: 'Pedido líquido por robô',
+    label: t('rollout.net', 'Pedido líquido por robô'),
     value: formatEUR(volume.unitNetEur),
-    sub: `bruto ${formatEUR(volume.unitGrossEur)}`,
+    sub: t('rollout.gross', `bruto ${formatEUR(volume.unitGrossEur)}`, { value: formatEUR(volume.unitGrossEur) }),
   });
   renderKpi(kpis, {
     id: 'fleet-total',
-    label: `Preço Total da frota`,
+    label: t('rollout.fleet', 'Preço Total da frota'),
     value: compactBRL(volume.fleetTotalGrossBrl),
     exact: formatBRL(volume.fleetTotalGrossBrl),
-    sub: `${robots(volume.count)} · desconto −${formatEUR(volume.fleetDiscountEur)}`,
+    sub: t('rollout.fleetSub', `${robots(volume.count)} · desconto −${formatEUR(volume.fleetDiscountEur)}`, { robots: robots(volume.count), value: formatEUR(volume.fleetDiscountEur) }),
   });
-  document.getElementById('rollout-note').textContent = `Pedido Gollmann bruto de ${formatEUR(quote.orderEur)} por robô (${configLabel(quote.config)}: robô, opcionais e transporte e instalação). A faixa sai da quantidade de robôs; os serviços locais em R$ entram no total sem desconto. Clique numa faixa para aplicá-la.`;
+  document.getElementById('rollout-note').textContent = t('rollout.note', `Pedido Gollmann bruto de ${formatEUR(quote.orderEur)} por robô (${configLabel(quote.config)}: robô, opcionais e transporte e instalação). A faixa sai da quantidade de robôs; os serviços locais em R$ entram no total sem desconto. Clique numa faixa para aplicá-la.`, {
+    order: formatEUR(quote.orderEur),
+    config: configLabel(quote.config),
+  });
 
   const table = document.getElementById('rollout-milestones');
   table.replaceChildren();
-  table.append(el('caption', null, 'Tabela de faixas de desconto por volume (por robô)'));
+  table.append(el('caption', null, t('rollout.caption', 'Tabela de faixas de desconto por volume (por robô)')));
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  const columns = ['Faixa', 'Desconto', 'Desconto por robô', 'Pedido líquido (€)', 'Preço Total (R$)', 'Líquido pós-crédito (R$)', 'Nota de crédito no marco'];
+  const columns = [
+    t('rollout.col.tier', 'Faixa'),
+    t('rollout.col.pct', 'Desconto'),
+    t('rollout.col.unit', 'Desconto por robô'),
+    t('rollout.col.net', 'Pedido líquido (€)'),
+    t('rollout.col.gross', 'Preço Total (R$)'),
+    t('rollout.col.after', 'Líquido pós-crédito (R$)'),
+    t('rollout.col.note', 'Nota de crédito no marco'),
+  ];
   for (const label of columns) {
-    const th = el('th', label === 'Faixa' ? null : 'num', label);
+    const th = el('th', label === t('rollout.col.tier', 'Faixa') ? null : 'num', label);
     th.scope = 'col';
     hr.append(th);
   }
@@ -1244,9 +1513,10 @@ function renderRollout(result) {
     if (tier.active) tr.className = 'is-active';
     tr.tabIndex = 0;
     tr.dataset.from = String(tier.from);
-    tr.setAttribute('aria-label', `Aplicar a faixa ${tier.rangeLabel}, ${pct(tier.pct)}`);
+    const range = t(`tier.${tier.from}`, tier.rangeLabel);
+    tr.setAttribute('aria-label', t('rollout.apply', `Aplicar a faixa ${tier.rangeLabel}, ${pct(tier.pct)}`, { range, pct: pct(tier.pct) }));
     if (tier.active) tr.setAttribute('aria-current', 'true');
-    const th = el('th', null, tier.rangeLabel);
+    const th = el('th', null, range);
     th.scope = 'row';
     tr.append(th);
     tr.append(el('td', 'num'));
@@ -1256,7 +1526,9 @@ function renderRollout(result) {
     tr.append(el('td', 'num', formatBRL(tier.unitTotalGrossBrl)));
     tr.append(el('td', 'num', formatBRL(tier.unitTotalNetBrl)));
     const credit = el('td', 'num', tier.pct === 0 ? '–' : formatEUR(tier.creditNoteEur));
-    if (tier.pct > 0) credit.append(document.createElement('br'), el('small', null, `${formatFlex(tier.from)}º robô · ${formatBRL(tier.creditNoteBrl)}`));
+    if (tier.pct > 0) {
+      credit.append(document.createElement('br'), el('small', null, t('rollout.nth', `${formatFlex(tier.from)}º robô · ${formatBRL(tier.creditNoteBrl)}`, { n: formatFlex(tier.from), value: formatBRL(tier.creditNoteBrl) })));
+    }
     tr.append(credit);
     tr.addEventListener('click', () => setFleet(tier.from));
     tr.addEventListener('keydown', (event) => {
@@ -1267,9 +1539,14 @@ function renderRollout(result) {
     body.append(tr);
   }
   table.append(head, body);
-  document.getElementById('milestone-note').textContent = `Nota de crédito: ao alcançar 10, 25, 50 e 100 robôs, os robôs já pedidos são levados à faixa nova, com ${formatEUR(volume.unitGrossEur)} por robô. Conferência do slide 12, com ${formatEUR(100000)} por robô: ${SLIDE_12.milestones
-    .map((item) => `${item.robot}º robô ${cents(item.bonusToDateCents)}`)
-    .join(' · ')} de desconto acumulado.`;
+  const slideList = SLIDE_12.milestones
+    .map((item) => t('rollout.slide', `${item.robot}º robô ${cents(item.bonusToDateCents)}`, { n: item.robot, value: cents(item.bonusToDateCents) }))
+    .join(' · ');
+  document.getElementById('milestone-note').textContent = t('rollout.milestone', `Nota de crédito: ao alcançar 10, 25, 50 e 100 robôs, os robôs já pedidos são levados à faixa nova, com ${formatEUR(volume.unitGrossEur)} por robô. Conferência do slide 12, com ${formatEUR(100000)} por robô: ${slideList} de desconto acumulado.`, {
+    unit: formatEUR(volume.unitGrossEur),
+    base: formatEUR(100000),
+    list: slideList,
+  });
 }
 
 const SLIDE_12 = bonusLedger(Array.from({ length: 100 }, () => 100000));
@@ -1291,7 +1568,7 @@ function renderDock(result) {
   const { quote } = result;
   document.getElementById('dock-net').textContent = compactBRL(result.totalGrossBrl);
   document.getElementById('dock-price').textContent = formatEUR(quote.equipmentEur);
-  const local = quote.localServicesBrl > 0 ? compactBRL(quote.localServicesBrl) : 'R$ 0';
+  const local = quote.localServicesBrl > 0 ? compactBRL(quote.localServicesBrl) : (lang === 'en' ? formatBRL(0) : 'R$ 0');
   document.getElementById('dock-order').textContent = `${formatEUR(quote.servicesEur)} + ${local}`;
   document.getElementById('dock-bonus').textContent = `${pct(quote.discountPct)} · −${formatEUR(quote.discountEur)}`;
 }
@@ -1334,7 +1611,8 @@ function render(result) {
   viewer?.setModel(result);
   const stamp = document.getElementById('print-date');
   if (stamp) {
-    stamp.textContent = `Memória de cálculo · ${new Date().toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}.`;
+    const when = new Date().toLocaleString(uiLocale(), { dateStyle: 'long', timeStyle: 'short' });
+    stamp.textContent = t('results.printDate', `Memória de cálculo · ${when}.`, { when });
   }
 }
 
@@ -1590,7 +1868,17 @@ function createViewer(canvas) {
     };
     canvas.setAttribute(
       'aria-label',
-      `Modelo 3D do GO.compact Robô ${quote.classId}: altura ${formatMeters(quote.heightM)}, largura com SAM ${formatMeters(quote.widthSam)}, comprimento total ${formatMeters(quote.totalLengthM)}, ${formatFixed(quote.footprintM2, 2)} m², capacidade garantida ${formatPacks(quote.capacityPacks)}${quote.secondGripper ? ', com 2º braço' : ''}${quote.coolingModule ? ', com módulo refrigerado' : ''}${result.roomFilterOn ? (result.room.roomOk ? ', cabe na sala' : ', não cabe na sala') : ''}.`,
+      t('viewer.aria', `Modelo 3D do GO.compact Robô ${quote.classId}: altura ${formatMeters(quote.heightM)}, largura com SAM ${formatMeters(quote.widthSam)}, comprimento total ${formatMeters(quote.totalLengthM)}, ${formatFixed(quote.footprintM2, 2)} m², capacidade garantida ${formatPacks(quote.capacityPacks)}${quote.secondGripper ? ', com 2º braço' : ''}${quote.coolingModule ? ', com módulo refrigerado' : ''}${result.roomFilterOn ? (result.room.roomOk ? ', cabe na sala' : ', não cabe na sala') : ''}.`, {
+        cls: quote.classId,
+        h: formatMeters(quote.heightM),
+        w: formatMeters(quote.widthSam),
+        l: formatMeters(quote.totalLengthM),
+        area: formatFixed(quote.footprintM2, 2),
+        packs: formatPacks(quote.capacityPacks),
+        arm: quote.secondGripper ? (lang === 'en' ? ', with 2nd arm' : ', com 2º braço') : '',
+        cool: quote.coolingModule ? (lang === 'en' ? ', with refrigerated module' : ', com módulo refrigerado') : '',
+        room: result.roomFilterOn ? (result.room.roomOk ? t('matrix.fit', ', cabe na sala') : t('matrix.out', ', não cabe na sala')) : '',
+      }),
     );
     wake();
   }
@@ -2453,11 +2741,11 @@ function createViewer(canvas) {
     const manualEnd = LENGTH_INCLUDED.manualLoadingM;
     const speedEnd = manualEnd + LENGTH_INCLUDED.speedOptionM;
     const segments = [
-      { from: 0, to: manualEnd, color: COLORS.manual, label: '+0,15 m carga manual' },
-      { from: manualEnd, to: speedEnd, color: COLORS.speed, label: '+0,17 m speed' },
-      { from: speedEnd, to: d.Lt, color: theme, label: `núcleo ${model.labels.core}` },
-    ];
-    if (model.gripper2 && d.L - d.Lt > 0.01) segments.push({ from: d.Lt, to: d.L, color: COLORS.grip, label: '+0,68 m 2º braço' });
+      { from: 0, to: manualEnd, color: COLORS.manual, label: t('seg.manual', '+0,15 m carga manual') },
+      { from: manualEnd, to: speedEnd, color: COLORS.speed, label: t('seg.speed', '+0,17 m speed') },
+      { from: speedEnd, to: d.Lt, color: theme, label: t('seg.core', `núcleo ${model.labels.core}`, { length: model.labels.core }) },
+      ];
+    if (model.gripper2 && d.L - d.Lt > 0.01) segments.push({ from: d.Lt, to: d.L, color: COLORS.grip, label: t('seg.arm', '+0,68 m 2º braço') });
     for (const segment of segments) {
       paintPoly(quadFloor(bandX0, bandX1, segment.from + 0.005, segment.to - 0.005, 0.007), segment.color, 0.92, null);
     }
@@ -2509,7 +2797,7 @@ function createViewer(canvas) {
     ctx.moveTo(tx - 4, pt.y);
     ctx.lineTo(tx + 4, pt.y);
     ctx.stroke();
-    tag(tx + 6, (pb.y + pt.y) / 2, '1,70 m', '#37444c', 'left');
+    tag(tx + 6, (pb.y + pt.y) / 2, t('human.meters', '1,70 m'), '#37444c', 'left');
     ctx.restore();
   }
 
@@ -2604,20 +2892,20 @@ function createViewer(canvas) {
     const edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
     for (const [i, j] of edges) line3(corners[i], corners[j], color, 0.75, 1.6, [8, 5]);
     paintPoly([corners[4], corners[5], corners[6], corners[7]], color, 0.05, null);
-    const status = { ok: 'cabe', tight: 'cabe, folga < 10 cm', over: 'não cabe' }[room.status];
+    const status = { ok: t('room.ok', 'cabe'), tight: t('room.tight', 'cabe, folga < 10 cm'), over: t('room.over', 'não cabe') }[room.status];
     const top = project(corners[4]);
     if (top.z > 0.15) {
-      const free = (check) => (check.limit == null ? 'livre' : formatFixed(check.limit, 2));
+      const free = (check) => (check.limit == null ? t('free', 'livre') : formatFixed(check.limit, 2));
       const [hc, wc, lc] = room.checks;
-      tag(top.x, top.y - 16, `Sala ${free(hc)} × ${free(wc)} × ${free(lc)} m · ${status}`, color, 'left', true);
+      tag(top.x, top.y - 16, t('room.tag', `Sala ${free(hc)} × ${free(wc)} × ${free(lc)} m · ${status}`, { h: free(hc), w: free(wc), l: free(lc), status }), color, 'left', true);
     }
     room.checks
       .filter((check) => check.status === 'over')
       .forEach((check, index) => {
         const anchor = project(check.dim === 'height' ? P(cx, h, f) : check.dim === 'width' ? P(b, 0, f) : P(a, 0, r));
         if (anchor.z > 0.15) {
-          const name = { height: 'altura', width: 'largura', length: 'comprimento' }[check.dim];
-          tag(anchor.x, anchor.y + 18 + index * 22, `${name} excede ${formatFixed(-check.marginM, 2)} m`, COLORS.over, 'center', true);
+          const name = t(`room.${check.dim}`, { height: 'altura', width: 'largura', length: 'comprimento' }[check.dim]);
+          tag(anchor.x, anchor.y + 18 + index * 22, t('room.exceeds', `${name} excede ${formatFixed(-check.marginM, 2)} m`, { name, m: formatFixed(-check.marginM, 2) }), COLORS.over, 'center', true);
         }
       });
   }
@@ -2654,7 +2942,7 @@ function createViewer(canvas) {
       ctx.stroke();
     }
     ctx.restore();
-    tag(anchor.x + radius + 4, anchor.y - 22, 'Refrigerado', COLORS.cool, 'left', true);
+    tag(anchor.x + radius + 4, anchor.y - 22, t('cool.badge', 'Refrigerado'), COLORS.cool, 'left', true);
   }
 
   function drawHud() {
@@ -2665,9 +2953,9 @@ function createViewer(canvas) {
     ctx.fillText(`GO.compact · Robô ${model.classId}`, 14, 12);
     ctx.font = '500 12px Outfit, "Segoe UI", sans-serif';
     ctx.fillStyle = '#5c675f';
-    ctx.fillText(`${formatFlex(model.capacity)} pacotes · ${THEMES[view.theme].label}${xrayMix > 0.5 ? ' · raios-X' : ''}`, 14, 31);
+    ctx.fillText(`${formatFlex(model.capacity)} ${t('hud.packs', 'pacotes')} · ${t(`hud.theme.${view.theme}`, THEMES[view.theme].label)}${xrayMix > 0.5 ? ` · ${t('hud.xray', 'raios-X')}` : ''}`, 14, 31);
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Grade de 1 m × 1 m', 14, height - 10);
+    ctx.fillText(t('hud.grid', 'Grade de 1 m × 1 m'), 14, height - 10);
     ctx.restore();
   }
 
@@ -2698,7 +2986,7 @@ function createViewer(canvas) {
     if (model.room) drawRoom();
     const xs = -d.Wc / 2 - SAM_PROTRUSION_M;
     dimension(P(d.Wc / 2 + 0.22, 0, -0.08), P(d.Wc / 2 + 0.22, d.H, -0.08), model.labels.H, '#0b3d34');
-    dimension(P(xs, 0, -0.45), P(d.Wc / 2, 0, -0.45), `${model.labels.Ws} c/ SAM`, '#0b3d34');
+    dimension(P(xs, 0, -0.45), P(d.Wc / 2, 0, -0.45), t('dim.withSam', `${model.labels.Ws} c/ SAM`, { width: model.labels.Ws }), '#0b3d34');
     /* Comprimento total: à direita na planta; em perspectiva, à esquerda em primeiro plano, sem cruzar o corpo do robô. */
     if (cam.pitch > 1.05) dimension(P(d.Wc / 2 + 0.48, 0, 0), P(d.Wc / 2 + 0.48, 0, d.L), model.labels.L, '#0b3d34');
     else dimension(P(xs - 0.55, 0, 0), P(xs - 0.55, 0, d.L), model.labels.L, '#0b3d34');
@@ -2797,6 +3085,12 @@ let viewer = null;
 
 function bindChrome() {
   document.getElementById('form').addEventListener('submit', (event) => event.preventDefault());
+  document.getElementById('lang-pt')?.addEventListener('click', () => {
+    if (lang !== 'pt') setLang('pt');
+  });
+  document.getElementById('lang-en')?.addEventListener('click', () => {
+    if (lang !== 'en') setLang('en');
+  });
   document.getElementById('ver-calculo').addEventListener('click', () => {
     const memory = document.getElementById('memoria');
     const button = document.getElementById('ver-calculo');
@@ -2919,7 +3213,9 @@ function bindChrome() {
   syncParams(paramsWide() ? storedParamsOpen() : false);
 }
 
+loadLang();
 loadState();
+applyI18n();
 buildForm();
 fillControls();
 bindChrome();
