@@ -2588,9 +2588,9 @@ function createViewer(canvas) {
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    /* Esteira preta fosca no alto, presa ao quadro junto ao trilho, paralela ao comprimento e correndo para a saída da frente. */
-    const beltX0 = x1 - 0.31;
-    const beltX1 = x1 - 0.08;
+    /* Esteira preta fosca no alto, na lateral oposta ao trilho verde, presa ao quadro junto ao trilho e correndo para a saída da frente. */
+    const beltX0 = x0 + 0.08;
+    const beltX1 = x0 + 0.31;
     const beltTop = railY0 - 0.02;
     const beltBottom = beltTop - 0.07;
     const beltLines = [];
@@ -2608,7 +2608,7 @@ function createViewer(canvas) {
     );
     for (const hanger of [0.4, L * 0.5, L - 0.4]) {
       faces.push(
-        ...box(beltX1 - 0.035, beltX1, beltTop, railY0, hanger, hanger + 0.035, {
+        ...box(beltX0, beltX0 + 0.035, beltTop, railY0, hanger, hanger + 0.035, {
           fill: '#8e989e',
           alpha: 0.92 * mix,
           stroke: '#5c656b',
@@ -2660,9 +2660,14 @@ function createViewer(canvas) {
     };
 
     const grip = (pose) => {
-      const xHome = beltX0 - 0.14;
+      const xPark = x1 - 0.45;
+      const xUnload = beltX1 + 0.14;
       const xAisle = shelfX0 + (shelfX1 - shelfX0) * 0.42;
-      const gx = xHome + (xAisle - xHome) * pose.reach;
+      const gx = pose.boxMode === 'tray'
+        ? xAisle + (xUnload - xAisle) * (1 - pose.reach)
+        : pose.boxMode === 'dump' || pose.boxMode === 'belt'
+          ? xUnload
+          : xPark + (xAisle - xPark) * pose.reach;
       let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
       if (pose.boxMode === 'dump') gy += (beltTop - 0.08 - gy) * pose.boxU;
       const carX0 = gx + 0.02;
