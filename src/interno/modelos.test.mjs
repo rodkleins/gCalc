@@ -207,7 +207,7 @@ describe('composição do preço e exemplos dos slides 7 e 8', () => {
     assert.equal(DEFAULTS.classId, 'L');
     assert.equal(AVERAGE_SERVICES_EUR, 22500);
     assert.equal(DEFAULTS.servicesEur, 22500);
-    assert.equal(DEFAULTS.localServicesBrl, 0);
+    assert.equal(DEFAULTS.localServicesBrl, 250000);
     assert.equal(DEFAULTS.fleetRobots, 1);
     const base = evaluate({});
     assert.equal(base.quote.tablePriceEur, 108000);
@@ -215,6 +215,11 @@ describe('composição do preço e exemplos dos slides 7 e 8', () => {
     assert.equal(base.quote.orderEur, 130500);
     assert.equal(base.quote.discountPct, 0);
     assert.equal(base.quote.netOrderEur, 130500);
+    assert.equal(base.quote.localServicesBrl, 250000);
+    assert.equal(base.totalGrossBrl, toCents(base.brazil.landedBrl + 250000) / 100);
+    assert.equal(base.totalNetBrl, toCents(base.brazil.netBrl + 250000) / 100);
+    assert.equal(sanitize({ localServicesBrl: 0 }).localServicesBrl, 0);
+    assert.equal(sanitize({ localServicesBrl: 120000 }).localServicesBrl, 120000);
     assert.equal(base.quote.footprintM2, 12.8);
     assert.equal(base.quote.volumeM3, 37.76);
     assert.equal(base.modelLine, 'compact');
@@ -650,7 +655,7 @@ describe('importação da NCM 8479.89.99 e créditos', () => {
   });
 
   it('leva o custo Brasil para o resultado e para a memória de cálculo', () => {
-    const result = evaluate({ exTarifario: false, servicesEur: 21000 });
+    const result = evaluate({ exTarifario: false, servicesEur: 21000, localServicesBrl: 0 });
     const expected = brazilCost(129000, { exTarifario: false });
     assert.equal(result.brazil.vaBrl, 799800);
     assert.equal(result.brazil.netBrl, expected.netBrl);

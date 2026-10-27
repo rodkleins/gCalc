@@ -457,7 +457,7 @@ export const DEFAULTS = {
   coolingModule: false,
   conveyorEur: 0,
   servicesEur: AVERAGE_SERVICES_EUR,
-  localServicesBrl: 0,
+  localServicesBrl: 250000,
   includeServices: true,
   roomFilterOn: false,
   roomHeightM: 3,
