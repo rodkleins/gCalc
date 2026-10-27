@@ -2316,7 +2316,7 @@ function createViewer(canvas) {
     return { shell, internals: mix > 0.02 ? buildInternals(fh) : [] };
   }
 
-  /* Interior para os raios-X: estantes que deslizam em d, corredor lateral e o ciclo do gripper. */
+  /* Interior para os raios-X: estantes que deslizam em d, o mastro entra no vão e a esteira corre no alto. */
   function buildInternals(fh) {
     const d = dims;
     const mix = xrayMix;
@@ -2330,7 +2330,7 @@ function createViewer(canvas) {
     const hasExt = model.gripper2 && L - Lt > 0.01;
     const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04;
     const rackTop = H - fh - 0.06;
-    /* Estantes rolantes transversais: cruzam a largura e deixam à direita o corredor do trilho, da esteira e do braço. */
+    /* Estantes rolantes transversais: cruzam a largura e abrem um vão. O mastro entra nesse vão; a esteira fica no alto, junto ao trilho. */
     const shelfX0 = x0 + 0.08;
     const shelfX1 = x1 - 0.34;
     const dCool0 = Math.max(dStart + 0.6, L - 0.92);
@@ -2349,12 +2349,12 @@ function createViewer(canvas) {
     };
 
     /* Ciclo do gripper, em fração de CYCLE:
-       0–0,22 corre no corredor lateral, braço recolhido, e as estantes deslizam até o corredor alvo.
-       0,22–0,26 o vão fica aberto, com o braço ainda na lateral.
-       0,26–0,44 entra no corredor, acende o feixe de laser e abre as pás.
-       0,44–0,62 as pás recuam e puxam a caixa para a bandeja.
-       0,62–0,80 recua até a esteira preta.
-       0,80–1 empurra a caixa na esteira, que a leva para a frente. */
+       0–0,22 o mastro corre no trilho do alto, recolhido, e as estantes deslizam até o corredor alvo.
+       0,22–0,26 o vão fica aberto, com o mastro ainda na lateral.
+       0,26–0,44 o mastro inteiro entra no corredor, acende o feixe de laser e abre as pás.
+       0,44–0,62 as pás recuam e puxam a caixa.
+       0,62–0,80 o mastro recua até a esteira preta.
+       0,80–1 solta a caixa na esteira do alto, que a leva para a frente. */
     const gripperCycle = (phase, zone0, zone1) => {
       const shifted = time + phase;
       const slot = Math.floor(shifted / CYCLE);
@@ -2588,22 +2588,33 @@ function createViewer(canvas) {
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    /* Esteira preta fosca no corredor lateral direito, correndo para a saída da frente. */
+    /* Esteira preta fosca no alto, presa ao quadro junto ao trilho, paralela ao comprimento e correndo para a saída da frente. */
     const beltX0 = x1 - 0.31;
     const beltX1 = x1 - 0.08;
+    const beltTop = railY0 - 0.02;
+    const beltBottom = beltTop - 0.07;
     const beltLines = [];
     const beltShift = (time * 0.42) % 0.3;
     for (let dd = L - 0.16 - beltShift; dd > 0.16; dd -= 0.3) {
-      beltLines.push([P(beltX0 + 0.01, 0.152, dd), P(beltX1 - 0.01, 0.152, dd)]);
+      beltLines.push([P(beltX0 + 0.01, beltTop + 0.002, dd), P(beltX1 - 0.01, beltTop + 0.002, dd)]);
     }
     faces.push(
-      ...box(beltX0, beltX1, 0.08, 0.15, 0.12, L - 0.1, {
+      ...box(beltX0, beltX1, beltBottom, beltTop, 0.12, L - 0.1, {
         fill: '#1a1d20',
         alpha: 0.96 * mix,
         stroke: '#3a4044',
         faces: { top: { lines: beltLines, lineColor: '#4a5158', lineAlpha: 0.7 * mix } },
       }),
     );
+    for (const hanger of [0.4, L * 0.5, L - 0.4]) {
+      faces.push(
+        ...box(beltX1 - 0.035, beltX1, beltTop, railY0, hanger, hanger + 0.035, {
+          fill: '#8e989e',
+          alpha: 0.92 * mix,
+          stroke: '#5c656b',
+        }),
+      );
+    }
 
     const biased = (parts, bias) => parts.map((face) => ({ ...face, bias }));
     const chainLink = (xA, xB, yA, yB, dA, dB) => {
@@ -2620,7 +2631,7 @@ function createViewer(canvas) {
       );
     };
     /* Esteira porta-cabos preta: corre no alto e faz a curva em U até o carro. */
-    const dragChain = (dCenter) => {
+    const dragChain = (dCenter, mastX) => {
       const cx0 = x1 - 0.19;
       const cx1 = x1 - 0.13;
       const yLift = railY1 + 0.1;
@@ -2638,15 +2649,23 @@ function createViewer(canvas) {
         const dd = dCenter + 0.05 + Math.cos(ang) * 0.14;
         chainLink(cx0, cx1, y, y + 0.028, dd, dd + 0.045);
       }
+      const xFar = Math.min(cx0 - 0.02, mastX + 0.06);
+      const span = Math.max(0, cx0 - xFar);
+      const across = 4;
+      for (let index = 0; index < across; index += 1) {
+        const a = xFar + (span * index) / across;
+        const b = xFar + (span * (index + 1)) / across;
+        if (b - a > 0.025) chainLink(a, b, yLift, yLift + 0.03, dCenter - 0.02, dCenter + 0.02);
+      }
     };
 
     const grip = (pose) => {
-      const xOut = (beltX0 + beltX1) / 2 - 0.02;
-      const xIn = shelfX0 + (shelfX1 - shelfX0) * 0.48;
-      const gx = xOut + (xIn - xOut) * pose.reach;
+      const xHome = beltX0 - 0.14;
+      const xAisle = shelfX0 + (shelfX1 - shelfX0) * 0.42;
+      const gx = xHome + (xAisle - xHome) * pose.reach;
       let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
-      if (pose.boxMode === 'dump') gy += (0.32 - gy) * pose.boxU;
-      const carX0 = x1 - 0.24;
+      if (pose.boxMode === 'dump') gy += (beltTop - 0.08 - gy) * pose.boxU;
+      const carX0 = gx + 0.02;
       const carY1 = railY1 + 0.03;
       const dCenter = pose.dCenter;
       const headD = 0.1;
@@ -2654,14 +2673,21 @@ function createViewer(canvas) {
       const headX1 = gx + 0.08;
       const start = faces.length;
       faces.push(
-        ...box(carX0, x1 - 0.05, railY0 - 0.05, carY1, dCenter - 0.16, dCenter + 0.16, {
+        ...box(shelfX0 + 0.04, x1 - 0.1, railY0 + 0.01, railY0 + 0.05, dCenter - 0.03, dCenter + 0.03, {
+          fill: COLORS.rail,
+          alpha: 0.92 * mix,
+          stroke: '#6f7b82',
+        }),
+      );
+      faces.push(
+        ...box(carX0 - 0.03, carX0 + 0.1, railY0 - 0.05, carY1, dCenter - 0.16, dCenter + 0.16, {
           fill: '#c5ced3',
           alpha: mix,
           stroke: '#5e686e',
           faces: {
             top: {
               decals: [{
-                pts: [P(x1 - 0.18, carY1 + 0.002, dCenter + 0.13), P(x1 - 0.11, carY1 + 0.002, dCenter + 0.13), P(x1 - 0.11, carY1 + 0.002, dCenter - 0.13), P(x1 - 0.18, carY1 + 0.002, dCenter - 0.13)],
+                pts: [P(carX0, carY1 + 0.002, dCenter + 0.13), P(carX0 + 0.07, carY1 + 0.002, dCenter + 0.13), P(carX0 + 0.07, carY1 + 0.002, dCenter - 0.13), P(carX0, carY1 + 0.002, dCenter - 0.13)],
                 fill: '#3f8f3a',
                 alpha: mix,
               }],
@@ -2669,7 +2695,7 @@ function createViewer(canvas) {
           },
         }),
       );
-      faces.push(...box(carX0, carX0 + 0.055, gy - 0.02, railY0, dCenter - 0.035, dCenter + 0.035, { fill: '#9aa6ac', alpha: mix, stroke: '#6f7b82' }));
+      faces.push(...box(carX0, carX0 + 0.055, 0.2, railY0, dCenter - 0.035, dCenter + 0.035, { fill: '#9aa6ac', alpha: mix, stroke: '#6f7b82' }));
       faces.push(...box(Math.min(headX1, carX0), Math.max(headX1, carX0), gy - 0.03, gy + 0.02, dCenter - 0.03, dCenter + 0.03, { fill: '#c5ced3', alpha: mix, stroke: '#6d767c' }));
       faces.push(
         ...box(headX0, headX1, gy - 0.07, gy + 0.02, dCenter - headD, dCenter + headD, {
@@ -2747,10 +2773,10 @@ function createViewer(canvas) {
       } else if (pose.boxMode === 'dump') {
         const beltCenter = (beltX0 + beltX1) / 2;
         boxX = gx + (beltCenter - gx) * pose.boxU;
-        boxY = gy + 0.02 + (0.16 - (gy + 0.02)) * pose.boxU;
+        boxY = gy + 0.02 + (beltTop - (gy + 0.02)) * pose.boxU;
       } else if (pose.boxMode === 'belt') {
         boxX = (beltX0 + beltX1) / 2 - 0.02;
-        boxY = 0.15;
+        boxY = beltTop;
         boxD = dCenter - pose.boxU * Math.min(1.15, Math.max(0.2, dCenter - 0.35));
       }
       if (showBox) {
@@ -2771,7 +2797,7 @@ function createViewer(canvas) {
           ),
         );
       }
-      dragChain(dCenter);
+      dragChain(dCenter, carX0);
       for (let index = start; index < faces.length; index += 1) {
         if (faces[index].bias == null) faces[index].bias = -20;
       }
