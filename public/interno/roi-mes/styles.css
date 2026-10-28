@@ -165,6 +165,13 @@ input:focus, textarea:focus, button:focus-visible {
   color: var(--muted);
   margin-top: 0.35rem;
 }
+details.calc { margin-top: 0.35rem; }
+details.calc summary {
+  font-family: Manrope, sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--lav);
+}
 .hero-top, .kpis, .people { display: grid; gap: 0.7rem; }
 .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .kpis .hint { grid-column: 1 / -1; }

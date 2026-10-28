@@ -1,18 +1,19 @@
 /**
- * ROI de MES/EBR (NEO) para plantas farmacêuticas.
+ * ROI de MES/EBR (NEO). OP e lote são a mesma coisa.
  * Os números vêm do usuário. Referências de painel não entram na conta.
  *
- * B1 horas_econ = lotes × (h_hoje − h_futuro)
- *    h_futuro = %sem_desvio × t_exceção + (1 − %sem_desvio) × t_com_desvio
- *    capital de giro = valor_lote × lotes × dias/365 × custo_capital
- * B2 horas = campos × segundos/3600 × lotes (Produção)
- * B3 custo = desvios/ano × %redução × horas × custo-hora (Qualidade)
- * B4 custo evitado = lotes rejeitados × valor × %evitável
- *    break-even = investimento inicial ÷ (lotes rejeitados × valor)
- * B5 horas = limpezas/mês × 12 × minutos/60; caixa = ocorrências × custo
- * B6 caixa = páginas × lotes × custo/página + arquivo anual
- *    indicador ambiental fica fora do ROI
- * B7 e B8 não entram no payback
+ * Preenchimento: horas = OPs × campos × segundos / 3600 (Produção)
+ * Pesagem: horas = OPs × pesagens × minutos / 60 × (2 se houver dupla checagem)
+ * Revisão: h_futuro = %sem_desvio × t_sem + (1 − %) × t_com
+ *    economia da área = OPs × (h_hoje_área − h_futuro × participação da área)
+ *    capital de giro = valor_lote × OPs × dias/365 × custo_capital
+ * Erros: horas = OPs × %com_erro × h_correção × %redução (Qualidade)
+ * Desvios: horas = desvios/ano × h_CAPA × %redução (Qualidade)
+ * Perdas: caixa = quantidade × valor × %evitável
+ *    break-even = (investimento inicial + 1 ano de assinatura) ÷ (quantidade × valor)
+ * Limpeza/Logbook: horas = registros/mês × 12 × minutos/60; caixa = ocorrências × custo
+ * Papel: caixa = páginas × OPs × custo/página + arquivo
+ *    CO₂ fica fora do ROI. Inspeção e quadro não entram no payback.
  */
 
 export const SCENARIOS = ['conservador', 'provavel', 'otimista'];
@@ -28,35 +29,39 @@ export const DISCLAIMER =
 
 /** Exemplo fictício da primeira visita. O investimento inicial soma R$ 550.000 e a assinatura é R$ 180.000/ano. */
 export const EXAMPLE_FIELDS = {
-  lotesAno: '1.000',
-  b1HorasProd: '1,5',
-  b1HorasQual: '1,5',
-  b1PctSemDesvio: '80',
-  b1TempoSem: '0,25',
-  b1TempoCom: '1',
-  b1Dias: '4',
-  b1ValorLote: '80.000',
-  b1CustoCapital: '15',
-  b2Campos: '120',
-  b2Segundos: '30',
-  b3DesviosMes: '8',
-  b3Horas: '6',
-  b3PctConservador: '50',
-  b3PctProvavel: '75',
-  b3PctOtimista: '90',
-  b4Lotes: '3',
-  b4Valor: '250.000',
-  b4Pct: '40',
-  b5LimpezasMes: '40',
-  b5Minutos: '25',
-  b5Ocorrencias: '6',
-  b5Custo: '8.000',
-  b6Paginas: '80',
-  b6CustoPagina: '0,20',
-  b6Arquivo: '12.000',
-  b6Co2: '0,004',
-  b7Nota: 'Inspeção por amostragem no registro de lote eletrônico (EBR), em vez de revisar todo o papel.',
-  b8Nota: 'Absorver um turno extra na revisão sem nova contratação.',
+  opsAno: '1.000',
+  b2Campos: '180',
+  b2Segundos: '25',
+  b2Pesagens: '6',
+  b2Minutos: '8',
+  b3HorasProd: '1,5',
+  b3HorasQual: '1,5',
+  b3PctSem: '80',
+  b3TempoSem: '0,25',
+  b3TempoCom: '1',
+  b3Dias: '4',
+  b3ValorOp: '80.000',
+  b3CustoCapital: '15',
+  b4PctErro: '12',
+  b4HorasErro: '0,5',
+  b4DesviosAno: '96',
+  b4HorasDesvio: '6',
+  b4PctConservador: '50',
+  b4PctProvavel: '75',
+  b4PctOtimista: '90',
+  b5Qtd: '3',
+  b5Valor: '250.000',
+  b5Pct: '40',
+  b6Registros: '40',
+  b6Minutos: '25',
+  b6Ocorrencias: '6',
+  b6Custo: '8.000',
+  b7Paginas: '80',
+  b7CustoPagina: '0,20',
+  b7Arquivo: '12.000',
+  b7Co2: '0,004',
+  b8Nota: 'Inspeção por amostragem no registro de lote eletrônico (EBR), em vez de revisar todo o papel.',
+  b9Nota: 'Absorver um turno extra na revisão sem nova contratação.',
   custoHoraProd: '95',
   custoHoraQual: '150',
   horasFte: '1.760',
@@ -74,43 +79,49 @@ export const EXAMPLE_FIELDS = {
   taxa: '12',
 };
 
+export const EXAMPLE_FLAGS = { b2Dupla: true, incluirHoras: true, modo: 'dedicado' };
+
 export function exampleInput() {
   const field = EXAMPLE_FIELDS;
   return {
-    scope: 'completo',
-    modo: 'dedicado',
-    incluirHoras: true,
-    lotesAno: parseBr(field.lotesAno),
-    b1HorasProd: parseBr(field.b1HorasProd),
-    b1HorasQual: parseBr(field.b1HorasQual),
-    b1PctSemDesvio: percentPoints(field.b1PctSemDesvio),
-    b1TempoSem: parseBr(field.b1TempoSem),
-    b1TempoCom: parseBr(field.b1TempoCom),
-    b1Dias: parseBr(field.b1Dias),
-    b1ValorLote: parseBr(field.b1ValorLote),
-    b1CustoCapital: percentPoints(field.b1CustoCapital),
+    modo: EXAMPLE_FLAGS.modo,
+    incluirHoras: EXAMPLE_FLAGS.incluirHoras,
+    opsAno: parseBr(field.opsAno),
     b2Campos: parseBr(field.b2Campos),
     b2Segundos: parseBr(field.b2Segundos),
-    b3DesviosMes: parseBr(field.b3DesviosMes),
-    b3Horas: parseBr(field.b3Horas),
-    b3Pct: {
-      conservador: percentPoints(field.b3PctConservador),
-      provavel: percentPoints(field.b3PctProvavel),
-      otimista: percentPoints(field.b3PctOtimista),
+    b2Pesagens: parseBr(field.b2Pesagens),
+    b2Minutos: parseBr(field.b2Minutos),
+    b2Dupla: EXAMPLE_FLAGS.b2Dupla,
+    b3HorasProd: parseBr(field.b3HorasProd),
+    b3HorasQual: parseBr(field.b3HorasQual),
+    b3PctSem: percentPoints(field.b3PctSem),
+    b3TempoSem: parseBr(field.b3TempoSem),
+    b3TempoCom: parseBr(field.b3TempoCom),
+    b3Dias: parseBr(field.b3Dias),
+    b3ValorOp: parseBr(field.b3ValorOp),
+    b3CustoCapital: percentPoints(field.b3CustoCapital),
+    b4PctErro: percentPoints(field.b4PctErro),
+    b4HorasErro: parseBr(field.b4HorasErro),
+    b4DesviosAno: parseBr(field.b4DesviosAno),
+    b4HorasDesvio: parseBr(field.b4HorasDesvio),
+    b4Pct: {
+      conservador: percentPoints(field.b4PctConservador),
+      provavel: percentPoints(field.b4PctProvavel),
+      otimista: percentPoints(field.b4PctOtimista),
     },
-    b4Lotes: parseBr(field.b4Lotes),
-    b4Valor: parseBr(field.b4Valor),
-    b4Pct: percentPoints(field.b4Pct),
-    b5LimpezasMes: parseBr(field.b5LimpezasMes),
-    b5Minutos: parseBr(field.b5Minutos),
-    b5Ocorrencias: parseBr(field.b5Ocorrencias),
-    b5Custo: parseBr(field.b5Custo),
-    b6Paginas: parseBr(field.b6Paginas),
-    b6CustoPagina: parseBr(field.b6CustoPagina),
-    b6Arquivo: parseBr(field.b6Arquivo),
-    b6Co2: parseBr(field.b6Co2),
-    b7Nota: field.b7Nota,
+    b5Qtd: parseBr(field.b5Qtd),
+    b5Valor: parseBr(field.b5Valor),
+    b5Pct: percentPoints(field.b5Pct),
+    b6Registros: parseBr(field.b6Registros),
+    b6Minutos: parseBr(field.b6Minutos),
+    b6Ocorrencias: parseBr(field.b6Ocorrencias),
+    b6Custo: parseBr(field.b6Custo),
+    b7Paginas: parseBr(field.b7Paginas),
+    b7CustoPagina: parseBr(field.b7CustoPagina),
+    b7Arquivo: parseBr(field.b7Arquivo),
+    b7Co2: parseBr(field.b7Co2),
     b8Nota: field.b8Nota,
+    b9Nota: field.b9Nota,
     custoHoraProd: parseBr(field.custoHoraProd),
     custoHoraQual: parseBr(field.custoHoraQual),
     horasFte: parseBr(field.horasFte),
@@ -189,10 +200,19 @@ export function manualHours(campos, segundos, lotes) {
   return (n(campos) * n(segundos) / 3600) * n(lotes);
 }
 
-export function deviationEffect(desviosMes, horasPorDesvio, pctReducao) {
-  const desviosAno = n(desviosMes) * 12;
-  const horas = desviosAno * clamp(n(pctReducao), 0, 1) * n(horasPorDesvio);
-  return { desviosAno, horas };
+export function weighingHours(ops, pesagens, minutos, dupla) {
+  return n(ops) * n(pesagens) * n(minutos) / 60 * (dupla ? 2 : 1);
+}
+
+export function fillErrorHours(ops, pctErro, horasPorErro, pctReducao) {
+  const erros = n(ops) * clamp(n(pctErro), 0, 1);
+  const horas = erros * n(horasPorErro) * clamp(n(pctReducao), 0, 1);
+  return { erros, horas };
+}
+
+export function deviationHours(desviosAno, horasPorDesvio, pctReducao) {
+  const horas = n(desviosAno) * n(horasPorDesvio) * clamp(n(pctReducao), 0, 1);
+  return { desviosAno: n(desviosAno), horas };
 }
 
 export function avoidedLoss(lotesRejeitados, valorMedio, pctEvitavel) {
@@ -258,7 +278,7 @@ export function npv(years, rate, annual, months, capex, license) {
 }
 
 function scenarioRate(input, name) {
-  const raw = input.b3Pct?.[name];
+  const raw = input.b4Pct?.[name];
   if (raw == null || raw === '') return { value: 0, assumed: false };
   return { value: clamp(n(raw), 0, 1), assumed: false };
 }
@@ -291,10 +311,23 @@ function capexOf(input) {
   return { ...parts, total: roundMoney(total), licenca: n(input.licenca) };
 }
 
+function blockResult({ label, horasProd = 0, horasQual = 0, custoProd, custoQual, caixa = 0, incluirHoras, formula }) {
+  const reaisHoras = roundMoney(horasProd * custoProd + horasQual * custoQual);
+  const caixaR = roundMoney(caixa);
+  return {
+    label,
+    horas: horasProd + horasQual,
+    horasProducao: horasProd,
+    horasQualidade: horasQual,
+    reaisHoras,
+    caixa: caixaR,
+    total: roundMoney(caixaR + (incluirHoras ? reaisHoras : 0)),
+    formula,
+  };
+}
+
 export function evaluate(input = {}) {
-  const scope = input.scope === 'pesagem' ? 'pesagem' : 'completo';
-  const completo = scope === 'completo';
-  const lotes = n(input.lotesAno);
+  const ops = n(input.opsAno);
   const custoProd = n(input.custoHoraProd);
   const custoQual = n(input.custoHoraQual);
   const fte = fteOf(input);
@@ -304,69 +337,131 @@ export function evaluate(input = {}) {
   const months = rampMonths(modo, curve.values);
   const money = capexOf(input);
   const taxa = input.taxa == null || input.taxa === '' ? null : clamp(n(input.taxa), 0, 1);
+  const dupla = input.b2Dupla === true;
 
-  const b1 = completo
-    ? reviewHours(lotes, input.b1HorasProd, input.b1HorasQual, input.b1PctSemDesvio, input.b1TempoSem, input.b1TempoCom)
-    : { hHoje: 0, hFuturo: 0, horas: 0, horasProducao: 0, horasQualidade: 0 };
-  const capitalGiro = completo
-    ? workingCapital(input.b1ValorLote, lotes, input.b1Dias, input.b1CustoCapital)
-    : 0;
-  const b2Horas = manualHours(input.b2Campos, input.b2Segundos, lotes);
-  const b4 = completo ? avoidedLoss(input.b4Lotes, input.b4Valor, input.b4Pct) : 0;
-  const b5Horas = completo ? cleaningHours(input.b5LimpezasMes, input.b5Minutos) : 0;
-  const b5Caixa = completo ? n(input.b5Ocorrencias) * n(input.b5Custo) : 0;
-  const b6 = paperCash(input.b6Paginas, input.b6CustoPagina, lotes, input.b6Arquivo);
-  const ambiente = paperEnvironment(input.b6Paginas, lotes, input.b6Co2);
+  const preenchHoras = manualHours(input.b2Campos, input.b2Segundos, ops);
+  const pesagemHoras = weighingHours(ops, input.b2Pesagens, input.b2Minutos, dupla);
+  const revisao = reviewHours(ops, input.b3HorasProd, input.b3HorasQual, input.b3PctSem, input.b3TempoSem, input.b3TempoCom);
+  const capitalGiro = workingCapital(input.b3ValorOp, ops, input.b3Dias, input.b3CustoCapital);
+  const perdas = avoidedLoss(input.b5Qtd, input.b5Valor, input.b5Pct);
+  const limpezaHoras = cleaningHours(input.b6Registros, input.b6Minutos);
+  const limpezaCaixa = n(input.b6Ocorrencias) * n(input.b6Custo);
+  const papel = paperCash(input.b7Paginas, input.b7CustoPagina, ops, input.b7Arquivo);
+  const ambiente = paperEnvironment(input.b7Paginas, ops, input.b7Co2);
 
-  const caixaFixo = capitalGiro + b4 + b5Caixa + b6;
-  const horasProdFixas = b1.horasProducao + b2Horas + b5Horas;
-  const horasQualFixas = b1.horasQualidade;
-
-  const investimentoBreakEven = money.total + money.licenca;
-  const breakEven = completo ? breakEvenPct(investimentoBreakEven, input.b4Lotes, input.b4Valor) : null;
+  const caixaFixo = capitalGiro + perdas + limpezaCaixa + papel;
+  const horasProdFixas = preenchHoras + pesagemHoras + revisao.horasProducao + limpezaHoras;
+  const horasQualFixas = revisao.horasQualidade;
+  const breakEven = breakEvenPct(money.total + money.licenca, input.b5Qtd, input.b5Valor);
 
   const scenarios = {};
   for (const name of SCENARIOS) {
     const rate = scenarioRate(input, name);
-    const b3 = deviationEffect(input.b3DesviosMes, input.b3Horas, rate.value);
+    const erros = fillErrorHours(ops, input.b4PctErro, input.b4HorasErro, rate.value);
+    const desvios = deviationHours(input.b4DesviosAno, input.b4HorasDesvio, rate.value);
     const horasProd = horasProdFixas;
-    const horasQual = horasQualFixas + b3.horas;
+    const horasQual = horasQualFixas + erros.horas + desvios.horas;
     const reaisProd = roundMoney(horasProd * custoProd);
     const reaisQual = roundMoney(horasQual * custoQual);
     const reaisHoras = roundMoney(reaisProd + reaisQual);
     const caixa = roundMoney(caixaFixo);
     const base = roundMoney(caixa + (incluirHoras ? reaisHoras : 0));
     const blocks = {
-      b1: {
-        horas: b1.horas,
-        horasProducao: b1.horasProducao,
-        horasQualidade: b1.horasQualidade,
-        reaisHoras: b1.horasProducao * custoProd + b1.horasQualidade * custoQual,
+      preenchimento: blockResult({
+        label: 'Preenchimento da OP',
+        horasProd: preenchHoras,
+        custoProd,
+        custoQual,
+        incluirHoras,
+        formula: [
+          `horas/ano = ${formatNumber(ops, 0)} OPs × ${formatNumber(n(input.b2Campos), 2)} campos × ${formatNumber(n(input.b2Segundos), 2)} s ÷ 3.600 = ${formatNumber(preenchHoras, 2)} h`,
+          `R$ = ${formatNumber(preenchHoras, 2)} h × ${formatBRL(custoProd)} = ${formatBRL(preenchHoras * custoProd)}`,
+        ],
+      }),
+      pesagem: blockResult({
+        label: 'Pesagem na OP',
+        horasProd: pesagemHoras,
+        custoProd,
+        custoQual,
+        incluirHoras,
+        formula: [
+          `horas/ano = ${formatNumber(ops, 0)} OPs × ${formatNumber(n(input.b2Pesagens), 2)} pesagens × ${formatNumber(n(input.b2Minutos), 2)} min ÷ 60 × ${dupla ? 2 : 1} = ${formatNumber(pesagemHoras, 2)} h`,
+          dupla ? 'A dupla checagem do segundo operador dobra as horas.' : 'Dupla checagem desligada: o fator do segundo operador é 1.',
+          `R$ = ${formatNumber(pesagemHoras, 2)} h × ${formatBRL(custoProd)} = ${formatBRL(pesagemHoras * custoProd)}`,
+        ],
+      }),
+      revisao: blockResult({
+        label: 'Revisão da OP',
+        horasProd: revisao.horasProducao,
+        horasQual: revisao.horasQualidade,
+        custoProd,
+        custoQual,
         caixa: capitalGiro,
-        total: (incluirHoras ? b1.horasProducao * custoProd + b1.horasQualidade * custoQual : 0) + capitalGiro,
-      },
-      b2: {
-        horas: b2Horas,
-        reaisHoras: b2Horas * custoProd,
-        caixa: 0,
-        total: incluirHoras ? b2Horas * custoProd : 0,
-      },
-      b3: {
-        horas: b3.horas,
-        desviosAno: b3.desviosAno,
-        pct: rate.value,
-        reaisHoras: b3.horas * custoQual,
-        caixa: 0,
-        total: incluirHoras ? b3.horas * custoQual : 0,
-      },
-      b4: { horas: 0, reaisHoras: 0, caixa: b4, total: b4 },
-      b5: {
-        horas: b5Horas,
-        reaisHoras: b5Horas * custoProd,
-        caixa: b5Caixa,
-        total: b5Caixa + (incluirHoras ? b5Horas * custoProd : 0),
-      },
-      b6: { horas: 0, reaisHoras: 0, caixa: b6, total: b6 },
+        incluirHoras,
+        formula: [
+          `h futuras = ${formatPct(n(input.b3PctSem))} × ${formatNumber(n(input.b3TempoSem), 2)} h + ${formatPct(1 - n(input.b3PctSem))} × ${formatNumber(n(input.b3TempoCom), 2)} h = ${formatNumber(revisao.hFuturo, 2)} h`,
+          `supervisor = ${formatNumber(ops, 0)} × (${formatNumber(n(input.b3HorasProd), 2)} − ${formatNumber(revisao.hFuturo, 2)} × participação) = ${formatNumber(revisao.horasProducao, 2)} h × ${formatBRL(custoProd)}`,
+          `Garantia da Qualidade = ${formatNumber(revisao.horasQualidade, 2)} h × ${formatBRL(custoQual)}`,
+          `capital de giro = ${formatBRL(n(input.b3ValorOp))} × ${formatNumber(ops, 0)} × ${formatNumber(n(input.b3Dias), 2)} ÷ 365 × ${formatPct(n(input.b3CustoCapital))} = ${formatBRL(capitalGiro)}`,
+        ],
+      }),
+      erros: blockResult({
+        label: 'Erros de preenchimento',
+        horasQual: erros.horas,
+        custoProd,
+        custoQual,
+        incluirHoras,
+        formula: [
+          `erros/ano = ${formatNumber(ops, 0)} × ${formatPct(n(input.b4PctErro))} = ${formatNumber(erros.erros, 2)}`,
+          `horas = ${formatNumber(erros.erros, 2)} × ${formatNumber(n(input.b4HorasErro), 2)} h × ${formatPct(rate.value)} = ${formatNumber(erros.horas, 2)} h`,
+          `R$ = ${formatNumber(erros.horas, 2)} h × ${formatBRL(custoQual)} = ${formatBRL(erros.horas * custoQual)}`,
+        ],
+      }),
+      desvios: blockResult({
+        label: 'Desvios de documentação',
+        horasQual: desvios.horas,
+        custoProd,
+        custoQual,
+        incluirHoras,
+        formula: [
+          `horas = ${formatNumber(desvios.desviosAno, 2)} desvios/ano × ${formatNumber(n(input.b4HorasDesvio), 2)} h × ${formatPct(rate.value)} = ${formatNumber(desvios.horas, 2)} h`,
+          `R$ = ${formatNumber(desvios.horas, 2)} h × ${formatBRL(custoQual)} = ${formatBRL(desvios.horas * custoQual)}`,
+        ],
+      }),
+      perdas: blockResult({
+        label: 'Lotes perdidos ou retrabalhados',
+        custoProd,
+        custoQual,
+        caixa: perdas,
+        incluirHoras,
+        formula: [
+          `caixa = ${formatNumber(n(input.b5Qtd), 2)} × ${formatBRL(n(input.b5Valor))} × ${formatPct(n(input.b5Pct))} = ${formatBRL(perdas)}`,
+        ],
+      }),
+      limpeza: blockResult({
+        label: 'Limpeza e Logbook',
+        horasProd: limpezaHoras,
+        custoProd,
+        custoQual,
+        caixa: limpezaCaixa,
+        incluirHoras,
+        formula: [
+          `horas = ${formatNumber(n(input.b6Registros), 2)} registros/mês × 12 × ${formatNumber(n(input.b6Minutos), 2)} min ÷ 60 = ${formatNumber(limpezaHoras, 2)} h`,
+          `R$ das horas = ${formatNumber(limpezaHoras, 2)} h × ${formatBRL(custoProd)} = ${formatBRL(limpezaHoras * custoProd)}`,
+          `caixa = ${formatNumber(n(input.b6Ocorrencias), 2)} × ${formatBRL(n(input.b6Custo))} = ${formatBRL(limpezaCaixa)}`,
+        ],
+      }),
+      papel: blockResult({
+        label: 'Papel, impressão e arquivo',
+        custoProd,
+        custoQual,
+        caixa: papel,
+        incluirHoras,
+        formula: [
+          `caixa = ${formatNumber(n(input.b7Paginas), 2)} páginas × ${formatNumber(ops, 0)} OPs × ${formatBRL(n(input.b7CustoPagina))} + ${formatBRL(n(input.b7Arquivo))} = ${formatBRL(papel)}`,
+          `CO₂ = ${formatNumber(ambiente, 2)} kg/ano, fora do ROI`,
+        ],
+      }),
     };
     scenarios[name] = {
       pct: rate.value,
@@ -390,8 +485,7 @@ export function evaluate(input = {}) {
   }
 
   return {
-    scope,
-    lotes,
+    ops,
     incluirHoras,
     fte,
     curve,
@@ -399,11 +493,12 @@ export function evaluate(input = {}) {
     months,
     money,
     taxa,
-    b1,
+    dupla,
+    revisao,
     capitalGiro: roundMoney(capitalGiro),
     ambiente,
     breakEven,
-    perdaAnual: completo ? n(input.b4Lotes) * n(input.b4Valor) : 0,
+    perdaAnual: n(input.b5Qtd) * n(input.b5Valor),
     scenarios,
     disclaimer: DISCLAIMER,
   };
