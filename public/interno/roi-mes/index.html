@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="description"
+      content="Calculadora interna de ROI do MES/EBR NEO para plantas farmacêuticas. Uso interno, fora de índice."
+    />
+    <meta name="theme-color" content="#09070D" />
+    <title>ROI MES/EBR NEO (interno)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237C1BD8'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-size='12' fill='%23F5F2FA' font-family='sans-serif'%3ENEO%3C/text%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;700&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#resultados">Ir para o resultado</a>
+    <header class="site-header wrap">
+      <div class="brand">
+        <img src="./t2-logo.png" alt="T2 Software" class="logo-t2" />
+        <span class="logo-neo" aria-label="NEO">NEO</span>
+      </div>
+      <div class="header-copy">
+        <p class="kicker">Uso interno · não indexar</p>
+        <h1>ROI do MES/EBR</h1>
+        <p class="lede">
+          Estimativa de retorno da implantação do registro de lote eletrônico (EBR) e do MES em plantas farmacêuticas.
+          A aprovação do lote, o Logbook e os POPs entram na conta só com os números que você informar.
+        </p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="toggle-params" class="ghost" aria-expanded="true" aria-controls="params">Dados</button>
+        <button type="button" id="print">Imprimir</button>
+        <button type="button" id="reset" class="ghost">Limpar</button>
+      </div>
+    </header>
+
+    <div class="workspace wrap" id="workspace">
+      <aside class="params" id="params">
+        <form id="form" autocomplete="off">
+          <section class="card">
+            <h2>Escopo</h2>
+            <div class="choice" role="radiogroup" aria-label="Escopo">
+              <label><input type="radio" name="scope" value="pesagem" /> Só pesagem</label>
+              <label><input type="radio" name="scope" value="completo" checked /> MES/EBR completo</label>
+            </div>
+            <label class="field">
+              <span>Lotes por ano</span>
+              <input id="lotesAno" inputmode="decimal" placeholder="ex.: 1.200" />
+            </label>
+            <p class="hint">Quase todos os blocos multiplicam por este volume. Deixe em branco até ter o número da planta.</p>
+          </section>
+
+          <details class="card" id="block-b1" data-full open>
+            <summary>B1 · Revisão e aprovação do lote</summary>
+            <p class="hint">Revisão por exceção. Referência relatada no painel, sem nome de cliente: planta de softgel de grande porte, revisão de 1h30 para cerca de 15 min.</p>
+            <div class="split">
+              <label class="field"><span>Horas de revisão por lote hoje · Produção</span><input id="b1HorasProd" inputmode="decimal" placeholder="ex.: 1,5" /></label>
+              <label class="field"><span>Horas de revisão por lote hoje · Qualidade</span><input id="b1HorasQual" inputmode="decimal" placeholder="ex.: 1,5" /></label>
+            </div>
+            <label class="field"><span>Lotes sem desvio (%)</span><input id="b1PctSemDesvio" inputmode="decimal" placeholder="ex.: 80" /></label>
+            <div class="split">
+              <label class="field"><span>Tempo futuro sem desvio (h/lote)</span><input id="b1TempoSem" inputmode="decimal" placeholder="ex.: 0,25" /></label>
+              <label class="field"><span>Tempo futuro com desvio (h/lote)</span><input id="b1TempoCom" inputmode="decimal" placeholder="ex.: 1" /></label>
+            </div>
+            <p class="formula">Horas economizadas = lotes × (horas de hoje − horas futuras). Horas futuras = % sem desvio × tempo de exceção + o restante × tempo com desvio.</p>
+            <h3>Capital de giro, se a quarentena encolher</h3>
+            <div class="split">
+              <label class="field"><span>Dias a menos em quarentena</span><input id="b1Dias" inputmode="decimal" placeholder="ex.: 4" /></label>
+              <label class="field"><span>Valor médio do lote (R$)</span><input id="b1ValorLote" inputmode="decimal" placeholder="ex.: 80.000" /></label>
+              <label class="field"><span>Custo de capital (%)</span><input id="b1CustoCapital" inputmode="decimal" placeholder="ex.: 15" /></label>
+            </div>
+          </details>
+
+          <details class="card" id="block-b2" open>
+            <summary id="b2-title">B2 · Eliminação de lançamento manual</summary>
+            <p class="hint" id="b2-hint">Referência relatada no painel: cerca de 3.000 campos manuais por lote eliminados na pesagem. Não é um valor preenchido.</p>
+            <label class="field"><span id="b2-campos">Campos manuais por lote</span><input id="b2Campos" inputmode="decimal" placeholder="ex.: 3.000" /></label>
+            <label class="field"><span>Segundos por campo</span><input id="b2Segundos" inputmode="decimal" placeholder="ex.: 20" /></label>
+            <p class="formula">Horas de Produção = campos × segundos ÷ 3.600 × lotes.</p>
+          </details>
+
+          <details class="card" id="block-b3" open>
+            <summary id="b3-title">B3 · Erros de preenchimento e desvios de documentação</summary>
+            <p class="hint">Os três cenários mudam só este percentual. O resto da planta permanece igual. A conta reduz o risco de retrabalho documental; não promete resultado regulatório.</p>
+            <label class="field"><span>Desvios por mês</span><input id="b3DesviosMes" inputmode="decimal" placeholder="ex.: 8" /></label>
+            <label class="field"><span>Horas de investigação e CAPA por desvio</span><input id="b3Horas" inputmode="decimal" placeholder="ex.: 6" /></label>
+            <div class="split">
+              <label class="field"><span>Redução conservadora (%)</span><input id="b3PctConservador" inputmode="decimal" placeholder="ex.: 50" /></label>
+              <label class="field"><span>Redução provável (%)</span><input id="b3PctProvavel" inputmode="decimal" placeholder="ex.: 75" /></label>
+              <label class="field"><span>Redução otimista (%)</span><input id="b3PctOtimista" inputmode="decimal" placeholder="ex.: 90" /></label>
+            </div>
+            <p class="formula">Custo evitado na Qualidade = desvios por ano × redução × horas × custo-hora.</p>
+          </details>
+
+          <details class="card" id="block-b4" data-full open>
+            <summary>B4 · Lotes perdidos ou retrabalho</summary>
+            <p class="hint">Custo de não fazer nada. O ponto de equilíbrio mostra qual percentual dessas perdas o projeto precisa evitar para se pagar.</p>
+            <label class="field"><span>Lotes rejeitados por ano por causa evitável</span><input id="b4Lotes" inputmode="decimal" placeholder="ex.: 3" /></label>
+            <label class="field"><span>Valor médio do lote rejeitado (R$)</span><input id="b4Valor" inputmode="decimal" placeholder="ex.: 250.000" /></label>
+            <label class="field"><span>Parcela evitável com o projeto (%)</span><input id="b4Pct" inputmode="decimal" placeholder="ex.: 40" /></label>
+          </details>
+
+          <details class="card" id="block-b5" data-full open>
+            <summary>B5 · Limpeza e status de equipamento</summary>
+            <label class="field"><span>Limpezas por mês</span><input id="b5LimpezasMes" inputmode="decimal" placeholder="ex.: 40" /></label>
+            <label class="field"><span>Minutos de controle manual por limpeza</span><input id="b5Minutos" inputmode="decimal" placeholder="ex.: 25" /></label>
+            <div class="split">
+              <label class="field"><span>Ocorrências por ano que o fluxo evita</span><input id="b5Ocorrencias" inputmode="decimal" placeholder="ex.: 6" /></label>
+              <label class="field"><span>Custo de cada ocorrência (R$)</span><input id="b5Custo" inputmode="decimal" placeholder="ex.: 8.000" /></label>
+            </div>
+          </details>
+
+          <details class="card" id="block-b6" open>
+            <summary id="b6-title">B6 · Papel, impressão e arquivo</summary>
+            <p class="hint">Referência relatada no painel: 365.574 páginas eliminadas. O indicador ambiental fica de fora do ROI financeiro.</p>
+            <label class="field"><span id="b6-paginas">Páginas por lote</span><input id="b6Paginas" inputmode="decimal" placeholder="ex.: 80" /></label>
+            <label class="field"><span>Custo por página (R$)</span><input id="b6CustoPagina" inputmode="decimal" placeholder="ex.: 0,20" /></label>
+            <label class="field"><span>Custo anual do arquivo físico (R$)</span><input id="b6Arquivo" inputmode="decimal" placeholder="ex.: 12.000" /></label>
+            <label class="field"><span>CO₂ por página, opcional (kg)</span><input id="b6Co2" inputmode="decimal" placeholder="ex.: 0,004" /></label>
+          </details>
+
+          <details class="card" id="block-b7" data-full>
+            <summary>B7 · Inspeção</summary>
+            <p class="hint">Só cenário qualitativo. Não entra no payback.</p>
+            <label class="field"><span>Como a inspeção muda</span><textarea id="b7Nota" rows="3" placeholder="ex.: amostragem orientada pelo registro, em vez de revisão de 100% do papel"></textarea></label>
+          </details>
+
+          <details class="card" id="block-b8" data-full>
+            <summary>B8 · Crescer sem aumentar o quadro</summary>
+            <p class="hint">Só cenário qualitativo. Não entra no payback.</p>
+            <label class="field"><span>Capacidade que a planta ganharia</span><textarea id="b8Nota" rows="3" placeholder="ex.: absorver um turno extra sem nova contratação na revisão"></textarea></label>
+          </details>
+
+          <section class="card">
+            <h2>Pessoas</h2>
+            <p class="hint">Cada área tem o próprio custo-hora. Horas por FTE em branco usam 1.760 h/ano só para o equivalente de quadro, e a premissa aparece no resultado.</p>
+            <div class="split">
+              <label class="field"><span>Custo-hora · Produção (R$)</span><input id="custoHoraProd" inputmode="decimal" placeholder="ex.: 95" /></label>
+              <label class="field"><span>Custo-hora · Qualidade (R$)</span><input id="custoHoraQual" inputmode="decimal" placeholder="ex.: 150" /></label>
+              <label class="field"><span>Horas por FTE ao ano</span><input id="horasFte" inputmode="decimal" placeholder="1.760" /></label>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="incluirHoras" checked />
+              <span>Incluir horas economizadas no payback</span>
+            </label>
+            <p class="hint">Desmarcado, o payback usa só caixa: lotes perdidos, papel, arquivo, ocorrências de limpeza e capital de giro.</p>
+          </section>
+
+          <section class="card">
+            <h2>Investimento</h2>
+            <p class="hint">Preencha com o orçamento da planta. Esta tela não traz preço da T2.</p>
+            <label class="field"><span>Licença ou assinatura anual (R$)</span><input id="licenca" inputmode="decimal" placeholder="ex.: 180.000" /></label>
+            <label class="field"><span>Implantação (R$)</span><input id="implantacao" inputmode="decimal" placeholder="ex.: 400.000" /></label>
+            <label class="field"><span>Validação CSV / GAMP 5 (R$)</span><input id="validacao" inputmode="decimal" placeholder="ex.: 150.000" /></label>
+            <label class="field"><span>Integração com ERP e equipamentos (R$)</span><input id="integracao" inputmode="decimal" placeholder="ex.: 80.000" /></label>
+            <label class="field"><span>Infraestrutura e dispositivos (R$)</span><input id="infraestrutura" inputmode="decimal" placeholder="ex.: 40.000" /></label>
+            <label class="field"><span>Tempo do time interno (R$)</span><input id="tempoInterno" inputmode="decimal" placeholder="ex.: 60.000" /></label>
+            <label class="field"><span>Treinamento (R$)</span><input id="treinamento" inputmode="decimal" placeholder="ex.: 25.000" /></label>
+            <label class="field"><span>Revisão de receitas (R$)</span><input id="receitas" inputmode="decimal" placeholder="ex.: 30.000" /></label>
+            <h3>Curva de aprendizado, meses 1 a 3</h3>
+            <div class="split">
+              <label class="field"><span>Mês 1 (%)</span><input id="curva1" inputmode="decimal" placeholder="0" /></label>
+              <label class="field"><span>Mês 2 (%)</span><input id="curva2" inputmode="decimal" placeholder="50" /></label>
+              <label class="field"><span>Mês 3 (%)</span><input id="curva3" inputmode="decimal" placeholder="100" /></label>
+            </div>
+            <div class="choice" role="radiogroup" aria-label="Modo de implantação">
+              <label><input type="radio" name="modo" value="dedicado" checked /> Planta a planta, com time dedicado</label>
+              <label><input type="radio" name="modo" value="base" /> Pela base, com key users</label>
+            </div>
+            <p class="hint" id="modo-hint">Time dedicado: os três fatores valem nos meses 1, 2 e 3; depois, 100%. Key users: cada fator dura dois meses e o ganho cheio começa no mês 7. A escolha só altera a rampa.</p>
+            <label class="field"><span>Taxa de desconto para o VPL (%)</span><input id="taxa" inputmode="decimal" placeholder="ex.: 12" /></label>
+          </section>
+        </form>
+      </aside>
+      <div class="backdrop no-print" id="backdrop" hidden></div>
+
+      <main class="stage" id="resultados">
+        <section class="card hero-card">
+          <div class="hero-top">
+            <div>
+              <p class="kicker" id="scope-label">MES/EBR completo</p>
+              <h2>Retorno anual</h2>
+            </div>
+            <div class="scenarios no-print" role="tablist" aria-label="Cenário">
+              <button type="button" data-scenario="conservador">Conservador</button>
+              <button type="button" data-scenario="provavel" aria-pressed="true">Provável</button>
+              <button type="button" data-scenario="otimista">Otimista</button>
+            </div>
+          </div>
+          <div class="kpis" id="kpis"></div>
+          <p class="disclaimer" id="disclaimer">Estimativa baseada nos dados informados. Não substitui a avaliação do seu projeto nem a validação do sistema (CSV).</p>
+        </section>
+
+        <section class="card">
+          <h2>Ganho por bloco</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Bloco</th>
+                  <th>Caixa</th>
+                  <th>Horas</th>
+                  <th>Entra no payback</th>
+                </tr>
+              </thead>
+              <tbody id="blocks"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Produção e Qualidade</h2>
+          <div class="people" id="people"></div>
+        </section>
+
+        <section class="card">
+          <h2>Três cenários</h2>
+          <p class="hint">Só a redução de desvios de documentação muda. Lotes, horas e investimento ficam iguais.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Conservador</th>
+                  <th>Provável</th>
+                  <th>Otimista</th>
+                </tr>
+              </thead>
+              <tbody id="compare"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card" id="break-even-card">
+          <h2>Ponto de equilíbrio das perdas</h2>
+          <p id="break-even"></p>
+        </section>
+
+        <section class="card">
+          <h2>Premissas</h2>
+          <ul id="assumptions"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Plano de medição</h2>
+          <ol class="plan">
+            <li><strong>Baseline, antes da entrada em operação.</strong> Registrar no Logbook horas de revisão, campos manuais, desvios por mês, páginas e lotes rejeitados. Congelar os POPs que a validação vai tocar.</li>
+            <li><strong>12 meses.</strong> Repetir os mesmos indicadores e comparar com esta estimativa, já com o controle de mudanças da validação CSV fechado.</li>
+            <li><strong>24 meses.</strong> Confirmar se a curva estabilizou e revisar custo-hora e custo de capital. A aprovação do lote deve estar no registro de lote eletrônico (EBR).</li>
+          </ol>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
