@@ -7,8 +7,10 @@ import {
   avoidedLoss,
   breakEvenPct,
   cleaningHours,
-  deviationEffect,
+  deviationHours,
   evaluate,
+  fillErrorHours,
+  weighingHours,
   EXAMPLE_FIELDS,
   exampleInput,
   manualHours,
@@ -51,9 +53,12 @@ describe('fórmulas do ROI MES/EBR', () => {
     close(workingCapital(80000, 1000, 4, 0.15), 80000 * 1000 * 4 / 365 * 0.15);
   });
 
-  it('calcula lançamento manual, desvios, perdas, limpeza e papel', () => {
-    assert.equal(manualHours(120, 30, 1000), 1000);
-    assert.deepEqual(deviationEffect(8, 6, 0.75), { desviosAno: 96, horas: 432 });
+  it('calcula preenchimento, pesagem, erros, desvios, perdas, limpeza e papel', () => {
+    assert.equal(manualHours(180, 25, 1000), 1250);
+    assert.equal(weighingHours(1000, 6, 8, true), 1600);
+    assert.equal(weighingHours(1000, 6, 8, false), 800);
+    assert.deepEqual(fillErrorHours(1000, 0.12, 0.5, 0.75), { erros: 120, horas: 45 });
+    assert.deepEqual(deviationHours(96, 6, 0.75), { desviosAno: 96, horas: 432 });
     assert.equal(avoidedLoss(3, 250000, 0.4), 300000);
     assert.equal(breakEvenPct(730000, 3, 250000), 730000 / 750000);
     assert.equal(breakEvenPct(100, 0, 250000), null);
@@ -70,84 +75,43 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(yearGain(2, 1200, months), 1200);
   });
 
-  it('separa caixa e horas e tira B7, B8 e o ambiente do payback', () => {
-    const sample = {
-      scope: 'completo',
-      lotesAno: 1000,
-      b1HorasProd: 1.5,
-      b1HorasQual: 1.5,
-      b1PctSemDesvio: 0.8,
-      b1TempoSem: 0.25,
-      b1TempoCom: 1,
-      b1ValorLote: 80000,
-      b1Dias: 4,
-      b1CustoCapital: 0.15,
-      b2Campos: 120,
-      b2Segundos: 30,
-      b3DesviosMes: 8,
-      b3Horas: 6,
-      b3Pct: { conservador: 0.5, provavel: 0.75, otimista: 0.9 },
-      b4Lotes: 3,
-      b4Valor: 250000,
-      b4Pct: 0.4,
-      b5LimpezasMes: 40,
-      b5Minutos: 25,
-      b5Ocorrencias: 6,
-      b5Custo: 8000,
-      b6Paginas: 80,
-      b6CustoPagina: 0.2,
-      b6Arquivo: 12000,
-      b6Co2: 0.004,
-      b7Nota: 'inspeção por amostragem',
-      b8Nota: 'crescer um turno',
-      custoHoraProd: 95,
-      custoHoraQual: 150,
-      horasFte: 1760,
-      incluirHoras: true,
-      licenca: 180000,
-      implantacao: 400000,
-      validacao: 150000,
-      curva: [0, 0.5, 1],
-      modo: 'dedicado',
-      taxa: 0.12,
-    };
+  it('separa caixa e horas e deixa inspeção, quadro e CO₂ fora do payback', () => {
+    const sample = exampleInput();
     const result = evaluate(sample);
     const provavel = result.scenarios.provavel;
-    assert.equal(provavel.blocks.b2.horas, 1000);
-    assert.equal(provavel.blocks.b3.horas, 432);
-    assert.equal(provavel.blocks.b4.caixa, 300000);
-    assert.equal(provavel.blocks.b6.caixa, 28000);
+    assert.equal(provavel.blocks.preenchimento.horas, 1250);
+    assert.equal(provavel.blocks.pesagem.horas, 1600);
+    assert.equal(provavel.blocks.revisao.horas, 2600);
+    assert.equal(provavel.blocks.erros.horas, 45);
+    assert.equal(provavel.blocks.desvios.horas, 432);
+    assert.equal(provavel.blocks.perdas.caixa, 300000);
+    assert.equal(provavel.blocks.papel.caixa, 28000);
     assert.equal(result.ambiente, 320);
     assert.equal(provavel.caixa, result.capitalGiro + 300000 + 48000 + 28000);
-    assert.ok(Math.abs(provavel.caixa - provavel.reaisHoras) > 1);
     assert.equal(provavel.base, provavel.caixa + provavel.reaisHoras);
-    assert.equal(result.scenarios.conservador.blocks.b3.horas, 96 * 0.5 * 6);
-    assert.equal(result.scenarios.otimista.blocks.b3.horas, 96 * 0.9 * 6);
-    assert.equal(result.scenarios.conservador.blocks.b4.caixa, provavel.blocks.b4.caixa);
-    assert.equal(result.scenarios.otimista.blocks.b6.caixa, provavel.blocks.b6.caixa);
+    assert.match(provavel.blocks.preenchimento.formula.join('\n'), /÷ 3\.600/);
+    assert.match(provavel.blocks.pesagem.formula.join('\n'), /× 2/);
+    assert.equal(result.scenarios.conservador.blocks.desvios.horas, 96 * 0.5 * 6);
+    assert.equal(result.scenarios.otimista.blocks.erros.horas, 120 * 0.5 * 0.9);
+    assert.equal(result.scenarios.conservador.blocks.perdas.caixa, provavel.blocks.perdas.caixa);
+    assert.equal(result.scenarios.otimista.blocks.papel.caixa, provavel.blocks.papel.caixa);
     assert.equal(result.breakEven, 730000 / 750000);
-    assert.equal(provavel.fteProducao, provavel.horasProducao / 1760);
+    close(provavel.horasProducao, 1250 + 1600 + 1300 + 200, 4);
+    close(provavel.horasQualidade, 1300 + 45 + 432, 4);
 
     const semHoras = evaluate({ ...sample, incluirHoras: false });
     assert.equal(semHoras.scenarios.provavel.base, provavel.caixa);
-    assert.equal(semHoras.scenarios.provavel.blocks.b2.total, 0);
-    assert.equal(semHoras.scenarios.provavel.blocks.b3.total, 0);
-    assert.equal(semHoras.scenarios.provavel.blocks.b4.total, 300000);
+    assert.equal(semHoras.scenarios.provavel.blocks.preenchimento.total, 0);
+    assert.equal(semHoras.scenarios.provavel.blocks.erros.total, 0);
+    assert.equal(semHoras.scenarios.provavel.blocks.perdas.total, 300000);
 
-    const pesagem = evaluate({ ...sample, scope: 'pesagem' });
-    assert.equal(pesagem.scenarios.provavel.blocks.b1.total, 0);
-    assert.equal(pesagem.scenarios.provavel.blocks.b4.total, 0);
-    assert.equal(pesagem.scenarios.provavel.blocks.b5.total, 0);
-    assert.equal(pesagem.breakEven, null);
-    assert.equal(pesagem.scenarios.provavel.blocks.b2.horas, 1000);
-    assert.equal(pesagem.scenarios.provavel.blocks.b6.caixa, 28000);
-    assert.equal(pesagem.ambiente, 320);
+    const semDupla = evaluate({ ...sample, b2Dupla: false });
+    assert.equal(semDupla.scenarios.provavel.blocks.pesagem.horas, 800);
 
-    const vazio = evaluate({ scope: 'completo', b3Pct: { conservador: null, provavel: null, otimista: null } });
+    const vazio = evaluate({});
     assert.equal(vazio.scenarios.provavel.base, 0);
-    assert.equal(vazio.scenarios.provavel.blocks.b3.pct, 0);
+    assert.equal(vazio.scenarios.provavel.pct, 0);
     assert.equal(vazio.curve.assumed, true);
-    assert.deepEqual(vazio.months.slice(0, 3), [0, 0.5, 1]);
   });
 
   it('recupera o investimento com a curva dos três primeiros meses', () => {
@@ -155,11 +119,11 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(paybackMonths(1000, 0, 1200, months), 12);
     assert.equal(roiRatio(1, 1200, months, 1000, 0), (1050 - 1000) / 1000);
     const result = evaluate({
-      lotesAno: 10,
-      b4Lotes: 2,
-      b4Valor: 1000,
-      b4Pct: 1,
-      b6Paginas: 0,
+      opsAno: 10,
+      b5Qtd: 2,
+      b5Valor: 1000,
+      b5Pct: 1,
+      b7Paginas: 0,
       incluirHoras: false,
       implantacao: 1000,
       curva: [1, 1, 1],
@@ -174,18 +138,14 @@ describe('fórmulas do ROI MES/EBR', () => {
     for (const value of Object.values(EXAMPLE_FIELDS)) assert.notEqual(String(value).trim(), '');
     const result = evaluate(exampleInput());
     const provavel = result.scenarios.provavel;
-    assert.equal(result.lotes, 1000);
+    assert.equal(result.ops, 1000);
     assert.equal(result.money.total, 550000);
     assert.equal(result.money.licenca, 180000);
-    assert.equal(provavel.paybackMeses, 10);
     assert.equal(provavel.caixa, 507506.85);
-    assert.equal(provavel.horasProducao + provavel.horasQualidade, 4232);
-    assert.equal(provavel.reaisHoras, 497300);
-    assert.equal(result.scope, 'completo');
-    const weighing = evaluate({ ...exampleInput(), scope: 'pesagem' });
-    assert.equal(weighing.scenarios.provavel.blocks.b2.horas, 1000);
-    assert.equal(weighing.scenarios.provavel.blocks.b6.caixa, 28000);
-    assert.equal(weighing.scenarios.provavel.blocks.b1.total, 0);
+    close(provavel.horasProducao + provavel.horasQualidade, 4350 + 1777, 2);
+    close(provavel.reaisHoras, 4350 * 95 + 1777 * 150, 2);
+    assert.equal(provavel.paybackMeses, 9);
+    assert.ok(provavel.blocks.preenchimento.formula.length >= 2);
   });
 });
 
@@ -208,9 +168,12 @@ describe('página interna do ROI MES', () => {
     assert.match(page, /entrada em operação/);
     assert.match(page, /Logbook/);
     assert.match(page, /POP/);
-    assert.match(page, /Só pesagem/);
-    assert.match(page, /MES\/EBR completo/);
-    assert.match(page, /Lotes por ano/);
+    assert.doesNotMatch(page, /Só pesagem/);
+    assert.doesNotMatch(app, /Só pesagem/);
+    assert.match(page, /OPs \(lotes\) por ano/);
+    assert.match(page, /Ver cálculo/);
+    assert.match(page, /Dupla checagem/);
+    assert.match(page, /Garantia da Qualidade/);
     assert.match(page, /Incluir horas economizadas no payback/);
     assert.match(page, /Dados de exemplo fictícios — substitua pelos dados da sua planta/);
     assert.match(page, /Limpar dados/);
@@ -222,7 +185,7 @@ describe('página interna do ROI MES', () => {
     assert.match(page, /1h30/);
     assert.match(page, /3\.000 campos/);
     assert.match(page, /365\.574 páginas/);
-    assert.match(app, /gcalc\.roi-mes\.v1/);
+    assert.match(app, /gcalc\.roi-mes\.v2/);
     assert.match(css, /#09070D/);
     assert.match(css, /#A855F7/);
     assert.match(css, /Sora/);

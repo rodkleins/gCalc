@@ -1,7 +1,7 @@
 import {
   DISCLAIMER,
   EXAMPLE_FIELDS,
-  SCENARIO_LABELS,
+  EXAMPLE_FLAGS,
   SCENARIOS,
   evaluate,
   formatBRL,
@@ -12,30 +12,33 @@ import {
   percentPoints,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.roi-mes.v1';
+const STORAGE_KEY = 'gcalc.roi-mes.v2';
 
 const NUMBER_FIELDS = [
-  'lotesAno',
-  'b1HorasProd',
-  'b1HorasQual',
-  'b1TempoSem',
-  'b1TempoCom',
-  'b1Dias',
-  'b1ValorLote',
+  'opsAno',
   'b2Campos',
   'b2Segundos',
-  'b3DesviosMes',
-  'b3Horas',
-  'b4Lotes',
-  'b4Valor',
-  'b5LimpezasMes',
-  'b5Minutos',
-  'b5Ocorrencias',
-  'b5Custo',
-  'b6Paginas',
-  'b6CustoPagina',
-  'b6Arquivo',
-  'b6Co2',
+  'b2Pesagens',
+  'b2Minutos',
+  'b3HorasProd',
+  'b3HorasQual',
+  'b3TempoSem',
+  'b3TempoCom',
+  'b3Dias',
+  'b3ValorOp',
+  'b4HorasErro',
+  'b4DesviosAno',
+  'b4HorasDesvio',
+  'b5Qtd',
+  'b5Valor',
+  'b6Registros',
+  'b6Minutos',
+  'b6Ocorrencias',
+  'b6Custo',
+  'b7Paginas',
+  'b7CustoPagina',
+  'b7Arquivo',
+  'b7Co2',
   'custoHoraProd',
   'custoHoraQual',
   'horasFte',
@@ -50,27 +53,21 @@ const NUMBER_FIELDS = [
 ];
 
 const PERCENT_FIELDS = [
-  'b1PctSemDesvio',
-  'b1CustoCapital',
-  'b3PctConservador',
-  'b3PctProvavel',
-  'b3PctOtimista',
-  'b4Pct',
+  'b3PctSem',
+  'b3CustoCapital',
+  'b4PctErro',
+  'b4PctConservador',
+  'b4PctProvavel',
+  'b4PctOtimista',
+  'b5Pct',
   'curva1',
   'curva2',
   'curva3',
   'taxa',
 ];
 
-const TEXT_FIELDS = ['b7Nota', 'b8Nota'];
-const BLOCKS = {
-  b1: 'Revisão e aprovação do lote',
-  b2: 'Lançamento manual',
-  b3: 'Desvios de documentação',
-  b4: 'Lotes perdidos',
-  b5: 'Limpeza e status',
-  b6: 'Papel e arquivo',
-};
+const TEXT_FIELDS = ['b8Nota', 'b9Nota'];
+const BLOCK_ORDER = ['preenchimento', 'pesagem', 'revisao', 'erros', 'desvios', 'perdas', 'limpeza', 'papel'];
 
 let scenario = 'provavel';
 let showingExample = false;
@@ -94,15 +91,16 @@ function writeFields(values) {
 
 function fillExample() {
   writeFields(EXAMPLE_FIELDS);
-  document.querySelector('input[name="scope"][value="completo"]').checked = true;
   document.querySelector('input[name="modo"][value="dedicado"]').checked = true;
-  document.getElementById('incluirHoras').checked = true;
+  document.getElementById('b2Dupla').checked = EXAMPLE_FLAGS.b2Dupla;
+  document.getElementById('incluirHoras').checked = EXAMPLE_FLAGS.incluirHoras;
   scenario = 'provavel';
   setExampleVisible(true);
 }
 
 function clearPlant() {
   writeFields({});
+  document.getElementById('b2Dupla').checked = false;
   setExampleVisible(false);
 }
 
@@ -112,31 +110,31 @@ function readValue(id) {
 
 function readInput() {
   const input = {
-    scope: document.querySelector('input[name="scope"]:checked')?.value || 'completo',
     modo: document.querySelector('input[name="modo"]:checked')?.value || 'dedicado',
     incluirHoras: document.getElementById('incluirHoras').checked,
-    b3Pct: {
-      conservador: percentPoints(readValue('b3PctConservador')),
-      provavel: percentPoints(readValue('b3PctProvavel')),
-      otimista: percentPoints(readValue('b3PctOtimista')),
+    b2Dupla: document.getElementById('b2Dupla').checked,
+    b4Pct: {
+      conservador: percentPoints(readValue('b4PctConservador')),
+      provavel: percentPoints(readValue('b4PctProvavel')),
+      otimista: percentPoints(readValue('b4PctOtimista')),
     },
     curva: [percentPoints(readValue('curva1')), percentPoints(readValue('curva2')), percentPoints(readValue('curva3'))],
-    b7Nota: readValue('b7Nota').trim(),
     b8Nota: readValue('b8Nota').trim(),
+    b9Nota: readValue('b9Nota').trim(),
   };
   for (const id of NUMBER_FIELDS) input[id] = parseBr(readValue(id));
-  input.b1PctSemDesvio = percentPoints(readValue('b1PctSemDesvio'));
-  input.b1CustoCapital = percentPoints(readValue('b1CustoCapital'));
-  input.b4Pct = percentPoints(readValue('b4Pct'));
+  input.b3PctSem = percentPoints(readValue('b3PctSem'));
+  input.b3CustoCapital = percentPoints(readValue('b3CustoCapital'));
+  input.b4PctErro = percentPoints(readValue('b4PctErro'));
+  input.b5Pct = percentPoints(readValue('b5Pct'));
   input.taxa = percentPoints(readValue('taxa'));
   input.horasFte = parseBr(readValue('horasFte'));
   return input;
 }
 
 function snapshot() {
-  const data = { scenario, example: showingExample };
+  const data = { scenario, example: showingExample, b2Dupla: document.getElementById('b2Dupla').checked };
   for (const id of [...NUMBER_FIELDS, ...PERCENT_FIELDS, ...TEXT_FIELDS]) data[id] = readValue(id);
-  data.scope = document.querySelector('input[name="scope"]:checked')?.value || 'completo';
   data.modo = document.querySelector('input[name="modo"]:checked')?.value || 'dedicado';
   data.incluirHoras = document.getElementById('incluirHoras').checked;
   return data;
@@ -172,10 +170,7 @@ function restore() {
       const field = document.getElementById(id);
       if (field && typeof data[id] === 'string') field.value = data[id];
     }
-    if (data.scope === 'pesagem' || data.scope === 'completo') {
-      const radio = document.querySelector(`input[name="scope"][value="${data.scope}"]`);
-      if (radio) radio.checked = true;
-    }
+    if (typeof data.b2Dupla === 'boolean') document.getElementById('b2Dupla').checked = data.b2Dupla;
     if (data.modo === 'dedicado' || data.modo === 'base') {
       const radio = document.querySelector(`input[name="modo"][value="${data.modo}"]`);
       if (radio) radio.checked = true;
@@ -188,32 +183,11 @@ function restore() {
   }
 }
 
-function applyScope(scope) {
-  const weighing = scope === 'pesagem';
-  document.querySelectorAll('[data-full]').forEach((node) => {
-    node.hidden = weighing;
-  });
-  document.getElementById('b2-title').textContent = weighing
-    ? 'B2 · Lançamento manual na pesagem'
-    : 'B2 · Eliminação de lançamento manual';
-  document.getElementById('b2-campos').textContent = weighing ? 'Campos manuais da pesagem por lote' : 'Campos manuais por lote';
-  document.getElementById('b3-title').textContent = weighing
-    ? 'B3 · Erros e desvios da documentação de pesagem'
-    : 'B3 · Erros de preenchimento e desvios de documentação';
-  document.getElementById('b6-title').textContent = weighing
-    ? 'B6 · Papel da ordem de pesagem'
-    : 'B6 · Papel, impressão e arquivo';
-  document.getElementById('b6-paginas').textContent = weighing ? 'Páginas da ordem de pesagem por lote' : 'Páginas por lote';
-  document.getElementById('scope-label').textContent = weighing ? 'Só pesagem' : 'MES/EBR completo';
-  document.getElementById('break-even-card').hidden = weighing;
-}
-
 function moneyCell(value) {
   return `<td class="num">${formatBRL(value)}</td>`;
 }
 
 function render(result) {
-  applyScope(result.scope);
   const current = result.scenarios[scenario];
   document.querySelectorAll('[data-scenario]').forEach((button) => {
     button.setAttribute('aria-pressed', button.dataset.scenario === scenario ? 'true' : 'false');
@@ -229,17 +203,22 @@ function render(result) {
   ].map(([label, value]) => `<article class="kpi"><span>${label}</span><strong>${value}</strong></article>`).join('')
     + `<p class="hint">Payback em ${paybackBase}. Capacidade e caixa aparecem separados mesmo quando as horas entram na conta.</p>`;
 
-  const rows = Object.entries(BLOCKS).filter(([key]) => result.scope === 'completo' || ['b2', 'b3', 'b6'].includes(key));
-  document.getElementById('blocks').innerHTML = rows.map(([key, label]) => {
+  document.getElementById('blocks').innerHTML = BLOCK_ORDER.map((key) => {
     const block = current.blocks[key];
-    return `<tr><th>${label}</th>${moneyCell(block.caixa)}<td class="num">${formatNumber(block.horas, 0)} h</td>${moneyCell(block.total)}</tr>`;
+    const steps = (block.formula || []).map((line) => `<p class="formula">${line}</p>`).join('');
+    return `<tr>
+      <th>${block.label}<details class="calc"><summary>Ver cálculo</summary>${steps}</details></th>
+      ${moneyCell(block.caixa)}
+      <td class="num">${formatNumber(block.horas, 1)} h</td>
+      ${moneyCell(block.total)}
+    </tr>`;
   }).join('') + (result.ambiente > 0
     ? `<tr><th>Ambiente, fora do ROI</th><td class="num" colspan="3">${formatNumber(result.ambiente, 1)} kg CO₂/ano</td></tr>`
     : '');
 
   document.getElementById('people').innerHTML = [
     ['Produção', current.horasProducao, current.fteProducao, current.reaisProducao],
-    ['Qualidade', current.horasQualidade, current.fteQualidade, current.reaisQualidade],
+    ['Garantia da Qualidade', current.horasQualidade, current.fteQualidade, current.reaisQualidade],
   ].map(([name, hours, fte, reais]) => `
     <article class="person">
       <span>${name}</span>
@@ -260,18 +239,13 @@ function render(result) {
     metric('VPL em 5 anos', (item) => item.npv5, formatBRL),
   ].join('');
 
-  const notes = [
-    result.scope === 'completo' && result.inputNotes,
-  ];
   document.getElementById('break-even').textContent = result.breakEven == null
     ? 'Informe os lotes rejeitados e o valor médio do lote para ver qual percentual evita o suficiente para cobrir o investimento inicial e um ano de assinatura.'
     : `O projeto precisa evitar ${formatPct(result.breakEven)} das perdas anuais (${formatBRL(result.perdaAnual)}) para cobrir ${formatBRL(result.money.total + result.money.licenca)}. A parcela evitável que você informou segue igual nos três cenários.`;
 
   const assumptions = [
-    result.scope === 'pesagem'
-      ? 'Escopo só pesagem: entram lançamento manual, desvios de documentação da pesagem e papel da ordem. Revisão, perdas, limpeza, inspeção e quadro ficam de fora.'
-      : 'Escopo MES/EBR completo. Inspeção e crescimento de quadro ficam só no texto e fora do payback.',
-    `Lotes por ano usados na conta: ${formatNumber(result.lotes, 0)}.`,
+    'OP e lote são a mesma coisa. Inspeção e crescimento de quadro ficam só no texto e fora do payback.',
+    `OPs (lotes) por ano usados na conta: ${formatNumber(result.ops, 0)}.`,
     result.incluirHoras
       ? 'As horas economizadas entram no payback, convertidas pelo custo-hora de cada área.'
       : 'O payback usa só caixa: lotes perdidos, papel, arquivo, ocorrências e capital de giro.',
@@ -290,12 +264,11 @@ function render(result) {
     result.taxa == null
       ? 'VPL em branco até você informar a taxa de desconto.'
       : `VPL descontado a ${formatPct(result.taxa)} ao ano.`,
-    readValue('b7Nota') ? `Inspeção: ${readValue('b7Nota')}` : '',
-    readValue('b8Nota') ? `Crescimento sem aumentar o quadro: ${readValue('b8Nota')}` : '',
+    readValue('b8Nota') ? `Inspeção: ${readValue('b8Nota')}` : '',
+    readValue('b9Nota') ? `Crescimento sem aumentar o quadro: ${readValue('b9Nota')}` : '',
   ].filter(Boolean);
   document.getElementById('assumptions').innerHTML = assumptions.map((item) => `<li>${item}</li>`).join('');
   document.getElementById('disclaimer').textContent = DISCLAIMER;
-  void notes;
 }
 
 function refresh() {
