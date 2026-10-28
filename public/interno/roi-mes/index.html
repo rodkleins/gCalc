@@ -37,9 +37,11 @@
       <div class="header-actions no-print">
         <button type="button" id="toggle-params" class="ghost" aria-expanded="true" aria-controls="params">Dados</button>
         <button type="button" id="print">Imprimir</button>
-        <button type="button" id="reset" class="ghost">Limpar</button>
+        <button type="button" id="clear-data" class="ghost">Limpar dados</button>
+        <button type="button" id="restore-example" class="ghost">Restaurar exemplo</button>
       </div>
     </header>
+    <p class="example-banner wrap" id="example-banner" role="status">Dados de exemplo fictícios — substitua pelos dados da sua planta</p>
 
     <div class="workspace wrap" id="workspace">
       <aside class="params" id="params">
@@ -54,7 +56,7 @@
               <span>Lotes por ano</span>
               <input id="lotesAno" inputmode="decimal" placeholder="ex.: 1.200" />
             </label>
-            <p class="hint">Quase todos os blocos multiplicam por este volume. Deixe em branco até ter o número da planta.</p>
+            <p class="hint">Quase todos os blocos multiplicam por este volume. Troque o exemplo pelo número da planta.</p>
           </section>
 
           <details class="card" id="block-b1" data-full open>

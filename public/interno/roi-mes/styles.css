@@ -73,7 +73,17 @@ p { margin: 0; }
   margin-bottom: 0.25rem;
 }
 .lede { color: var(--muted); max-width: 62ch; margin-top: 0.35rem; }
-.header-actions { display: flex; gap: 0.45rem; align-items: center; }
+.header-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; justify-content: flex-end; }
+.example-banner {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #A855F7;
+  border-radius: 12px;
+  background: #120E1B;
+  color: #F3E8FF;
+  font-family: Sora, Manrope, sans-serif;
+  font-weight: 700;
+}
 button, .choice label {
   border: 1px solid var(--line);
   background: var(--surface-2);
