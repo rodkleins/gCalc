@@ -9,6 +9,8 @@ import {
   cleaningHours,
   deviationEffect,
   evaluate,
+  EXAMPLE_FIELDS,
+  exampleInput,
   manualHours,
   paperCash,
   paperEnvironment,
@@ -167,6 +169,24 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(result.scenarios.provavel.paybackMeses, 6);
     assert.equal(result.scenarios.provavel.roi5, (2000 * 5 - 1000) / 1000);
   });
+
+  it('o exemplo fictício da primeira visita preenche a planta e fecha o payback', () => {
+    for (const value of Object.values(EXAMPLE_FIELDS)) assert.notEqual(String(value).trim(), '');
+    const result = evaluate(exampleInput());
+    const provavel = result.scenarios.provavel;
+    assert.equal(result.lotes, 1000);
+    assert.equal(result.money.total, 550000);
+    assert.equal(result.money.licenca, 180000);
+    assert.equal(provavel.paybackMeses, 10);
+    assert.equal(provavel.caixa, 507506.85);
+    assert.equal(provavel.horasProducao + provavel.horasQualidade, 4232);
+    assert.equal(provavel.reaisHoras, 497300);
+    assert.equal(result.scope, 'completo');
+    const weighing = evaluate({ ...exampleInput(), scope: 'pesagem' });
+    assert.equal(weighing.scenarios.provavel.blocks.b2.horas, 1000);
+    assert.equal(weighing.scenarios.provavel.blocks.b6.caixa, 28000);
+    assert.equal(weighing.scenarios.provavel.blocks.b1.total, 0);
+  });
 });
 
 describe('página interna do ROI MES', () => {
@@ -192,6 +212,11 @@ describe('página interna do ROI MES', () => {
     assert.match(page, /MES\/EBR completo/);
     assert.match(page, /Lotes por ano/);
     assert.match(page, /Incluir horas economizadas no payback/);
+    assert.match(page, /Dados de exemplo fictícios — substitua pelos dados da sua planta/);
+    assert.match(page, /Limpar dados/);
+    assert.match(page, /Restaurar exemplo/);
+    assert.match(app, /EXAMPLE_FIELDS/);
+    assert.match(app, /if \(!raw\)/);
     assert.equal(page.includes(DISCLAIMER), true);
     assert.match(page, /[Rr]eferência relatada no painel/);
     assert.match(page, /1h30/);

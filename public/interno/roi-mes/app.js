@@ -1,5 +1,6 @@
 import {
   DISCLAIMER,
+  EXAMPLE_FIELDS,
   SCENARIO_LABELS,
   SCENARIOS,
   evaluate,
@@ -72,6 +73,38 @@ const BLOCKS = {
 };
 
 let scenario = 'provavel';
+let showingExample = false;
+
+function banner() {
+  return document.getElementById('example-banner');
+}
+
+function setExampleVisible(on) {
+  showingExample = on;
+  const node = banner();
+  if (node) node.hidden = !on;
+}
+
+function writeFields(values) {
+  for (const id of [...NUMBER_FIELDS, ...PERCENT_FIELDS, ...TEXT_FIELDS]) {
+    const field = document.getElementById(id);
+    if (field) field.value = values[id] ?? '';
+  }
+}
+
+function fillExample() {
+  writeFields(EXAMPLE_FIELDS);
+  document.querySelector('input[name="scope"][value="completo"]').checked = true;
+  document.querySelector('input[name="modo"][value="dedicado"]').checked = true;
+  document.getElementById('incluirHoras').checked = true;
+  scenario = 'provavel';
+  setExampleVisible(true);
+}
+
+function clearPlant() {
+  writeFields({});
+  setExampleVisible(false);
+}
 
 function readValue(id) {
   return document.getElementById(id)?.value ?? '';
@@ -101,7 +134,7 @@ function readInput() {
 }
 
 function snapshot() {
-  const data = { scenario };
+  const data = { scenario, example: showingExample };
   for (const id of [...NUMBER_FIELDS, ...PERCENT_FIELDS, ...TEXT_FIELDS]) data[id] = readValue(id);
   data.scope = document.querySelector('input[name="scope"]:checked')?.value || 'completo';
   data.modo = document.querySelector('input[name="modo"]:checked')?.value || 'dedicado';
@@ -118,11 +151,23 @@ function persist() {
 }
 
 function restore() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    fillExample();
+    return;
+  }
+  if (!raw) {
+    fillExample();
+    return;
+  }
+  try {
     const data = JSON.parse(raw);
-    if (!data || typeof data !== 'object') return;
+    if (!data || typeof data !== 'object') {
+      fillExample();
+      return;
+    }
     for (const id of [...NUMBER_FIELDS, ...PERCENT_FIELDS, ...TEXT_FIELDS]) {
       const field = document.getElementById(id);
       if (field && typeof data[id] === 'string') field.value = data[id];
@@ -137,8 +182,9 @@ function restore() {
     }
     if (typeof data.incluirHoras === 'boolean') document.getElementById('incluirHoras').checked = data.incluirHoras;
     if (SCENARIOS.includes(data.scenario)) scenario = data.scenario;
+    setExampleVisible(data.example === true);
   } catch {
-    /* armazenamento corrompido */
+    fillExample();
   }
 }
 
@@ -260,8 +306,12 @@ function refresh() {
 
 function bind() {
   const form = document.getElementById('form');
-  form.addEventListener('input', refresh);
-  form.addEventListener('change', refresh);
+  const edited = () => {
+    setExampleVisible(false);
+    refresh();
+  };
+  form.addEventListener('input', edited);
+  form.addEventListener('change', edited);
   document.querySelectorAll('[data-scenario]').forEach((button) => {
     button.addEventListener('click', () => {
       scenario = button.dataset.scenario;
@@ -269,13 +319,12 @@ function bind() {
     });
   });
   document.getElementById('print').addEventListener('click', () => window.print());
-  document.getElementById('reset').addEventListener('click', () => {
-    form.reset();
-    document.querySelector('input[name="scope"][value="completo"]').checked = true;
-    document.querySelector('input[name="modo"][value="dedicado"]').checked = true;
-    document.getElementById('incluirHoras').checked = true;
-    scenario = 'provavel';
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  document.getElementById('clear-data').addEventListener('click', () => {
+    clearPlant();
+    refresh();
+  });
+  document.getElementById('restore-example').addEventListener('click', () => {
+    fillExample();
     refresh();
   });
   const workspace = document.getElementById('workspace');
