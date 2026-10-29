@@ -1,5 +1,5 @@
 /* ROI do EBR · Conceito 2 "Instrumento" (tokens do Claude Design, sem runtime React). */
-.rv{--bg:#EEF3F4;--panel:#FFFFFF;--panel2:#E3EBED;--line:#C9D6DA;--text:#0E2229;--muted:#4E6068;--ink:#0A2A35;--cash:#12865A;--people:#1F64C8;--cap:#B86200;--neg:#B23A2E;--s0:#0E4A5C;--s1:#2A7890;--s2:#5DA6BC;--s3:#A5D2DE;--glow:rgba(31,100,200,.08);color-scheme:light}
+.rv{--bg:#EEF3F4;--panel:#FFFFFF;--panel2:#E3EBED;--line:#C9D6DA;--text:#0E2229;--muted:#4E6068;--ink:#0A2A35;--cash:#12865A;--people:#1F64C8;--cap:#B86200;--neg:#B23A2E;--s0:#0E4A5C;--s1:#2A7890;--s2:#5DA6BC;--s3:#A5D2DE;--glow:rgba(31,100,200,.08);--t2-night:#09070D;--t2-violet:#A855F7;color-scheme:light}
 html[data-theme="dark"] .rv{--bg:#061015;--panel:#0C1C22;--panel2:#11262E;--line:#1D3742;--text:#E4EEF0;--muted:#8DA3AB;--ink:#F2F8F9;--cash:#3DDC97;--people:#5AA9FF;--cap:#F5A524;--neg:#FF7A6B;--s0:#1F6E86;--s1:#3793AE;--s2:#69B9CF;--s3:#A8DCEA;--glow:rgba(90,169,255,.10);color-scheme:dark}
 html[data-theme="dark"] body{background:#061015}
 html[data-theme="light"] body{background:#EEF3F4}
