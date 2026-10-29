@@ -14,6 +14,7 @@ import {
   EXAMPLE_FIELDS,
   exampleInput,
   manualHours,
+  paperArchive,
   paperCash,
   paperEnvironment,
   parseBr,
@@ -63,7 +64,18 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(breakEvenPct(730000, 3, 250000), 730000 / 750000);
     assert.equal(breakEvenPct(100, 0, 250000), null);
     assert.equal(cleaningHours(40, 25), 200);
-    assert.equal(paperCash(80, 0.2, 1000, 12000), 28000);
+    assert.equal(paperCash(80, 0.2, 1000), 16000);
+    const arquivo = paperArchive(exampleInput());
+    assert.equal(arquivo.anos, 3);
+    assert.equal(arquivo.acumulado, 240000);
+    assert.equal(arquivo.caixasAno, 32);
+    assert.equal(arquivo.guarda, 12 * 1200 + 6000);
+    assert.equal(arquivo.destruicao, 32 * 45);
+    assert.equal(arquivo.eletronico, 8400);
+    assert.equal(arquivo.caixa, 14400 + 6000 + 1440 - 8400);
+    assert.equal(arquivo.horasBusca, 36);
+    const externa = paperArchive({ ...exampleInput(), b7Modo: 'externa' });
+    assert.equal(externa.guarda, 96 * 180);
     assert.equal(paperEnvironment(80, 1000, 0.004), 320);
   });
 
@@ -85,9 +97,13 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(provavel.blocks.erros.horas, 45);
     assert.equal(provavel.blocks.desvios.horas, 432);
     assert.equal(provavel.blocks.perdas.caixa, 300000);
-    assert.equal(provavel.blocks.papel.caixa, 28000);
+    assert.equal(provavel.blocks.papel.caixa, 16000);
+    assert.equal(provavel.blocks.arquivo.caixa, 13440);
+    assert.equal(provavel.blocks.arquivo.horasQualidade, 36);
+    assert.match(provavel.blocks.arquivo.formula.join('\n'), /volume acumulado/);
+    assert.match(provavel.blocks.arquivo.formula.join('\n'), /registros eletrônicos/);
     assert.equal(result.ambiente, 320);
-    assert.equal(provavel.caixa, result.capitalGiro + 300000 + 48000 + 28000);
+    assert.equal(provavel.caixa, result.capitalGiro + 300000 + 48000 + 16000 + 13440);
     assert.equal(provavel.base, provavel.caixa + provavel.reaisHoras);
     assert.match(provavel.blocks.preenchimento.formula.join('\n'), /÷ 3\.600/);
     assert.match(provavel.blocks.pesagem.formula.join('\n'), /× 2/);
@@ -97,7 +113,7 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(result.scenarios.otimista.blocks.papel.caixa, provavel.blocks.papel.caixa);
     assert.equal(result.breakEven, 730000 / 750000);
     close(provavel.horasProducao, 1250 + 1600 + 1300 + 200, 4);
-    close(provavel.horasQualidade, 1300 + 45 + 432, 4);
+    close(provavel.horasQualidade, 1300 + 45 + 432 + 36, 4);
 
     const semHoras = evaluate({ ...sample, incluirHoras: false });
     assert.equal(semHoras.scenarios.provavel.base, provavel.caixa);
@@ -141,9 +157,9 @@ describe('fórmulas do ROI MES/EBR', () => {
     assert.equal(result.ops, 1000);
     assert.equal(result.money.total, 550000);
     assert.equal(result.money.licenca, 180000);
-    assert.equal(provavel.caixa, 507506.85);
-    close(provavel.horasProducao + provavel.horasQualidade, 4350 + 1777, 2);
-    close(provavel.reaisHoras, 4350 * 95 + 1777 * 150, 2);
+    assert.equal(provavel.caixa, 508946.85);
+    close(provavel.horasProducao + provavel.horasQualidade, 4350 + 1813, 2);
+    close(provavel.reaisHoras, 4350 * 95 + 1813 * 150, 2);
     assert.equal(provavel.paybackMeses, 9);
     assert.ok(provavel.blocks.preenchimento.formula.length >= 2);
   });
@@ -185,7 +201,12 @@ describe('página interna do ROI MES', () => {
     assert.match(page, /1h30/);
     assert.match(page, /3\.000 campos/);
     assert.match(page, /365\.574 páginas/);
-    assert.match(app, /gcalc\.roi-mes\.v2/);
+    assert.match(app, /gcalc\.roi-mes\.v3/);
+    assert.match(page, /id="ring"/);
+    assert.match(page, /Armazenamento do papel/);
+    assert.match(page, /Registros eletrônicos por ano/);
+    assert.match(page, /role="tablist"/);
+    assert.match(calc, /volume acumulado/);
     assert.match(css, /#09070D/);
     assert.match(css, /#A855F7/);
     assert.match(css, /Sora/);

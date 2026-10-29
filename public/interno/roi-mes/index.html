@@ -43,6 +43,20 @@
     </header>
     <p class="example-banner wrap" id="example-banner" role="status">Dados de exemplo fictícios — substitua pelos dados da sua planta</p>
 
+    <section class="ring-band wrap no-print" aria-labelledby="ring-title">
+      <h2 id="ring-title" class="kicker">Retorno por dimensão</h2>
+      <div class="ring-layout">
+        <div class="ring-visual">
+          <svg id="ring" viewBox="0 0 280 280" aria-labelledby="ring-title"></svg>
+          <div class="ring-center" id="ring-center"></div>
+        </div>
+        <div class="ring-side">
+          <div id="ring-legend" role="tablist" aria-label="Dimensões do retorno"></div>
+          <button type="button" class="ring-invest" id="ring-invest" aria-controls="bloco-investimento">Investimento</button>
+        </div>
+      </div>
+    </section>
+
     <div class="workspace wrap" id="workspace">
       <aside class="params" id="params">
         <form id="form" autocomplete="off">
@@ -55,7 +69,7 @@
             <p class="hint">OP e lote são a mesma coisa. Os demais blocos derivam deste volume. Troque o exemplo pelo número da planta.</p>
           </section>
 
-          <details class="card" open>
+          <details class="card" id="bloco-preenchimento" open>
             <summary>2 · Preenchimento da OP em papel</summary>
             <p class="hint">Horas de Produção. Referência relatada no painel: cerca de 3.000 campos manuais por lote eliminados na pesagem. Não é um valor preenchido.</p>
             <label class="field"><span>Campos por OP (média)</span><input id="b2Campos" inputmode="decimal" placeholder="ex.: 180" /></label>
@@ -69,7 +83,7 @@
             </label>
           </details>
 
-          <details class="card" open>
+          <details class="card" id="bloco-revisao" open>
             <summary>3 · Revisão da OP</summary>
             <p class="hint">Revisão por exceção na aprovação do lote. Referência relatada no painel, sem nome de cliente: planta de softgel de grande porte, revisão de 1h30 para cerca de 15 min.</p>
             <div class="split">
@@ -89,7 +103,7 @@
             </div>
           </details>
 
-          <details class="card" open>
+          <details class="card" id="bloco-erros" open>
             <summary>4 · Erros e desvios de documentação</summary>
             <p class="hint">Horas da Garantia da Qualidade. Os três cenários mudam só o percentual de redução. A conta reduz o risco de retrabalho documental.</p>
             <label class="field"><span>OPs com erro de preenchimento (%)</span><input id="b4PctErro" inputmode="decimal" placeholder="ex.: 12" /></label>
@@ -103,7 +117,7 @@
             </div>
           </details>
 
-          <details class="card" open>
+          <details class="card" id="bloco-perdas" open>
             <summary>5 · Lotes perdidos ou retrabalhados</summary>
             <p class="hint">Custo de não fazer nada. O ponto de equilíbrio mostra qual percentual dessas perdas o projeto precisa evitar para se pagar.</p>
             <label class="field"><span>Quantidade por ano</span><input id="b5Qtd" inputmode="decimal" placeholder="ex.: 3" /></label>
@@ -111,7 +125,7 @@
             <label class="field"><span>Parcela evitável (%)</span><input id="b5Pct" inputmode="decimal" placeholder="ex.: 40" /></label>
           </details>
 
-          <details class="card" open>
+          <details class="card" id="bloco-limpeza" open>
             <summary>6 · Limpeza e Logbook</summary>
             <label class="field"><span>Registros por mês</span><input id="b6Registros" inputmode="decimal" placeholder="ex.: 40" /></label>
             <label class="field"><span>Minutos por registro em papel</span><input id="b6Minutos" inputmode="decimal" placeholder="ex.: 25" /></label>
@@ -121,13 +135,40 @@
             </div>
           </details>
 
-          <details class="card" open>
-            <summary>7 · Papel</summary>
+          <details class="card" id="bloco-papel" open>
+            <summary>7 · Papel e armazenamento</summary>
             <p class="hint">Referência relatada no painel: 365.574 páginas eliminadas. O indicador ambiental fica de fora do ROI financeiro.</p>
             <label class="field"><span>Páginas por OP</span><input id="b7Paginas" inputmode="decimal" placeholder="ex.: 80" /></label>
             <label class="field"><span>Custo por página (R$)</span><input id="b7CustoPagina" inputmode="decimal" placeholder="ex.: 0,20" /></label>
-            <label class="field"><span>Custo anual do arquivo físico (R$)</span><input id="b7Arquivo" inputmode="decimal" placeholder="ex.: 12.000" /></label>
             <label class="field"><span>CO₂ por página, opcional (kg)</span><input id="b7Co2" inputmode="decimal" placeholder="ex.: 0,004" /></label>
+            <h3>Armazenamento do papel</h3>
+            <p class="hint">Exemplo fictício. Volume acumulado = OPs × páginas por OP × anos de retenção. A retenção é a validade do lote mais pelo menos um ano depois.</p>
+            <div class="split">
+              <label class="field"><span>Validade do lote (anos)</span><input id="b7Validade" inputmode="decimal" placeholder="ex.: 2" /></label>
+              <label class="field"><span>Anos após a validade</span><input id="b7AposValidade" inputmode="decimal" placeholder="ex.: 1" /></label>
+            </div>
+            <div class="choice" role="radiogroup" aria-label="Tipo de arquivo físico">
+              <label><input type="radio" name="b7Modo" value="sala" checked /> Sala própria</label>
+              <label><input type="radio" name="b7Modo" value="externa" /> Guarda externa</label>
+            </div>
+            <div id="b7-sala">
+              <div class="split">
+                <label class="field"><span>Sala (m²)</span><input id="b7M2" inputmode="decimal" placeholder="ex.: 12" /></label>
+                <label class="field"><span>Custo da sala (R$/m²/ano)</span><input id="b7CustoM2" inputmode="decimal" placeholder="ex.: 1.200" /></label>
+              </div>
+              <label class="field"><span>Proteção da sala por ano (acesso, umidade, incêndio) (R$)</span><input id="b7Protecao" inputmode="decimal" placeholder="ex.: 6.000" /></label>
+            </div>
+            <div id="b7-externa">
+              <label class="field"><span>Guarda externa (R$ por caixa/ano)</span><input id="b7CustoCaixa" inputmode="decimal" placeholder="ex.: 180" /></label>
+            </div>
+            <label class="field"><span>Páginas por caixa</span><input id="b7PaginasCaixa" inputmode="decimal" placeholder="ex.: 2.500" /></label>
+            <div class="split">
+              <label class="field"><span>Buscas por ano (auditoria, reclamação, recall)</span><input id="b7Solicitacoes" inputmode="decimal" placeholder="ex.: 24" /></label>
+              <label class="field"><span>Horas por busca (Qualidade)</span><input id="b7HorasBusca" inputmode="decimal" placeholder="ex.: 1,5" /></label>
+            </div>
+            <label class="field"><span>Destruição controlada por caixa (R$)</span><input id="b7Destruicao" inputmode="decimal" placeholder="ex.: 45" /></label>
+            <label class="field"><span>Registros eletrônicos por ano (R$)</span><input id="b7Eletronico" inputmode="decimal" placeholder="ex.: 8.400" /></label>
+            <p class="hint">Contrapartida obrigatória: armazenamento, backup e arquivo legível pelo mesmo prazo. Sai da economia do papel.</p>
           </details>
 
           <details class="card">
@@ -154,10 +195,10 @@
               <input type="checkbox" id="incluirHoras" checked />
               <span>Incluir horas economizadas no payback</span>
             </label>
-            <p class="hint">Desmarcado, o payback usa só caixa: lotes perdidos, papel, arquivo, ocorrências do Logbook e capital de giro.</p>
+            <p class="hint">Desmarcado, o payback usa só caixa: lotes perdidos, papel, arquivo, destruição, registros eletrônicos, ocorrências do Logbook e capital de giro. A busca no arquivo conta como hora de Qualidade.</p>
           </section>
 
-          <section class="card">
+          <section class="card" id="bloco-investimento">
             <h2>Investimento</h2>
             <p class="hint">Preencha com o orçamento da planta. Esta tela não traz preço da T2.</p>
             <label class="field"><span>Licença ou assinatura anual (R$)</span><input id="licenca" inputmode="decimal" placeholder="ex.: 180.000" /></label>

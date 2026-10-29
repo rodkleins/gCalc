@@ -12,7 +12,12 @@
  * Perdas: caixa = quantidade × valor × %evitável
  *    break-even = (investimento inicial + 1 ano de assinatura) ÷ (quantidade × valor)
  * Limpeza/Logbook: horas = registros/mês × 12 × minutos/60; caixa = ocorrências × custo
- * Papel: caixa = páginas × OPs × custo/página + arquivo
+ * Papel: impressão = páginas × OPs × custo/página
+ * Arquivo físico: volume = OPs × páginas × (validade + anos após a validade)
+ *    sala = m² × custo/m²/ano + proteção; ou guarda = caixas acumuladas × custo/caixa/ano
+ *    destruição anual = caixas de um ano × custo/caixa
+ *    busca = solicitações × horas (Qualidade)
+ *    registros eletrônicos saem da economia
  *    CO₂ fica fora do ROI. Inspeção e quadro não entram no payback.
  */
 
@@ -58,7 +63,17 @@ export const EXAMPLE_FIELDS = {
   b6Custo: '8.000',
   b7Paginas: '80',
   b7CustoPagina: '0,20',
-  b7Arquivo: '12.000',
+  b7Validade: '2',
+  b7AposValidade: '1',
+  b7M2: '12',
+  b7CustoM2: '1.200',
+  b7Protecao: '6.000',
+  b7CustoCaixa: '180',
+  b7PaginasCaixa: '2.500',
+  b7Solicitacoes: '24',
+  b7HorasBusca: '1,5',
+  b7Destruicao: '45',
+  b7Eletronico: '8.400',
   b7Co2: '0,004',
   b8Nota: 'Inspeção por amostragem no registro de lote eletrônico (EBR), em vez de revisar todo o papel.',
   b9Nota: 'Absorver um turno extra na revisão sem nova contratação.',
@@ -79,7 +94,7 @@ export const EXAMPLE_FIELDS = {
   taxa: '12',
 };
 
-export const EXAMPLE_FLAGS = { b2Dupla: true, incluirHoras: true, modo: 'dedicado' };
+export const EXAMPLE_FLAGS = { b2Dupla: true, incluirHoras: true, modo: 'dedicado', b7Modo: 'sala' };
 
 export function exampleInput() {
   const field = EXAMPLE_FIELDS;
@@ -118,7 +133,18 @@ export function exampleInput() {
     b6Custo: parseBr(field.b6Custo),
     b7Paginas: parseBr(field.b7Paginas),
     b7CustoPagina: parseBr(field.b7CustoPagina),
-    b7Arquivo: parseBr(field.b7Arquivo),
+    b7Validade: parseBr(field.b7Validade),
+    b7AposValidade: parseBr(field.b7AposValidade),
+    b7Modo: EXAMPLE_FLAGS.b7Modo,
+    b7M2: parseBr(field.b7M2),
+    b7CustoM2: parseBr(field.b7CustoM2),
+    b7Protecao: parseBr(field.b7Protecao),
+    b7CustoCaixa: parseBr(field.b7CustoCaixa),
+    b7PaginasCaixa: parseBr(field.b7PaginasCaixa),
+    b7Solicitacoes: parseBr(field.b7Solicitacoes),
+    b7HorasBusca: parseBr(field.b7HorasBusca),
+    b7Destruicao: parseBr(field.b7Destruicao),
+    b7Eletronico: parseBr(field.b7Eletronico),
     b7Co2: parseBr(field.b7Co2),
     b8Nota: field.b8Nota,
     b9Nota: field.b9Nota,
@@ -229,8 +255,40 @@ export function cleaningHours(limpezasMes, minutos) {
   return n(limpezasMes) * 12 * n(minutos) / 60;
 }
 
-export function paperCash(paginas, custoPagina, lotes, arquivoAnual) {
-  return n(paginas) * n(lotes) * n(custoPagina) + n(arquivoAnual);
+export function paperCash(paginas, custoPagina, lotes) {
+  return n(paginas) * n(lotes) * n(custoPagina);
+}
+
+/** Arquivo físico em regime: a sala guarda o volume acumulado; a destruição é a safra de um ano. */
+export function paperArchive(input = {}) {
+  const ops = n(input.opsAno);
+  const paginas = n(input.b7Paginas);
+  const anos = n(input.b7Validade) + n(input.b7AposValidade);
+  const paginasAno = ops * paginas;
+  const acumulado = paginasAno * anos;
+  const porCaixa = n(input.b7PaginasCaixa);
+  const caixasAno = porCaixa > 0 ? paginasAno / porCaixa : 0;
+  const caixasAcumuladas = porCaixa > 0 ? acumulado / porCaixa : 0;
+  const sala = input.b7Modo !== 'externa';
+  const guardaSala = n(input.b7M2) * n(input.b7CustoM2) + n(input.b7Protecao);
+  const guardaExterna = caixasAcumuladas * n(input.b7CustoCaixa);
+  const guarda = sala ? guardaSala : guardaExterna;
+  const destruicao = caixasAno * n(input.b7Destruicao);
+  const eletronico = n(input.b7Eletronico);
+  const horasBusca = n(input.b7Solicitacoes) * n(input.b7HorasBusca);
+  return {
+    sala,
+    anos,
+    paginasAno,
+    acumulado,
+    caixasAno,
+    caixasAcumuladas,
+    guarda,
+    destruicao,
+    eletronico,
+    horasBusca,
+    caixa: guarda + destruicao - eletronico,
+  };
 }
 
 export function paperEnvironment(paginas, lotes, co2PorPagina) {
@@ -275,6 +333,20 @@ export function npv(years, rate, annual, months, capex, license) {
     value += net / (1 + rate) ** year;
   }
   return value;
+}
+
+function archiveFormula(input, arquivo, custoQual) {
+  const guarda = arquivo.sala
+    ? `sala = ${formatNumber(n(input.b7M2), 2)} m² × ${formatBRL(n(input.b7CustoM2))} + proteção ${formatBRL(n(input.b7Protecao))} = ${formatBRL(arquivo.guarda)}`
+    : `guarda externa = ${formatNumber(arquivo.caixasAcumuladas, 2)} caixas × ${formatBRL(n(input.b7CustoCaixa))} = ${formatBRL(arquivo.guarda)}`;
+  return [
+    `volume acumulado = ${formatNumber(n(input.opsAno), 0)} OPs × ${formatNumber(n(input.b7Paginas), 2)} páginas × (${formatNumber(n(input.b7Validade), 2)} + ${formatNumber(n(input.b7AposValidade), 2)}) anos = ${formatNumber(arquivo.acumulado, 0)} páginas`,
+    guarda,
+    `destruição/ano = ${formatNumber(arquivo.caixasAno, 2)} caixas × ${formatBRL(n(input.b7Destruicao))} = ${formatBRL(arquivo.destruicao)}`,
+    `busca = ${formatNumber(n(input.b7Solicitacoes), 2)} solicitações × ${formatNumber(n(input.b7HorasBusca), 2)} h = ${formatNumber(arquivo.horasBusca, 2)} h × ${formatBRL(custoQual)} (Qualidade)`,
+    `registros eletrônicos = − ${formatBRL(arquivo.eletronico)}`,
+    `caixa do arquivo = ${formatBRL(arquivo.guarda)} + ${formatBRL(arquivo.destruicao)} − ${formatBRL(arquivo.eletronico)} = ${formatBRL(arquivo.caixa)}`,
+  ];
 }
 
 function scenarioRate(input, name) {
@@ -346,12 +418,13 @@ export function evaluate(input = {}) {
   const perdas = avoidedLoss(input.b5Qtd, input.b5Valor, input.b5Pct);
   const limpezaHoras = cleaningHours(input.b6Registros, input.b6Minutos);
   const limpezaCaixa = n(input.b6Ocorrencias) * n(input.b6Custo);
-  const papel = paperCash(input.b7Paginas, input.b7CustoPagina, ops, input.b7Arquivo);
+  const papel = paperCash(input.b7Paginas, input.b7CustoPagina, ops);
+  const arquivo = paperArchive(input);
   const ambiente = paperEnvironment(input.b7Paginas, ops, input.b7Co2);
 
-  const caixaFixo = capitalGiro + perdas + limpezaCaixa + papel;
+  const caixaFixo = capitalGiro + perdas + limpezaCaixa + papel + arquivo.caixa;
   const horasProdFixas = preenchHoras + pesagemHoras + revisao.horasProducao + limpezaHoras;
-  const horasQualFixas = revisao.horasQualidade;
+  const horasQualFixas = revisao.horasQualidade + arquivo.horasBusca;
   const breakEven = breakEvenPct(money.total + money.licenca, input.b5Qtd, input.b5Valor);
 
   const scenarios = {};
@@ -452,15 +525,24 @@ export function evaluate(input = {}) {
         ],
       }),
       papel: blockResult({
-        label: 'Papel, impressão e arquivo',
+        label: 'Papel e impressão',
         custoProd,
         custoQual,
         caixa: papel,
         incluirHoras,
         formula: [
-          `caixa = ${formatNumber(n(input.b7Paginas), 2)} páginas × ${formatNumber(ops, 0)} OPs × ${formatBRL(n(input.b7CustoPagina))} + ${formatBRL(n(input.b7Arquivo))} = ${formatBRL(papel)}`,
+          `caixa = ${formatNumber(n(input.b7Paginas), 2)} páginas × ${formatNumber(ops, 0)} OPs × ${formatBRL(n(input.b7CustoPagina))} = ${formatBRL(papel)}`,
           `CO₂ = ${formatNumber(ambiente, 2)} kg/ano, fora do ROI`,
         ],
+      }),
+      arquivo: blockResult({
+        label: 'Armazenamento do papel',
+        horasQual: arquivo.horasBusca,
+        custoProd,
+        custoQual,
+        caixa: arquivo.caixa,
+        incluirHoras,
+        formula: archiveFormula(input, arquivo, custoQual),
       }),
     };
     scenarios[name] = {
@@ -497,6 +579,7 @@ export function evaluate(input = {}) {
     revisao,
     capitalGiro: roundMoney(capitalGiro),
     ambiente,
+    arquivo,
     breakEven,
     perdaAnual: n(input.b5Qtd) * n(input.b5Valor),
     scenarios,
