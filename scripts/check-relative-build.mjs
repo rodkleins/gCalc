@@ -9,6 +9,7 @@ const PAGES = [
   'calculos/index.html',
   'rh/index.html',
   'rh/calculos/index.html',
+  'dpsp/index.html',
 ];
 
 export function checkRelativeBuild(distDir) {
