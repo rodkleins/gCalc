@@ -12,7 +12,7 @@ import {
   percentPoints,
 } from './calc.js';
 
-const STORAGE_KEY = 'gcalc.roi-mes.v2';
+const STORAGE_KEY = 'gcalc.roi-mes.v3';
 
 const NUMBER_FIELDS = [
   'opsAno',
@@ -37,7 +37,17 @@ const NUMBER_FIELDS = [
   'b6Custo',
   'b7Paginas',
   'b7CustoPagina',
-  'b7Arquivo',
+  'b7Validade',
+  'b7AposValidade',
+  'b7M2',
+  'b7CustoM2',
+  'b7Protecao',
+  'b7CustoCaixa',
+  'b7PaginasCaixa',
+  'b7Solicitacoes',
+  'b7HorasBusca',
+  'b7Destruicao',
+  'b7Eletronico',
   'b7Co2',
   'custoHoraProd',
   'custoHoraQual',
@@ -67,10 +77,21 @@ const PERCENT_FIELDS = [
 ];
 
 const TEXT_FIELDS = ['b8Nota', 'b9Nota'];
-const BLOCK_ORDER = ['preenchimento', 'pesagem', 'revisao', 'erros', 'desvios', 'perdas', 'limpeza', 'papel'];
+const BLOCK_ORDER = ['preenchimento', 'pesagem', 'revisao', 'erros', 'desvios', 'perdas', 'limpeza', 'papel', 'arquivo'];
+
+const RING = [
+  { id: 'preenchimento', label: 'Preenchimento da OP', keys: ['preenchimento', 'pesagem'], focus: 'bloco-preenchimento', color: '#A855F7' },
+  { id: 'revisao', label: 'Revisão da OP', keys: ['revisao'], focus: 'bloco-revisao', color: '#7C1BD8' },
+  { id: 'erros', label: 'Erros e desvios', keys: ['erros', 'desvios'], focus: 'bloco-erros', color: '#C084FC' },
+  { id: 'perdas', label: 'Lotes perdidos', keys: ['perdas'], focus: 'bloco-perdas', color: '#6D28D9' },
+  { id: 'limpeza', label: 'Limpeza e Logbook', keys: ['limpeza'], focus: 'bloco-limpeza', color: '#E9D5FF' },
+  { id: 'papel', label: 'Papel e armazenamento', keys: ['papel', 'arquivo'], focus: 'bloco-papel', color: '#9333EA' },
+];
 
 let scenario = 'provavel';
 let showingExample = false;
+let activeSegment = 'preenchimento';
+let revealParams = () => {};
 
 function banner() {
   return document.getElementById('example-banner');
@@ -92,6 +113,7 @@ function writeFields(values) {
 function fillExample() {
   writeFields(EXAMPLE_FIELDS);
   document.querySelector('input[name="modo"][value="dedicado"]').checked = true;
+  document.querySelector(`input[name="b7Modo"][value="${EXAMPLE_FLAGS.b7Modo}"]`).checked = true;
   document.getElementById('b2Dupla').checked = EXAMPLE_FLAGS.b2Dupla;
   document.getElementById('incluirHoras').checked = EXAMPLE_FLAGS.incluirHoras;
   scenario = 'provavel';
@@ -101,6 +123,7 @@ function fillExample() {
 function clearPlant() {
   writeFields({});
   document.getElementById('b2Dupla').checked = false;
+  document.querySelector('input[name="b7Modo"][value="sala"]').checked = true;
   setExampleVisible(false);
 }
 
@@ -111,6 +134,7 @@ function readValue(id) {
 function readInput() {
   const input = {
     modo: document.querySelector('input[name="modo"]:checked')?.value || 'dedicado',
+    b7Modo: document.querySelector('input[name="b7Modo"]:checked')?.value || 'sala',
     incluirHoras: document.getElementById('incluirHoras').checked,
     b2Dupla: document.getElementById('b2Dupla').checked,
     b4Pct: {
@@ -136,6 +160,7 @@ function snapshot() {
   const data = { scenario, example: showingExample, b2Dupla: document.getElementById('b2Dupla').checked };
   for (const id of [...NUMBER_FIELDS, ...PERCENT_FIELDS, ...TEXT_FIELDS]) data[id] = readValue(id);
   data.modo = document.querySelector('input[name="modo"]:checked')?.value || 'dedicado';
+  data.b7Modo = document.querySelector('input[name="b7Modo"]:checked')?.value || 'sala';
   data.incluirHoras = document.getElementById('incluirHoras').checked;
   return data;
 }
@@ -175,6 +200,10 @@ function restore() {
       const radio = document.querySelector(`input[name="modo"][value="${data.modo}"]`);
       if (radio) radio.checked = true;
     }
+    if (data.b7Modo === 'sala' || data.b7Modo === 'externa') {
+      const archive = document.querySelector(`input[name="b7Modo"][value="${data.b7Modo}"]`);
+      if (archive) archive.checked = true;
+    }
     if (typeof data.incluirHoras === 'boolean') document.getElementById('incluirHoras').checked = data.incluirHoras;
     if (SCENARIOS.includes(data.scenario)) scenario = data.scenario;
     setExampleVisible(data.example === true);
@@ -185,6 +214,86 @@ function restore() {
 
 function moneyCell(value) {
   return `<td class="num">${formatBRL(value)}</td>`;
+}
+
+function ringValue(blockMap, keys) {
+  return keys.reduce((sum, key) => sum + (blockMap[key]?.total || 0), 0);
+}
+
+function donutPath(cx, cy, r0, r1, a0, a1) {
+  const rad = (deg) => ((deg - 90) * Math.PI) / 180;
+  const pt = (radius, angle) => [cx + radius * Math.cos(rad(angle)), cy + radius * Math.sin(rad(angle))];
+  const large = a1 - a0 > 180 ? 1 : 0;
+  const [x0, y0] = pt(r1, a0);
+  const [x1, y1] = pt(r1, a1);
+  const [x2, y2] = pt(r0, a1);
+  const [x3, y3] = pt(r0, a0);
+  return `M ${x0} ${y0} A ${r1} ${r1} 0 ${large} 1 ${x1} ${y1} L ${x2} ${y2} A ${r0} ${r0} 0 ${large} 0 ${x3} ${y3} Z`;
+}
+
+function paintArchiveMode() {
+  const externa = document.querySelector('input[name="b7Modo"]:checked')?.value === 'externa';
+  document.getElementById('b7-sala')?.classList.toggle('is-dormant', externa);
+  document.getElementById('b7-externa')?.classList.toggle('is-dormant', !externa);
+}
+
+function paintRing(result) {
+  const svg = document.getElementById('ring');
+  const legend = document.getElementById('ring-legend');
+  const center = document.getElementById('ring-center');
+  const invest = document.getElementById('ring-invest');
+  if (!svg || !legend || !center) return;
+  const current = result.scenarios[scenario];
+  const values = RING.map((item) => ({ ...item, value: ringValue(current.blocks, item.keys) }));
+  const positive = values.reduce((sum, item) => sum + Math.max(0, item.value), 0);
+  const minSweep = 10;
+  const gap = 2.2;
+  const usable = 360 - values.length * gap;
+  const extra = usable - values.length * minSweep;
+  const weights = values.map((item) => Math.max(0, item.value));
+  const weightSum = weights.reduce((sum, item) => sum + item, 0);
+  let cursor = 0;
+  const slices = values.map((item, index) => {
+    const sweep = weightSum <= 0 ? usable / values.length : minSweep + extra * (weights[index] / weightSum);
+    const start = cursor;
+    const end = cursor + sweep;
+    cursor = end + gap;
+    const share = positive > 0 ? item.value / positive : 0;
+    return { ...item, start, end, share };
+  });
+  svg.innerHTML = slices.map((item) => {
+    const selected = item.id === activeSegment;
+    const label = `${item.label}: ${formatBRL(item.value)}, ${formatPct(item.share)} da economia`;
+    return `<path tabindex="0" role="button" aria-label="${label}" aria-pressed="${selected ? 'true' : 'false'}" data-segment="${item.id}" d="${donutPath(140, 140, 78, 124, item.start, item.end)}" fill="${item.color}" opacity="${selected ? 1 : 0.82}" stroke="${selected ? '#F3E8FF' : '#09070D'}" stroke-width="${selected ? 3 : 1}"><title>${label}</title></path>`;
+  }).join('');
+  legend.innerHTML = slices.map((item) => `
+    <button type="button" role="tab" data-segment="${item.id}" aria-selected="${item.id === activeSegment ? 'true' : 'false'}" aria-controls="${item.focus}" id="tab-${item.id}">
+      <i style="background:${item.color}"></i>
+      <span>${item.label}</span>
+      <strong>${formatBRL(item.value)} · ${formatPct(item.share)}</strong>
+    </button>`).join('');
+  const basis = result.incluirHoras ? 'caixa + horas' : 'só caixa';
+  center.innerHTML = `<span>Payback</span><strong>${formatMonths(current.paybackMeses)}</strong><span>Economia anual</span><b>${formatBRL(current.base)}</b><small>${basis}</small>`;
+  if (invest) {
+    invest.innerHTML = `Investimento <strong>${formatBRL(result.money.total)}</strong>`;
+    invest.setAttribute('aria-pressed', activeSegment === 'investimento' ? 'true' : 'false');
+  }
+}
+
+function focusSegment(id, options = {}) {
+  activeSegment = id;
+  revealParams();
+  refresh();
+  document.querySelectorAll('#params .is-active').forEach((node) => node.classList.remove('is-active'));
+  const segment = RING.find((item) => item.id === id);
+  const target = document.getElementById(id === 'investimento' ? 'bloco-investimento' : segment?.focus);
+  if (target) {
+    if (target.tagName === 'DETAILS') target.open = true;
+    target.classList.add('is-active');
+    target.scrollIntoView({ block: 'nearest' });
+  }
+  if (options.restoreFocus === 'legend') document.querySelector(`#ring-legend [data-segment="${id}"]`)?.focus();
+  if (options.restoreFocus === 'ring') document.querySelector(`#ring [data-segment="${id}"]`)?.focus();
 }
 
 function render(result) {
@@ -206,8 +315,8 @@ function render(result) {
   document.getElementById('blocks').innerHTML = BLOCK_ORDER.map((key) => {
     const block = current.blocks[key];
     const steps = (block.formula || []).map((line) => `<p class="formula">${line}</p>`).join('');
-    return `<tr>
-      <th>${block.label}<details class="calc"><summary>Ver cálculo</summary>${steps}</details></th>
+    return `<tr data-block="${key}" class="${RING.find((item) => item.id === activeSegment)?.keys.includes(key) ? 'is-active' : ''}">
+      <th>${block.label}<details class="calc"${RING.find((item) => item.id === activeSegment)?.keys.includes(key) ? ' open' : ''}><summary>Ver cálculo</summary>${steps}</details></th>
       ${moneyCell(block.caixa)}
       <td class="num">${formatNumber(block.horas, 1)} h</td>
       ${moneyCell(block.total)}
@@ -248,7 +357,7 @@ function render(result) {
     `OPs (lotes) por ano usados na conta: ${formatNumber(result.ops, 0)}.`,
     result.incluirHoras
       ? 'As horas economizadas entram no payback, convertidas pelo custo-hora de cada área.'
-      : 'O payback usa só caixa: lotes perdidos, papel, arquivo, ocorrências e capital de giro.',
+      : 'O payback usa só caixa: lotes perdidos, papel, arquivo, destruição, registros eletrônicos, ocorrências e capital de giro.',
     result.fte.assumed
       ? 'Horas por FTE em branco: o equivalente de quadro usa 1.760 h/ano.'
       : `Equivalente de quadro usa ${formatNumber(result.fte.horas, 0)} h por FTE.`,
@@ -259,7 +368,7 @@ function render(result) {
       ? 'Implantação pela base com key users: cada fator da curva dura dois meses e o ganho cheio começa no mês 7.'
       : 'Implantação planta a planta com time dedicado: a curva vale nos meses 1 a 3 e o ganho cheio começa no mês 4.',
     'Os cenários conservador, provável e otimista mudam somente o percentual de redução dos desvios de documentação.',
-    'O CO₂ das páginas não entra no ROI, no payback nem no VPL.',
+    'O arquivo físico usa a retenção informada. A busca conta hora de Qualidade. Os registros eletrônicos saem da economia. O CO₂ fica fora do ROI.',
     'Referências do painel são exemplos sem nome de cliente e não preenchem campo nenhum.',
     result.taxa == null
       ? 'VPL em branco até você informar a taxa de desconto.'
@@ -269,6 +378,8 @@ function render(result) {
   ].filter(Boolean);
   document.getElementById('assumptions').innerHTML = assumptions.map((item) => `<li>${item}</li>`).join('');
   document.getElementById('disclaimer').textContent = DISCLAIMER;
+  paintArchiveMode();
+  paintRing(result);
 }
 
 function refresh() {
@@ -300,6 +411,47 @@ function bind() {
     fillExample();
     refresh();
   });
+  document.getElementById('ring')?.addEventListener('pointerover', (event) => {
+    const path = event.target.closest?.('[data-segment]');
+    document.querySelectorAll('#ring-legend [data-segment]').forEach((button) => {
+      button.classList.toggle('is-hot', Boolean(path) && button.dataset.segment === path.dataset.segment);
+    });
+  });
+  document.getElementById('ring')?.addEventListener('pointerleave', () => {
+    document.querySelectorAll('#ring-legend .is-hot').forEach((button) => button.classList.remove('is-hot'));
+  });
+  document.getElementById('ring')?.addEventListener('click', (event) => {
+    const path = event.target.closest('[data-segment]');
+    if (path) focusSegment(path.dataset.segment);
+  });
+  document.getElementById('ring-legend')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-segment]');
+    if (button) focusSegment(button.dataset.segment);
+  });
+  document.getElementById('ring-legend')?.addEventListener('keydown', (event) => {
+    const buttons = [...document.querySelectorAll('#ring-legend [data-segment]')];
+    const index = buttons.indexOf(document.activeElement);
+    if (index < 0) return;
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowDown' && event.key !== 'ArrowLeft' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+    const next = buttons[(index + step + buttons.length) % buttons.length];
+    focusSegment(next.dataset.segment, { restoreFocus: 'legend' });
+  });
+  document.getElementById('ring')?.addEventListener('keydown', (event) => {
+    const paths = [...document.querySelectorAll('#ring [data-segment]')];
+    const index = paths.indexOf(document.activeElement);
+    if (index < 0 || (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    if (event.key === 'Enter' || event.key === ' ') {
+      focusSegment(document.activeElement.dataset.segment, { restoreFocus: 'ring' });
+      return;
+    }
+    const step = event.key === 'ArrowRight' ? 1 : -1;
+    const next = paths[(index + step + paths.length) % paths.length];
+    focusSegment(next.dataset.segment, { restoreFocus: 'ring' });
+  });
+  document.getElementById('ring-invest')?.addEventListener('click', () => focusSegment('investimento'));
   const workspace = document.getElementById('workspace');
   const toggle = document.getElementById('toggle-params');
   const backdrop = document.getElementById('backdrop');
@@ -314,6 +466,9 @@ function bind() {
     toggle.textContent = wide() && open ? 'Recolher' : 'Dados';
   };
   setOpen(open);
+  revealParams = () => {
+    if (!wide()) setOpen(true);
+  };
   toggle.addEventListener('click', () => setOpen(!open));
   backdrop.addEventListener('click', () => setOpen(false));
   window.matchMedia('(min-width: 900px)').addEventListener('change', () => setOpen(wide()));

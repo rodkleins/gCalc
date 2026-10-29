@@ -211,6 +211,70 @@ td.num, th.num { text-align: right; font-family: "IBM Plex Mono", ui-monospace, 
   color: var(--lav);
 }
 .backdrop { display: none; }
+.is-dormant { opacity: 0.45; }
+details.card.is-active, #bloco-investimento.is-active { border-color: #A855F7; box-shadow: 0 0 0 1px #A855F7; }
+#blocks tr.is-active th { color: var(--lav-2); }
+
+.ring-band { margin-top: 0.9rem; }
+.ring-band .kicker { margin-bottom: 0.45rem; }
+.ring-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 1rem 1.4rem;
+  align-items: center;
+  background: #120E1B;
+  border: 1px solid #2A2238;
+  border-radius: 12px;
+  padding: 0.9rem 1rem 1rem;
+}
+.ring-visual { position: relative; width: 280px; height: 280px; }
+.ring-visual svg { width: 100%; height: 100%; display: block; }
+.ring-visual path { cursor: pointer; }
+.ring-visual path:focus { outline: none; }
+.ring-center {
+  position: absolute;
+  inset: 62px;
+  border-radius: 50%;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 0.1rem;
+  pointer-events: none;
+  background: #09070D;
+}
+.ring-center span, .ring-center small { color: var(--muted); font-size: 0.72rem; }
+.ring-center strong, .ring-center b {
+  font-family: Sora, Manrope, sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+.ring-center b { font-size: 0.95rem; color: var(--lav); }
+.ring-side { display: grid; gap: 0.55rem; }
+#ring-legend { display: grid; gap: 0.35rem; }
+#ring-legend button {
+  width: 100%;
+  border-radius: 12px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+}
+#ring-legend button i { width: 12px; height: 12px; border-radius: 99px; display: block; }
+#ring-legend button span { color: var(--text); }
+#ring-legend button strong {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--lav);
+}
+#ring-legend button[aria-selected="true"] { border-color: #A855F7; background: #1a1228; }
+#ring-legend button.is-hot { border-color: #C084FC; }
+.ring-invest { justify-self: start; }
+.ring-invest strong { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; margin-left: 0.35rem; }
+.ring-invest[aria-pressed="true"] { border-color: #A855F7; }
 [hidden] { display: none !important; }
 
 @media (max-width: 899px) {
@@ -237,6 +301,8 @@ td.num, th.num { text-align: right; font-family: "IBM Plex Mono", ui-monospace, 
     z-index: 4;
   }
   .kpis, .people { grid-template-columns: 1fr; }
+  .ring-layout { grid-template-columns: 1fr; justify-items: center; }
+  .ring-side, #ring-legend { width: 100%; }
 }
 
 @media print {
