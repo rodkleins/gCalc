@@ -64,6 +64,7 @@ export default defineConfig({
         calculos: resolve(rootDir, 'calculos/index.html'),
         rh: resolve(rootDir, 'rh/index.html'),
         rhCalculos: resolve(rootDir, 'rh/calculos/index.html'),
+        dpsp: resolve(rootDir, 'dpsp/index.html'),
       },
     },
   },

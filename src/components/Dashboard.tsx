@@ -35,6 +35,7 @@ export function Dashboard({
   onOpenPremise,
   uiKeys,
   hiddenLevers,
+  suppressReferenceBanner = false,
 }: {
   inputs: Inputs;
   anchor: Inputs;
@@ -46,6 +47,7 @@ export function Dashboard({
   onOpenPremise: (fieldId: string) => void;
   uiKeys?: { dock: string; adjust: string };
   hiddenLevers?: LeverId[];
+  suppressReferenceBanner?: boolean;
 }) {
   const illustrative = matchesIllustrativeExample(result);
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
@@ -76,17 +78,18 @@ export function Dashboard({
           Dados fictícios. Este caso não é parâmetro oficial da Gollmann nem resultado de uma loja real.
         </div>
       ) : null}
-      {illustrative ? (
+      {!suppressReferenceBanner && illustrative ? (
         <div className="banner ok" data-testid="example-check">
           Exemplo do escopo reproduzido no cenário base, loja nova: investimento de R$ 945.000, benefício líquido de R$
           18.796 por mês, payback de 50,3 meses e ROI de 23,9%.
         </div>
-      ) : (
+      ) : null}
+      {!suppressReferenceBanner && !illustrative ? (
         <div className="banner">
           Os números do documento (R$ 945.000, R$ 18.796 por mês, payback de 50,3 meses, ROI de 23,9%) aparecem no
           exemplo fictício, cenário base e loja nova.
         </div>
-      )}
+      ) : null}
 
       <div className="chart-grid two">
         <section className="card chart-card">

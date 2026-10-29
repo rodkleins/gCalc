@@ -1,4 +1,5 @@
 User-agent: *
 Disallow: /interno/
+Disallow: /dpsp/
 
-# Não publicar sitemap de /interno/. A calculadora de manutenção envia noindex,nofollow.
+# Não publicar sitemap de /interno/ nem de /dpsp/. Essas páginas enviam noindex,nofollow.

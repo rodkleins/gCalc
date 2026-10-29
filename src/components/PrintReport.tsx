@@ -9,7 +9,7 @@ import './print.css';
 
 export type PrintKind = 'resumo' | 'completo';
 
-const DISCLAIMER = 'Premissas a validar. Não é parâmetro oficial nem resultado de uma loja real.';
+export const DISCLAIMER = 'Premissas a validar. Não é parâmetro oficial nem resultado de uma loja real.';
 
 function money(value: number): string {
   return formatBRL(value);
