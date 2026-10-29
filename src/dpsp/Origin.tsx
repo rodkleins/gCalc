@@ -1,5 +1,14 @@
+import { NumberField, PercentField } from '../components/Fields';
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatNumber, formatPayback } from '../model/format';
+import {
+  applyDpspDrivers,
+  balconistaCount,
+  dpspFormulaLines,
+  lossSavings,
+  reducedPositions,
+  type DpspDrivers,
+} from './drivers';
 import { MODEL_DISCLAIMER, type DpspPreset } from './stores';
 
 export function DpspStorePicker({
@@ -35,11 +44,21 @@ export function DpspStorePicker({
 
 export function DpspOrigin({
   presets,
+  drivers,
+  inputs,
+  onDrivers,
   onLoad,
 }: {
   presets: DpspPreset[];
+  drivers: DpspDrivers;
+  inputs: DpspPreset['inputs'];
+  onDrivers: (drivers: DpspDrivers) => void;
   onLoad: (preset: DpspPreset) => void;
 }) {
+  const balconistas = balconistaCount(inputs);
+  const positions = reducedPositions(balconistas, drivers.balconistaReductionPct);
+  const savings = lossSavings(inputs.profile.historicalLossesMonthly, drivers.retainedLossPct);
+  const formulas = dpspFormulaLines(inputs, drivers);
   return (
     <section className="card" data-testid="dpsp-origin">
       <h2>O que veio da planilha e o que é premissa</h2>
@@ -118,13 +137,49 @@ export function DpspOrigin({
           </tbody>
         </table>
       </div>
-      <p className="lede">
-        Premissas do modelo de R$ 2 milhões, a validar: CAPEX, salários, 6 vagas de balconista reduzidas a R$ 4.200,
-        dispensações por dia, área, OPEX e perdas projetadas de R$ 12.000. Essas perdas projetadas superam as da
-        planilha, então a economia de perdas começa zerada. Horas de supervisão, movimentação e inventário entram no
-        payback; os interruptores “já foram retiradas na redução de folha” seguem desligados, como na calculadora
-        padrão.
-      </p>
+      <div className="dpsp-driver" data-testid="dpsp-drivers">
+        <PercentField
+          label="% dos balconistas reduzidos"
+          value={drivers.balconistaReductionPct}
+          testId="dpsp-reduction-pct"
+          hint="Premissa a validar."
+          help="Percentual dos balconistas da loja que o robô deixa de exigir. A premissa inicial é 50%."
+          onChange={(balconistaReductionPct) => onDrivers({ ...drivers, balconistaReductionPct })}
+        />
+        <p className="computed" data-testid="dpsp-positions">
+          {countLabel(positions)} vagas
+        </p>
+        <NumberField
+          label="Custo por vaga de balconista"
+          value={drivers.positionCost}
+          suffix="R$"
+          testId="dpsp-position-cost"
+          hint="Premissa a validar."
+          help="Custo mensal de uma vaga reduzida. Começa em R$ 4.200, o auxiliar do modelo de R$ 2 milhões, e pode ser trocado."
+          onChange={(positionCost) => onDrivers({ ...drivers, positionCost })}
+        />
+        <PercentField
+          label="% das perdas que permanece com o robô"
+          value={drivers.retainedLossPct}
+          testId="dpsp-retained-loss-pct"
+          hint="Premissa a validar."
+          help="No modelo de R$ 2 milhões, R$ 12.000 de R$ 28.000 permanecem, cerca de 43%. A economia é o restante das perdas desta loja."
+          onChange={(retainedLossPct) => onDrivers({ ...drivers, retainedLossPct })}
+        />
+        <p className="computed" data-testid="dpsp-loss-savings">
+          economia {formatBRL(savings, 2)}
+        </p>
+      </div>
+      <details className="calc-memory" data-testid="dpsp-calc">
+        <summary>Ver cálculo</summary>
+        <div className="calc-memory-body">
+          <ul>
+            {formulas.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      </details>
       <p className="lede" data-testid="model-disclaimer">
         {MODEL_DISCLAIMER}
       </p>
@@ -158,7 +213,7 @@ export function DpspOrigin({
               <td>Payback</td>
               {presets.map((preset) => (
                 <td key={preset.id} className="num" data-testid={`origin-payback-${preset.id}`}>
-                  {formatPayback(evaluate(preset.inputs).payback)}
+                  {formatPayback(evaluate(applyDpspDrivers(preset.inputs, drivers)).payback)}
                 </td>
               ))}
             </tr>
@@ -167,4 +222,9 @@ export function DpspOrigin({
       </div>
     </section>
   );
+}
+
+function countLabel(value: number): string {
+  const digits = Math.abs(value - Math.round(value)) < 0.001 ? 0 : 1;
+  return formatNumber(value, digits);
 }

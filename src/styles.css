@@ -709,6 +709,12 @@ th.num { white-space: normal; }
 .audit-item footer { color: var(--muted); font-size: 0.85rem; flex-wrap: wrap; }
 
 .stage-note { border: 1px solid var(--line); border-radius: 14px; background: #f7f3ea; padding: 0 12px; }
+.dpsp-driver { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: flex-end; }
+.dpsp-driver .computed {
+  margin: 0 0 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 .calc-memory { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 4px; }
 .calc-memory summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 650; color: var(--forest); }
 .calc-memory-body { display: grid; gap: 12px; padding: 0 0 12px; }

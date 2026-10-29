@@ -3,7 +3,8 @@ import { evaluate } from '../model/calculate';
 import { formatPayback } from '../model/format';
 import { defaultStorePreset } from '../model/presets';
 import { STORAGE_KEY } from '../model/storage';
-import { DPSP_STORAGE_KEY, readDpspSession, writeDpspSession } from './storage';
+import { defaultDpspDrivers } from './drivers';
+import { DPSP_STORAGE_KEY, DPSP_STORAGE_KEY_V1, readDpspSession, writeDpspSession } from './storage';
 import { DPSP_BANNER, MODEL_DISCLAIMER, defaultDpspPreset, dpspPresets } from './stores';
 
 function memory() {
@@ -46,40 +47,61 @@ describe('lojas DPSP', () => {
       expect(headcount).toBe(preset.fact.headcount);
       expect(balconistas?.headcount).toBe(preset.fact.balconistas);
       expect(balconistas?.monthlyCost).toBe(4_200);
-      expect(preset.inputs.people.payroll.positionsReduced).toBe(base.inputs.people.payroll.positionsReduced);
+      expect(preset.inputs.people.payroll.positionsReduced).toBeCloseTo(preset.fact.balconistas * 0.5, 2);
       expect(preset.inputs.people.payroll.monthlyCostPerPosition).toBe(4_200);
+      expect(preset.inputs.people.payroll.severanceCost).toBeCloseTo(preset.fact.balconistas * 0.5 * 4_200, 2);
       expect(preset.inputs.people.futureHires.hires.every((hire) => hire.role === 'Balconista')).toBe(true);
+      expect(preset.inputs.people.futureHires.hires[0]?.headcount).toBe(base.inputs.people.futureHires.hires[0]?.headcount);
       expect(preset.inputs.robot.capex).toEqual(base.inputs.robot.capex);
-      expect(preset.inputs.stock.losses.projectedLossesMonthly).toBe(base.inputs.stock.losses.projectedLossesMonthly);
-      expect(preset.inputs.people.supervision.alreadyCountedInPayroll).toBe(false);
-      expect(preset.inputs.logistics.movement.alreadyCountedInPayroll).toBe(false);
-      expect(preset.inputs.logistics.inventoryCount.enabled).toBe(true);
+      expect(preset.inputs.stock.losses.projectedLossesMonthly).toBeCloseTo(
+        preset.inputs.profile.historicalLossesMonthly * 0.43,
+        2,
+      );
+      expect(preset.inputs.people.supervision.hoursSavedPerMonth).toBe(base.inputs.people.supervision.hoursSavedPerMonth);
+      expect(preset.inputs.logistics.movement.hoursSavedPerMonth).toBe(base.inputs.logistics.movement.hoursSavedPerMonth);
+      expect(preset.inputs.logistics.inventoryCount.hoursSavedPerMonth).toBe(
+        base.inputs.logistics.inventoryCount.hoursSavedPerMonth,
+      );
       expect(preset.inputs.profile.dispensationsPerDay).toBe(base.inputs.profile.dispensationsPerDay);
       expect(preset.inputs.fictional).toBe(false);
-      expect(evaluate(preset.inputs).audit.find((line) => line.id === 'losses')?.monthlyValue).toBe(0);
-      expect(formatPayback(evaluate(preset.inputs).payback)).toBe('42,9 meses');
+      const losses = evaluate(preset.inputs).audit.find((line) => line.id === 'losses')?.monthlyValue ?? 0;
+      expect(losses).toBeGreaterThan(0);
     }
+    expect(presets.map((preset) => preset.inputs.people.payroll.positionsReduced)).toEqual([4.5, 3, 4]);
+    expect(presets.map((preset) => formatPayback(evaluate(preset.inputs).payback))).toEqual([
+      '48,6 meses',
+      '58,7 meses',
+      '52,1 meses',
+    ]);
   });
 
   it('grava só a chave DPSP e não lê a calculadora publicada', () => {
     const store = memory();
     store.setItem(STORAGE_KEY, '{"version":2,"draft":{"inputs":{}}}');
+    store.setItem(DPSP_STORAGE_KEY_V1, '{"version":2,"draft":{"inputs":{"meta":{"storeName":"loja antiga"}}}}');
     expect(readDpspSession(store).source).toBe('empty');
     const preset = defaultDpspPreset();
-    writeDpspSession(store, {
-      version: 2,
-      draft: {
-        inputs: preset.inputs,
-        scenario: 'base',
-        section: 'dashboard',
-        wizardStep: 0,
-        adjustAnchor: preset.inputs,
+    writeDpspSession(
+      store,
+      {
+        version: 2,
+        draft: {
+          inputs: preset.inputs,
+          scenario: 'base',
+          section: 'dashboard',
+          wizardStep: 0,
+          adjustAnchor: preset.inputs,
+        },
+        simulations: [],
       },
-      simulations: [],
-    });
+      defaultDpspDrivers(),
+    );
     expect(store.getItem(DPSP_STORAGE_KEY)).toContain('327 DSP Fradique Coutinho');
+    expect(store.getItem(DPSP_STORAGE_KEY_V1)).toBeNull();
     expect(store.getItem(STORAGE_KEY)).toContain('version');
     expect(readDpspSession(store).draft?.inputs.meta.storeName).toBe(preset.name);
+    expect(readDpspSession(store).drivers.balconistaReductionPct).toBe(0.5);
+    expect(DPSP_STORAGE_KEY).toBe('gcalc.dpsp.library.v2');
     expect(DPSP_STORAGE_KEY).not.toBe(STORAGE_KEY);
   });
 

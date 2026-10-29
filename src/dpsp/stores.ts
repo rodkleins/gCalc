@@ -3,6 +3,7 @@ import { formatBRL, formatNumber } from '../model/format';
 import { defaultStorePreset } from '../model/presets';
 import { round2 } from '../model/round';
 import type { EmployeeRole, Inputs } from '../model/types';
+import { applyDpspDrivers, defaultDpspDrivers } from './drivers';
 
 export const DPSP_BANNER = 'Dados DPSP (planilha de 29/10/2026) + premissas do modelo a validar';
 export const DPSP_SHEET_DATE = '2026-10-29';
@@ -80,9 +81,9 @@ function sheetNotes(fact: DpspFact, losses: number, revenue: number): string {
   return [
     `Planilha DPSP de 29/10/2026: faturamento = perdas ÷ % de perda (${formatBRL(losses, 2)} ÷ ${pct}% = ${formatBRL(revenue, 2)}).`,
     `Também da planilha: ${formatNumber(fact.skus)} SKUs, HC ${fact.headcount} (dos quais ${fact.balconistas} balconistas) e volume ${formatNumber(fact.volume)}. O volume não entra no payback.`,
-    'O restante é a loja de R$ 2 milhões do modelo, a validar: CAPEX, salários, 6 vagas de balconista reduzidas, horas de supervisão, movimentação e inventário (entram no payback), perdas projetadas e dispensações por dia.',
+    `Vagas reduzidas = ${fact.balconistas} balconistas × 50%. Perdas com o robô = perdas da loja × 43%. O custo por vaga começa em R$ 4.200, premissa a validar.`,
+    'Horas, CAPEX, OPEX, dispensações por dia, área e contratação futura ficam na loja de R$ 2 milhões: o modelo não tem uma proporção única desses itens com SKU, volume ou HC.',
     'O HC que não é balconista nem farmacêutico, estoquista ou gerente do modelo fica em Demais colaboradores, no custo do auxiliar.',
-    'As perdas projetadas do modelo superam as da planilha, então a economia de perdas começa zerada até esse número ser ajustado.',
   ].join(' ');
 }
 
@@ -134,7 +135,7 @@ function withSheet(fact: DpspFact): DpspPreset {
     ...hire,
     role: 'Balconista',
   }));
-  return { id: fact.id, name: fact.name, revenue, fact, inputs };
+  return { id: fact.id, name: fact.name, revenue, fact, inputs: applyDpspDrivers(inputs, defaultDpspDrivers()) };
 }
 
 export function dpspPresets(): DpspPreset[] {
