@@ -1,615 +1,419 @@
 /**
- * ROI de MES/EBR (NEO). OP e lote são a mesma coisa.
- * Os números vêm do usuário. Referências de painel não entram na conta.
- *
- * Preenchimento: horas = OPs × campos × segundos / 3600 (Produção)
- * Pesagem: horas = OPs × pesagens × minutos / 60 × (2 se houver dupla checagem)
- * Revisão: h_futuro = %sem_desvio × t_sem + (1 − %) × t_com
- *    economia da área = OPs × (h_hoje_área − h_futuro × participação da área)
- *    capital de giro = valor_lote × OPs × dias/365 × custo_capital
- * Erros: horas = OPs × %com_erro × h_correção × %redução (Qualidade)
- * Desvios: horas = desvios/ano × h_CAPA × %redução (Qualidade)
- * Perdas: caixa = quantidade × valor × %evitável
- *    break-even = (investimento inicial + 1 ano de assinatura) ÷ (quantidade × valor)
- * Limpeza/Logbook: horas = registros/mês × 12 × minutos/60; caixa = ocorrências × custo
- * Papel: impressão = páginas × OPs × custo/página
- * Arquivo físico: volume = OPs × páginas × (validade + anos após a validade)
- *    sala = m² × custo/m²/ano + proteção; ou guarda = caixas acumuladas × custo/caixa/ano
- *    destruição anual = caixas de um ano × custo/caixa
- *    busca = solicitações × horas (Qualidade)
- *    registros eletrônicos saem da economia
- *    CO₂ fica fora do ROI. Inspeção e quadro não entram no payback.
+ * ROI MES/EBR (NEO), spec v1.0.
+ * Bottom-up: cronometra o papel campo a campo e compara com o EBR.
+ * Os outros ganhos somam por fora. Sem preço da T2/NEO.
  */
-
-export const SCENARIOS = ['conservador', 'provavel', 'otimista'];
-
-export const SCENARIO_LABELS = {
-  conservador: 'Conservador',
-  provavel: 'Provável',
-  otimista: 'Otimista',
-};
 
 export const DISCLAIMER =
   'Estimativa baseada nos dados informados. Não substitui a avaliação do seu projeto nem a validação do sistema (CSV).';
 
-/** Exemplo fictício da primeira visita. O investimento inicial soma R$ 550.000 e a assinatura é R$ 180.000/ano. */
-export const EXAMPLE_FIELDS = {
-  opsAno: '1.000',
-  b2Campos: '180',
-  b2Segundos: '25',
-  b2Pesagens: '6',
-  b2Minutos: '8',
-  b3HorasProd: '1,5',
-  b3HorasQual: '1,5',
-  b3PctSem: '80',
-  b3TempoSem: '0,25',
-  b3TempoCom: '1',
-  b3Dias: '4',
-  b3ValorOp: '80.000',
-  b3CustoCapital: '15',
-  b4PctErro: '12',
-  b4HorasErro: '0,5',
-  b4DesviosAno: '96',
-  b4HorasDesvio: '6',
-  b4PctConservador: '50',
-  b4PctProvavel: '75',
-  b4PctOtimista: '90',
-  b5Qtd: '3',
-  b5Valor: '250.000',
-  b5Pct: '40',
-  b6Registros: '40',
-  b6Minutos: '25',
-  b6Ocorrencias: '6',
-  b6Custo: '8.000',
-  b7Paginas: '80',
-  b7CustoPagina: '0,20',
-  b7Validade: '2',
-  b7AposValidade: '1',
-  b7M2: '12',
-  b7CustoM2: '1.200',
-  b7Protecao: '6.000',
-  b7CustoCaixa: '180',
-  b7PaginasCaixa: '2.500',
-  b7Solicitacoes: '24',
-  b7HorasBusca: '1,5',
-  b7Destruicao: '45',
-  b7Eletronico: '8.400',
-  b7Co2: '0,004',
-  b8Nota: 'Inspeção por amostragem no registro de lote eletrônico (EBR), em vez de revisar todo o papel.',
-  b9Nota: 'Absorver um turno extra na revisão sem nova contratação.',
-  custoHoraProd: '95',
-  custoHoraQual: '150',
-  horasFte: '1.760',
-  licenca: '180.000',
-  implantacao: '220.000',
-  validacao: '120.000',
-  integracao: '80.000',
-  infraestrutura: '40.000',
-  tempoInterno: '45.000',
-  treinamento: '25.000',
-  receitas: '20.000',
-  curva1: '0',
-  curva2: '50',
-  curva3: '100',
-  taxa: '12',
+export const SCENARIOS = {
+  conservador: { id: 'conservador', label: 'Conservador', factor: 0.5, rerr: 'rerr_c' },
+  provavel: { id: 'provavel', label: 'Provável', factor: 0.75, rerr: 'rerr_p' },
+  otimista: { id: 'otimista', label: 'Otimista', factor: 1, rerr: 'rerr_o' },
 };
 
-export const EXAMPLE_FLAGS = { b2Dupla: true, incluirHoras: true, modo: 'dedicado', b7Modo: 'sala' };
-
-function presetFrom(ops, extras) {
-  return { ...EXAMPLE_FIELDS, opsAno: ops, ...extras };
-}
-
-/** Presets hipotéticos. Não são dados de cliente nem preço da T2 ou do NEO. */
-export const HYPOTHETICAL_PRESETS = {
-  media: { id: 'media', name: 'Hipotético · planta média', fields: EXAMPLE_FIELDS, flags: EXAMPLE_FLAGS },
-  menor: {
-    id: 'menor',
-    name: 'Hipotético · planta menor',
-    fields: presetFrom('400', { b4DesviosAno: '40', b5Qtd: '1', b6Registros: '16', b6Ocorrencias: '2', b7Solicitacoes: '10', b7M2: '8' }),
-    flags: EXAMPLE_FLAGS,
+export const TERMS = {
+  pt: {
+    batchRelease: 'aprovação do lote',
+    ebr: 'registro de lote eletrônico (EBR)',
+    changeControl: 'controle de mudanças',
+    operation: 'entrada em operação',
+    sop: 'POP',
   },
-  maior: {
-    id: 'maior',
-    name: 'Hipotético · planta maior',
-    fields: presetFrom('2.400', { b4DesviosAno: '230', b5Qtd: '7', b6Registros: '96', b6Ocorrencias: '14', b7Solicitacoes: '58', b7M2: '28' }),
-    flags: EXAMPLE_FLAGS,
+  es: {
+    batchRelease: 'aprobación del lote',
+    ebr: 'registro electrónico de lote (EBR)',
+    changeControl: 'control de cambios',
+    operation: 'entrada en operación',
+    sop: 'POE',
+  },
+  en: {
+    batchRelease: 'batch release',
+    ebr: 'electronic batch record (EBR)',
+    changeControl: 'change control',
+    operation: 'start of operation',
+    sop: 'SOP',
   },
 };
+
+const EXAMPLE = {
+  lotes: 600,
+  cGQ: 120,
+  cOp: 60,
+  captura: 50,
+  taxa: 14,
+  F: 500,
+  sf: 15,
+  sp: 10,
+  sq: 15,
+  err: 1,
+  mc: 5,
+  auto: 40,
+  se: 8,
+  exc: 5,
+  sxp: 30,
+  sxq: 60,
+  fin: 10,
+  rerr_c: 75,
+  rerr_p: 90,
+  rerr_o: 100,
+  b1vl: 200000,
+  b1d: 3,
+  b1cc: 14,
+  b3d: 15,
+  b3h: 12,
+  b3bd: 10,
+  b3bh: 16,
+  b3br: 25,
+  b4n: 4,
+  b4v: 200000,
+  b4e: 50,
+  b5l: 200,
+  b5m: 10,
+  b5r: 80,
+  b5o: 6,
+  b5c: 15000,
+  lbF: 0,
+  lbsf: 15,
+  lbsq: 10,
+  lbauto: 60,
+  b6p: 120,
+  b6cp: 0.6,
+  b6a: 24000,
+  b6b: 50,
+  b6hb: 2,
+  b6e: 6000,
+  b9l: 60,
+  b9x: 4,
+  b9hh: 8,
+  b9hc: 1,
+  capm: 40,
+  capr: 60,
+  caph: 8,
+  capmg: 50000,
+  capd: 33,
+  c1: 900000,
+  c2: 240000,
+  c3: 6,
+};
+
+export const BIOLAB_PRESET = {
+  lotes: 2500,
+  cGQ: 130,
+  cOp: 65,
+  captura: 50,
+  taxa: 14,
+  F: 500,
+  sf: 15,
+  sp: 10,
+  sq: 15,
+  err: 2,
+  mc: 5,
+  auto: 30,
+  se: 8,
+  exc: 3,
+  sxp: 30,
+  sxq: 60,
+  fin: 10,
+  rerr_c: 75,
+  rerr_p: 90,
+  rerr_o: 100,
+  b1vl: 250000,
+  b1d: 3,
+  b1cc: 14,
+  b3d: 20,
+  b3h: 10,
+  b3bd: 0,
+  b3bh: 0,
+  b3br: 25,
+  b4n: 6,
+  b4v: 250000,
+  b4e: 40,
+  b5l: 600,
+  b5m: 10,
+  b5r: 80,
+  b5o: 10,
+  b5c: 15000,
+  lbF: 0,
+  lbsf: 15,
+  lbsq: 10,
+  lbauto: 60,
+  b6p: 150,
+  b6cp: 0.6,
+  b6a: 120000,
+  b6b: 150,
+  b6hb: 2,
+  b6e: 20000,
+  b9l: 0,
+  b9x: 0,
+  b9hh: 0,
+  b9hc: 0,
+  capm: 0,
+  capr: 60,
+  caph: 8,
+  capmg: 0,
+  capd: 33,
+  c1: 2000000,
+  c2: 400000,
+  c3: 6,
+};
+
+export const FIELD_IDS = Object.keys(EXAMPLE);
 
 export function exampleInput() {
-  const field = EXAMPLE_FIELDS;
-  return {
-    modo: EXAMPLE_FLAGS.modo,
-    incluirHoras: EXAMPLE_FLAGS.incluirHoras,
-    opsAno: parseBr(field.opsAno),
-    b2Campos: parseBr(field.b2Campos),
-    b2Segundos: parseBr(field.b2Segundos),
-    b2Pesagens: parseBr(field.b2Pesagens),
-    b2Minutos: parseBr(field.b2Minutos),
-    b2Dupla: EXAMPLE_FLAGS.b2Dupla,
-    b3HorasProd: parseBr(field.b3HorasProd),
-    b3HorasQual: parseBr(field.b3HorasQual),
-    b3PctSem: percentPoints(field.b3PctSem),
-    b3TempoSem: parseBr(field.b3TempoSem),
-    b3TempoCom: parseBr(field.b3TempoCom),
-    b3Dias: parseBr(field.b3Dias),
-    b3ValorOp: parseBr(field.b3ValorOp),
-    b3CustoCapital: percentPoints(field.b3CustoCapital),
-    b4PctErro: percentPoints(field.b4PctErro),
-    b4HorasErro: parseBr(field.b4HorasErro),
-    b4DesviosAno: parseBr(field.b4DesviosAno),
-    b4HorasDesvio: parseBr(field.b4HorasDesvio),
-    b4Pct: {
-      conservador: percentPoints(field.b4PctConservador),
-      provavel: percentPoints(field.b4PctProvavel),
-      otimista: percentPoints(field.b4PctOtimista),
-    },
-    b5Qtd: parseBr(field.b5Qtd),
-    b5Valor: parseBr(field.b5Valor),
-    b5Pct: percentPoints(field.b5Pct),
-    b6Registros: parseBr(field.b6Registros),
-    b6Minutos: parseBr(field.b6Minutos),
-    b6Ocorrencias: parseBr(field.b6Ocorrencias),
-    b6Custo: parseBr(field.b6Custo),
-    b7Paginas: parseBr(field.b7Paginas),
-    b7CustoPagina: parseBr(field.b7CustoPagina),
-    b7Validade: parseBr(field.b7Validade),
-    b7AposValidade: parseBr(field.b7AposValidade),
-    b7Modo: EXAMPLE_FLAGS.b7Modo,
-    b7M2: parseBr(field.b7M2),
-    b7CustoM2: parseBr(field.b7CustoM2),
-    b7Protecao: parseBr(field.b7Protecao),
-    b7CustoCaixa: parseBr(field.b7CustoCaixa),
-    b7PaginasCaixa: parseBr(field.b7PaginasCaixa),
-    b7Solicitacoes: parseBr(field.b7Solicitacoes),
-    b7HorasBusca: parseBr(field.b7HorasBusca),
-    b7Destruicao: parseBr(field.b7Destruicao),
-    b7Eletronico: parseBr(field.b7Eletronico),
-    b7Co2: parseBr(field.b7Co2),
-    b8Nota: field.b8Nota,
-    b9Nota: field.b9Nota,
-    custoHoraProd: parseBr(field.custoHoraProd),
-    custoHoraQual: parseBr(field.custoHoraQual),
-    horasFte: parseBr(field.horasFte),
-    licenca: parseBr(field.licenca),
-    implantacao: parseBr(field.implantacao),
-    validacao: parseBr(field.validacao),
-    integracao: parseBr(field.integracao),
-    infraestrutura: parseBr(field.infraestrutura),
-    tempoInterno: parseBr(field.tempoInterno),
-    treinamento: parseBr(field.treinamento),
-    receitas: parseBr(field.receitas),
-    curva: [percentPoints(field.curva1), percentPoints(field.curva2), percentPoints(field.curva3)],
-    taxa: percentPoints(field.taxa),
-  };
+  return { ...EXAMPLE, capOn: false, scenario: 'provavel' };
 }
 
-export function parseBr(text) {
-  if (text == null) return null;
+export function emptyInput() {
+  const blank = {};
+  for (const id of FIELD_IDS) blank[id] = 0;
+  blank.captura = 50;
+  blank.taxa = 14;
+  blank.capOn = false;
+  blank.scenario = 'provavel';
+  return blank;
+}
+
+export function parseDecimal(text) {
+  if (text == null) return 0;
   let raw = String(text).trim().replace(/\s/g, '').replace('%', '').replace('R$', '');
-  if (!raw || raw === '-' || raw === ',' || raw === '.') return null;
-  const comma = raw.lastIndexOf(',');
-  const dot = raw.lastIndexOf('.');
-  if (comma >= 0 && dot >= 0) {
-    raw = comma > dot ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '');
-  } else if (comma >= 0) {
-    raw = raw.replace(/\./g, '').replace(',', '.');
-  } else if (dot >= 0) {
-    const parts = raw.split('.');
-    if (parts.length > 1 && parts.slice(1).every((part) => part.length === 3)) raw = parts.join('');
-  }
+  if (!raw || raw === '-' || raw === ',' || raw === '.') return 0;
+  if (raw.includes(',')) raw = raw.replace(/\./g, '').replace(',', '.');
   const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
-}
-
-export function percentPoints(text) {
-  const value = parseBr(text);
-  if (value == null) return null;
-  return clamp(value / 100, 0, 1);
+  return Number.isFinite(value) ? value : 0;
 }
 
 function n(value) {
-  if (value == null || value === '') return 0;
-  const num = typeof value === 'number' ? value : Number(value);
+  const num = typeof value === 'number' ? value : parseDecimal(value);
   return Number.isFinite(num) ? Math.max(0, num) : 0;
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function pct(value) {
+  return Math.min(1, n(value) / 100);
 }
 
-function roundMoney(value) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+function hoursFromSeconds(seconds, lotes) {
+  return (seconds * n(lotes)) / 3600;
 }
 
-export function reviewHours(lotes, horasProd, horasQual, pctSemDesvio, tempoSem, tempoCom) {
-  const hHoje = n(horasProd) + n(horasQual);
-  const pct = clamp(n(pctSemDesvio), 0, 1);
-  const hFuturo = pct * n(tempoSem) + (1 - pct) * n(tempoCom);
-  const porLote = Math.max(0, hHoje - hFuturo);
-  const horas = n(lotes) * porLote;
-  const shareProd = hHoje > 0 ? n(horasProd) / hHoje : 0;
-  return {
-    hHoje,
-    hFuturo,
-    horas,
-    horasProducao: horas * shareProd,
-    horasQualidade: horas * (1 - shareProd),
+export function recordSeconds(input, rerrPct) {
+  const F = n(input.F);
+  const t = {
+    op: F * n(input.sf),
+    pr: F * n(input.sp),
+    gq: F * n(input.sq),
+    co: F * pct(input.err) * n(input.mc) * 60,
   };
-}
-
-export function workingCapital(valorLote, lotes, dias, custoCapital) {
-  return n(valorLote) * n(lotes) * (n(dias) / 365) * clamp(n(custoCapital), 0, 1);
-}
-
-export function manualHours(campos, segundos, lotes) {
-  return (n(campos) * n(segundos) / 3600) * n(lotes);
-}
-
-export function weighingHours(ops, pesagens, minutos, dupla) {
-  return n(ops) * n(pesagens) * n(minutos) / 60 * (dupla ? 2 : 1);
-}
-
-export function fillErrorHours(ops, pctErro, horasPorErro, pctReducao) {
-  const erros = n(ops) * clamp(n(pctErro), 0, 1);
-  const horas = erros * n(horasPorErro) * clamp(n(pctReducao), 0, 1);
-  return { erros, horas };
-}
-
-export function deviationHours(desviosAno, horasPorDesvio, pctReducao) {
-  const horas = n(desviosAno) * n(horasPorDesvio) * clamp(n(pctReducao), 0, 1);
-  return { desviosAno: n(desviosAno), horas };
-}
-
-export function avoidedLoss(lotesRejeitados, valorMedio, pctEvitavel) {
-  return n(lotesRejeitados) * n(valorMedio) * clamp(n(pctEvitavel), 0, 1);
-}
-
-export function breakEvenPct(investimento, lotesRejeitados, valorMedio) {
-  const base = n(lotesRejeitados) * n(valorMedio);
-  if (base <= 0) return null;
-  return n(investimento) / base;
-}
-
-export function cleaningHours(limpezasMes, minutos) {
-  return n(limpezasMes) * 12 * n(minutos) / 60;
-}
-
-export function paperCash(paginas, custoPagina, lotes) {
-  return n(paginas) * n(lotes) * n(custoPagina);
-}
-
-/** Arquivo físico em regime: a sala guarda o volume acumulado; a destruição é a safra de um ano. */
-export function paperArchive(input = {}) {
-  const ops = n(input.opsAno);
-  const paginas = n(input.b7Paginas);
-  const anos = n(input.b7Validade) + n(input.b7AposValidade);
-  const paginasAno = ops * paginas;
-  const acumulado = paginasAno * anos;
-  const porCaixa = n(input.b7PaginasCaixa);
-  const caixasAno = porCaixa > 0 ? paginasAno / porCaixa : 0;
-  const caixasAcumuladas = porCaixa > 0 ? acumulado / porCaixa : 0;
-  const sala = input.b7Modo !== 'externa';
-  const guardaSala = n(input.b7M2) * n(input.b7CustoM2) + n(input.b7Protecao);
-  const guardaExterna = caixasAcumuladas * n(input.b7CustoCaixa);
-  const guarda = sala ? guardaSala : guardaExterna;
-  const destruicao = caixasAno * n(input.b7Destruicao);
-  const eletronico = n(input.b7Eletronico);
-  const horasBusca = n(input.b7Solicitacoes) * n(input.b7HorasBusca);
-  return {
-    sala,
-    anos,
-    paginasAno,
-    acumulado,
-    caixasAno,
-    caixasAcumuladas,
-    guarda,
-    destruicao,
-    eletronico,
-    horasBusca,
-    caixa: guarda + destruicao - eletronico,
+  const e = {
+    op: F * (1 - pct(input.auto)) * n(input.se),
+    pr: F * pct(input.exc) * n(input.sxp),
+    gq: F * pct(input.exc) * n(input.sxq) + n(input.fin) * 60,
+    co: t.co * (1 - pct(rerrPct)),
   };
+  return { t, e };
 }
 
-export function paperEnvironment(paginas, lotes, co2PorPagina) {
-  return n(paginas) * n(lotes) * n(co2PorPagina);
-}
-
-export function rampMonths(modo, curva) {
-  const [a, b, c] = curva.map((item) => clamp(n(item), 0, 1));
-  if (modo === 'base') return [a, a, b, b, c, c, 1, 1, 1, 1, 1, 1];
-  return [a, b, c, 1, 1, 1, 1, 1, 1, 1, 1, 1];
-}
-
-export function yearGain(year, annual, months) {
-  if (year <= 1) return annual * months.reduce((sum, item) => sum + item, 0) / 12;
-  return annual;
-}
-
-export function paybackMonths(capex, licenseAnnual, annualGain, months) {
-  if (n(capex) <= 0) return annualGain > 0 || licenseAnnual <= 0 ? 0 : null;
-  let cum = -n(capex);
-  for (let month = 1; month <= 120; month += 1) {
-    const factor = month <= 12 ? months[month - 1] : 1;
-    cum += (annualGain * factor - n(licenseAnnual)) / 12;
-    if (cum >= -0.005) return month;
+export function recordHours(input, rerrPct) {
+  const { t, e } = recordSeconds(input, rerrPct);
+  const L = n(input.lotes);
+  const T = {};
+  const E = {};
+  for (const key of ['op', 'pr', 'gq', 'co']) {
+    T[key] = hoursFromSeconds(t[key], L);
+    E[key] = hoursFromSeconds(e[key], L);
   }
-  return null;
+  const sum = (row) => row.op + row.pr + row.gq + row.co;
+  return { T, E, totalT: sum(T), totalE: sum(E), seconds: { t, e } };
 }
 
-export function roiRatio(years, annual, months, capex, license) {
-  let gains = 0;
-  for (let year = 1; year <= years; year += 1) gains += yearGain(year, annual, months);
-  const costs = n(capex) + n(license) * years;
-  if (costs <= 0) return null;
-  return (gains - costs) / costs;
+function scenarioOf(input) {
+  return SCENARIOS[input.scenario] || SCENARIOS.provavel;
 }
 
-export function npv(years, rate, annual, months, capex, license) {
-  if (rate == null || !Number.isFinite(rate)) return null;
-  let value = -n(capex);
-  for (let year = 1; year <= years; year += 1) {
-    const net = yearGain(year, annual, months) - n(license);
-    value += net / (1 + rate) ** year;
-  }
-  return value;
-}
-
-function archiveFormula(input, arquivo, custoQual) {
-  const guarda = arquivo.sala
-    ? `sala = ${formatNumber(n(input.b7M2), 2)} m² × ${formatBRL(n(input.b7CustoM2))} + proteção ${formatBRL(n(input.b7Protecao))} = ${formatBRL(arquivo.guarda)}`
-    : `guarda externa = ${formatNumber(arquivo.caixasAcumuladas, 2)} caixas × ${formatBRL(n(input.b7CustoCaixa))} = ${formatBRL(arquivo.guarda)}`;
-  return [
-    `volume acumulado = ${formatNumber(n(input.opsAno), 0)} OPs × ${formatNumber(n(input.b7Paginas), 2)} páginas × (${formatNumber(n(input.b7Validade), 2)} + ${formatNumber(n(input.b7AposValidade), 2)}) anos = ${formatNumber(arquivo.acumulado, 0)} páginas`,
-    guarda,
-    `destruição/ano = ${formatNumber(arquivo.caixasAno, 2)} caixas × ${formatBRL(n(input.b7Destruicao))} = ${formatBRL(arquivo.destruicao)}`,
-    `busca = ${formatNumber(n(input.b7Solicitacoes), 2)} solicitações × ${formatNumber(n(input.b7HorasBusca), 2)} h = ${formatNumber(arquivo.horasBusca, 2)} h × ${formatBRL(custoQual)} (Qualidade)`,
-    `registros eletrônicos = − ${formatBRL(arquivo.eletronico)}`,
-    `caixa do arquivo = ${formatBRL(arquivo.guarda)} + ${formatBRL(arquivo.destruicao)} − ${formatBRL(arquivo.eletronico)} = ${formatBRL(arquivo.caixa)}`,
-  ];
-}
-
-function scenarioRate(input, name) {
-  const raw = input.b4Pct?.[name];
-  if (raw == null || raw === '') return { value: 0, assumed: false };
-  return { value: clamp(n(raw), 0, 1), assumed: false };
-}
-
-function curveOf(input) {
-  const raw = Array.isArray(input.curva) ? input.curva : [null, null, null];
-  const spec = [0, 0.5, 1];
-  const assumed = raw.some((item) => item == null || item === '');
-  const values = [0, 1, 2].map((index) => (raw[index] == null || raw[index] === '' ? spec[index] : clamp(n(raw[index]), 0, 1)));
-  return { values, assumed };
-}
-
-function fteOf(input) {
-  const raw = input.horasFte;
-  if (raw == null || raw === '' || n(raw) <= 0) return { horas: 1760, assumed: true };
-  return { horas: n(raw), assumed: false };
-}
-
-function capexOf(input) {
-  const parts = {
-    implantacao: n(input.implantacao),
-    validacao: n(input.validacao),
-    integracao: n(input.integracao),
-    infraestrutura: n(input.infraestrutura),
-    tempoInterno: n(input.tempoInterno),
-    treinamento: n(input.treinamento),
-    receitas: n(input.receitas),
-  };
-  const total = Object.values(parts).reduce((sum, item) => sum + item, 0);
-  return { ...parts, total: roundMoney(total), licenca: n(input.licenca) };
-}
-
-function blockResult({ label, horasProd = 0, horasQual = 0, custoProd, custoQual, caixa = 0, incluirHoras, formula }) {
-  const reaisHoras = roundMoney(horasProd * custoProd + horasQual * custoQual);
-  const caixaR = roundMoney(caixa);
-  return {
-    label,
-    horas: horasProd + horasQual,
-    horasProducao: horasProd,
-    horasQualidade: horasQual,
-    reaisHoras,
-    caixa: caixaR,
-    total: roundMoney(caixaR + (incluirHoras ? reaisHoras : 0)),
-    formula,
-  };
+function block(id, label, hours, hv, cash, formula) {
+  return { id, label, hours, hv, cash, gain: 0, formula };
 }
 
 export function evaluate(input = {}) {
-  const ops = n(input.opsAno);
-  const custoProd = n(input.custoHoraProd);
-  const custoQual = n(input.custoHoraQual);
-  const fte = fteOf(input);
-  const incluirHoras = input.incluirHoras !== false;
-  const curve = curveOf(input);
-  const modo = input.modo === 'base' ? 'base' : 'dedicado';
-  const months = rampMonths(modo, curve.values);
-  const money = capexOf(input);
-  const taxa = input.taxa == null || input.taxa === '' ? null : clamp(n(input.taxa), 0, 1);
-  const dupla = input.b2Dupla === true;
+  const data = { ...emptyInput(), ...input };
+  const scenario = scenarioOf(data);
+  const S = scenario.factor;
+  const rerr = n(data[scenario.rerr]);
+  const L = n(data.lotes);
+  const cGQ = n(data.cGQ);
+  const cOp = n(data.cOp);
+  const captura = pct(data.captura);
+  const record = recordHours(data, rerr);
+  const save = {
+    op: Math.max(0, record.T.op - record.E.op) * S,
+    pr: Math.max(0, record.T.pr - record.E.pr) * S,
+    gq: Math.max(0, record.T.gq - record.E.gq) * S,
+    co: Math.max(0, record.T.co - record.E.co),
+  };
+  const regHours = save.op + save.pr + save.gq + save.co;
+  const regHvOp = save.op * cOp;
+  const regHvReview = (save.pr + save.gq + save.co) * cGQ;
 
-  const preenchHoras = manualHours(input.b2Campos, input.b2Segundos, ops);
-  const pesagemHoras = weighingHours(ops, input.b2Pesagens, input.b2Minutos, dupla);
-  const revisao = reviewHours(ops, input.b3HorasProd, input.b3HorasQual, input.b3PctSem, input.b3TempoSem, input.b3TempoCom);
-  const capitalGiro = workingCapital(input.b3ValorOp, ops, input.b3Dias, input.b3CustoCapital);
-  const perdas = avoidedLoss(input.b5Qtd, input.b5Valor, input.b5Pct);
-  const limpezaHoras = cleaningHours(input.b6Registros, input.b6Minutos);
-  const limpezaCaixa = n(input.b6Ocorrencias) * n(input.b6Custo);
-  const papel = paperCash(input.b7Paginas, input.b7CustoPagina, ops);
-  const arquivo = paperArchive(input);
-  const ambiente = paperEnvironment(input.b7Paginas, ops, input.b7Co2);
+  const b3brUsed = Math.min(n(data.b3br), 50);
+  const b1Cash = n(data.b1vl) * L * n(data.b1d) / 365 * pct(data.b1cc) * S;
+  const b3Hours = n(data.b3d) * 12 * n(data.b3h) * pct(rerr);
+  const b3bHours = n(data.b3bd) * 12 * n(data.b3bh) * pct(b3brUsed);
+  const b4Cash = n(data.b4n) * n(data.b4v) * pct(data.b4e) * S;
+  const b5Hours = n(data.b5l) * 12 * n(data.b5m) / 60 * pct(data.b5r) * S;
+  const b5Cash = n(data.b5o) * n(data.b5c) * pct(data.b5r) * S;
+  const lbHours = n(data.lbF) * L * (n(data.lbsf) + n(data.lbsq)) / 3600 * pct(data.lbauto) * S;
+  const lbHv = n(data.lbF) * L * (n(data.lbsf) * cOp + n(data.lbsq) * cGQ) / 3600 * pct(data.lbauto) * S;
+  const paperGain = (n(data.b6p) * L * n(data.b6cp) + n(data.b6a)) * S;
+  const b6Cash = paperGain - n(data.b6e);
+  const b6Hours = n(data.b6b) * n(data.b6hb) * S;
+  const b9Hours = (n(data.b9l) * 12 + n(data.b9x) * 12 * Math.max(0, n(data.b9hh) - n(data.b9hc))) * S;
+  const caph = n(data.caph);
+  const capCash = data.capOn && caph > 0
+    ? ((n(data.capm) * pct(data.capr) * L) / 60 / caph) * n(data.capmg) * pct(data.capd) * S
+    : 0;
 
-  const caixaFixo = capitalGiro + perdas + limpezaCaixa + papel + arquivo.caixa;
-  const horasProdFixas = preenchHoras + pesagemHoras + revisao.horasProducao + limpezaHoras;
-  const horasQualFixas = revisao.horasQualidade + arquivo.horasBusca;
-  const breakEven = breakEvenPct(money.total + money.licenca, input.b5Qtd, input.b5Valor);
+  const blocks = [
+    block('reg', 'Registro de lote', regHours, regHvOp + regHvReview, 0, [
+      `Hoje, preenchimento = ${fmt(data.F)} campos × ${fmt(data.sf)} s = ${fmt(record.seconds.t.op, 0)} s/ordem → ${fmt(record.T.op, 1)} h/ano`,
+      `EBR, preenchimento = ${fmt(data.F)} × (1 − ${fmt(data.auto)}%) × ${fmt(data.se)} s = ${fmt(record.seconds.e.op, 0)} s/ordem → ${fmt(record.E.op, 1)} h/ano`,
+      `Economia do operador = max(0, ${fmt(record.T.op, 1)} − ${fmt(record.E.op, 1)}) × ${fmt(S * 100, 0)}% = ${fmt(save.op, 1)} h × ${fmtMoney(cOp)}`,
+      `Revisão e correção: produção ${fmt(save.pr, 1)} h + GQ ${fmt(save.gq, 1)} h, ambas com o fator do cenário, e correções ${fmt(save.co, 1)} h sem esse fator (a redução de erros já é do cenário, ${fmt(rerr)}%).`,
+      `Valor das horas = ${fmtMoney(regHvOp + regHvReview)}. Caixa considerado = esse valor × ${fmt(data.captura)}% de captura.`,
+    ]),
+    block('b1', 'Capital de giro', 0, 0, b1Cash, [
+      `Caixa = ${fmtMoney(data.b1vl)} × ${fmt(L, 0)} ordens × ${fmt(data.b1d)} dias ÷ 365 × ${fmt(data.b1cc)}% × ${fmt(S * 100, 0)}% = ${fmtMoney(b1Cash)}`,
+    ]),
+    block('b3', 'Desvios de documentação', b3Hours, b3Hours * cGQ, 0, [
+      `Horas = ${fmt(data.b3d)} desvios/mês × 12 × ${fmt(data.b3h)} h × ${fmt(rerr)}% = ${fmt(b3Hours, 1)} h`,
+      `Não multiplica pelo fator global: a redução já é a do cenário. Valor = horas × ${fmtMoney(cGQ)}.`,
+    ]),
+    block('b3b', 'Desvios de processo', b3bHours, b3bHours * cGQ, 0, [
+      `Horas = ${fmt(data.b3bd)} × 12 × ${fmt(data.b3bh)} h × ${fmt(b3brUsed)}% = ${fmt(b3bHours, 1)} h × fator ${fmt(S * 100, 0)}%`,
+      n(data.b3br) > 50 ? 'O valor digitado passou de 50%. A conta usa 50%, o teto sem referência publicada.' : 'Redução limitada a 50%.',
+    ]),
+    block('b4', 'Lotes perdidos', 0, 0, b4Cash, [
+      `Caixa = ${fmt(data.b4n)} × ${fmtMoney(data.b4v)} × ${fmt(data.b4e)}% × ${fmt(S * 100, 0)}% = ${fmtMoney(b4Cash)}`,
+    ]),
+    block('b5', 'Limpeza', b5Hours, b5Hours * cOp, b5Cash, [
+      `Horas = ${fmt(data.b5l)} limpezas/mês × 12 × ${fmt(data.b5m)} min ÷ 60 × ${fmt(data.b5r)}% × ${fmt(S * 100, 0)}% = ${fmt(b5Hours, 1)} h`,
+      `Ocorrências = ${fmt(data.b5o)} × ${fmtMoney(data.b5c)} × ${fmt(data.b5r)}% × ${fmt(S * 100, 0)}% = ${fmtMoney(b5Cash)}`,
+    ]),
+    block('lb', 'Logbooks', lbHours, lbHv, 0, [
+      `Horas = ${fmt(data.lbF)} campos × ${fmt(L, 0)} × (${fmt(data.lbsf)} + ${fmt(data.lbsq)}) s ÷ 3.600 × ${fmt(data.lbauto)}% × ${fmt(S * 100, 0)}% = ${fmt(lbHours, 1)} h`,
+      `Valor = campos × ordens × (segundos do operador × custo do operador + segundos da revisão × custo de quem revisa) ÷ 3.600 × captura do sistema × fator = ${fmtMoney(lbHv)}`,
+    ]),
+    block('b6', 'Papel e arquivo', b6Hours, b6Hours * cGQ, b6Cash, [
+      `Impressão e arquivo = (${fmt(data.b6p)} páginas × ${fmt(L, 0)} × ${fmtMoney(data.b6cp)} + ${fmtMoney(data.b6a)}) × ${fmt(S * 100, 0)}% = ${fmtMoney(paperGain)}`,
+      `Registros eletrônicos = ${fmtMoney(data.b6e)}, sem o fator do cenário.`,
+      `Caixa = ${fmtMoney(paperGain)} − ${fmtMoney(data.b6e)} = ${fmtMoney(b6Cash)}`,
+      `Buscas = ${fmt(data.b6b)} × ${fmt(data.b6hb)} h × ${fmt(S * 100, 0)}% = ${fmt(b6Hours, 1)} h`,
+    ]),
+    block('b9', 'Monitoramento ambiental', b9Hours, b9Hours * cGQ, 0, [
+      `Horas = (${fmt(data.b9l)} h/mês × 12 + ${fmt(data.b9x)} × 12 × max(0, ${fmt(data.b9hh)} − ${fmt(data.b9hc)})) × ${fmt(S * 100, 0)}% = ${fmt(b9Hours, 1)} h`,
+    ]),
+    block('cap', 'Capacidade no gargalo', 0, 0, capCash, [
+      data.capOn
+        ? `Caixa = (${fmt(data.capm)} min × ${fmt(data.capr)}% × ${fmt(L, 0)} ÷ 60) ÷ ${fmt(data.caph)} h × ${fmtMoney(data.capmg)} × ${fmt(data.capd)}% × ${fmt(S * 100, 0)}% = ${fmtMoney(capCash)}`
+        : 'Toggle desligado: este bloco vale zero, mesmo com os campos preenchidos.',
+    ]),
+  ];
 
-  const scenarios = {};
-  for (const name of SCENARIOS) {
-    const rate = scenarioRate(input, name);
-    const erros = fillErrorHours(ops, input.b4PctErro, input.b4HorasErro, rate.value);
-    const desvios = deviationHours(input.b4DesviosAno, input.b4HorasDesvio, rate.value);
-    const horasProd = horasProdFixas;
-    const horasQual = horasQualFixas + erros.horas + desvios.horas;
-    const reaisProd = roundMoney(horasProd * custoProd);
-    const reaisQual = roundMoney(horasQual * custoQual);
-    const reaisHoras = roundMoney(reaisProd + reaisQual);
-    const caixa = roundMoney(caixaFixo);
-    const base = roundMoney(caixa + (incluirHoras ? reaisHoras : 0));
-    const blocks = {
-      preenchimento: blockResult({
-        label: 'Preenchimento da OP',
-        horasProd: preenchHoras,
-        custoProd,
-        custoQual,
-        incluirHoras,
-        formula: [
-          `horas/ano = ${formatNumber(ops, 0)} OPs × ${formatNumber(n(input.b2Campos), 2)} campos × ${formatNumber(n(input.b2Segundos), 2)} s ÷ 3.600 = ${formatNumber(preenchHoras, 2)} h`,
-          `R$ = ${formatNumber(preenchHoras, 2)} h × ${formatBRL(custoProd)} = ${formatBRL(preenchHoras * custoProd)}`,
-        ],
-      }),
-      pesagem: blockResult({
-        label: 'Pesagem na OP',
-        horasProd: pesagemHoras,
-        custoProd,
-        custoQual,
-        incluirHoras,
-        formula: [
-          `horas/ano = ${formatNumber(ops, 0)} OPs × ${formatNumber(n(input.b2Pesagens), 2)} pesagens × ${formatNumber(n(input.b2Minutos), 2)} min ÷ 60 × ${dupla ? 2 : 1} = ${formatNumber(pesagemHoras, 2)} h`,
-          dupla ? 'A dupla checagem do segundo operador dobra as horas.' : 'Dupla checagem desligada: o fator do segundo operador é 1.',
-          `R$ = ${formatNumber(pesagemHoras, 2)} h × ${formatBRL(custoProd)} = ${formatBRL(pesagemHoras * custoProd)}`,
-        ],
-      }),
-      revisao: blockResult({
-        label: 'Revisão da OP',
-        horasProd: revisao.horasProducao,
-        horasQual: revisao.horasQualidade,
-        custoProd,
-        custoQual,
-        caixa: capitalGiro,
-        incluirHoras,
-        formula: [
-          `h futuras = ${formatPct(n(input.b3PctSem))} × ${formatNumber(n(input.b3TempoSem), 2)} h + ${formatPct(1 - n(input.b3PctSem))} × ${formatNumber(n(input.b3TempoCom), 2)} h = ${formatNumber(revisao.hFuturo, 2)} h`,
-          `supervisor = ${formatNumber(ops, 0)} × (${formatNumber(n(input.b3HorasProd), 2)} − ${formatNumber(revisao.hFuturo, 2)} × participação) = ${formatNumber(revisao.horasProducao, 2)} h × ${formatBRL(custoProd)}`,
-          `Garantia da Qualidade = ${formatNumber(revisao.horasQualidade, 2)} h × ${formatBRL(custoQual)}`,
-          `capital de giro = ${formatBRL(n(input.b3ValorOp))} × ${formatNumber(ops, 0)} × ${formatNumber(n(input.b3Dias), 2)} ÷ 365 × ${formatPct(n(input.b3CustoCapital))} = ${formatBRL(capitalGiro)}`,
-        ],
-      }),
-      erros: blockResult({
-        label: 'Erros de preenchimento',
-        horasQual: erros.horas,
-        custoProd,
-        custoQual,
-        incluirHoras,
-        formula: [
-          `erros/ano = ${formatNumber(ops, 0)} × ${formatPct(n(input.b4PctErro))} = ${formatNumber(erros.erros, 2)}`,
-          `horas = ${formatNumber(erros.erros, 2)} × ${formatNumber(n(input.b4HorasErro), 2)} h × ${formatPct(rate.value)} = ${formatNumber(erros.horas, 2)} h`,
-          `R$ = ${formatNumber(erros.horas, 2)} h × ${formatBRL(custoQual)} = ${formatBRL(erros.horas * custoQual)}`,
-        ],
-      }),
-      desvios: blockResult({
-        label: 'Desvios de documentação',
-        horasQual: desvios.horas,
-        custoProd,
-        custoQual,
-        incluirHoras,
-        formula: [
-          `horas = ${formatNumber(desvios.desviosAno, 2)} desvios/ano × ${formatNumber(n(input.b4HorasDesvio), 2)} h × ${formatPct(rate.value)} = ${formatNumber(desvios.horas, 2)} h`,
-          `R$ = ${formatNumber(desvios.horas, 2)} h × ${formatBRL(custoQual)} = ${formatBRL(desvios.horas * custoQual)}`,
-        ],
-      }),
-      perdas: blockResult({
-        label: 'Lotes perdidos ou retrabalhados',
-        custoProd,
-        custoQual,
-        caixa: perdas,
-        incluirHoras,
-        formula: [
-          `caixa = ${formatNumber(n(input.b5Qtd), 2)} × ${formatBRL(n(input.b5Valor))} × ${formatPct(n(input.b5Pct))} = ${formatBRL(perdas)}`,
-        ],
-      }),
-      limpeza: blockResult({
-        label: 'Limpeza e Logbook',
-        horasProd: limpezaHoras,
-        custoProd,
-        custoQual,
-        caixa: limpezaCaixa,
-        incluirHoras,
-        formula: [
-          `horas = ${formatNumber(n(input.b6Registros), 2)} registros/mês × 12 × ${formatNumber(n(input.b6Minutos), 2)} min ÷ 60 = ${formatNumber(limpezaHoras, 2)} h`,
-          `R$ das horas = ${formatNumber(limpezaHoras, 2)} h × ${formatBRL(custoProd)} = ${formatBRL(limpezaHoras * custoProd)}`,
-          `caixa = ${formatNumber(n(input.b6Ocorrencias), 2)} × ${formatBRL(n(input.b6Custo))} = ${formatBRL(limpezaCaixa)}`,
-        ],
-      }),
-      papel: blockResult({
-        label: 'Papel e impressão',
-        custoProd,
-        custoQual,
-        caixa: papel,
-        incluirHoras,
-        formula: [
-          `caixa = ${formatNumber(n(input.b7Paginas), 2)} páginas × ${formatNumber(ops, 0)} OPs × ${formatBRL(n(input.b7CustoPagina))} = ${formatBRL(papel)}`,
-          `CO₂ = ${formatNumber(ambiente, 2)} kg/ano, fora do ROI`,
-        ],
-      }),
-      arquivo: blockResult({
-        label: 'Armazenamento do papel',
-        horasQual: arquivo.horasBusca,
-        custoProd,
-        custoQual,
-        caixa: arquivo.caixa,
-        incluirHoras,
-        formula: archiveFormula(input, arquivo, custoQual),
-      }),
-    };
-    scenarios[name] = {
-      pct: rate.value,
-      horasProducao: horasProd,
-      horasQualidade: horasQual,
-      fteProducao: horasProd / fte.horas,
-      fteQualidade: horasQual / fte.horas,
-      reaisProducao: reaisProd,
-      reaisQualidade: reaisQual,
-      caixa,
-      reaisHoras,
-      base,
-      blocks,
-      ano1: yearGain(1, base, months),
-      paybackMeses: paybackMonths(money.total, money.licenca, base, months),
-      roi3: roiRatio(3, base, months, money.total, money.licenca),
-      roi5: roiRatio(5, base, months, money.total, money.licenca),
-      npv3: taxa == null ? null : npv(3, taxa, base, months, money.total, money.licenca),
-      npv5: taxa == null ? null : npv(5, taxa, base, months, money.total, money.licenca),
-    };
-  }
+  const H = blocks.reduce((sum, item) => sum + item.hours, 0);
+  const HV = blocks.reduce((sum, item) => sum + item.hv, 0);
+  const C = blocks.reduce((sum, item) => sum + item.cash, 0);
+  const benefit = C + HV * captura;
+  for (const item of blocks) item.gain = item.cash + item.hv * captura;
+
+  const timeline = buildTimeline(benefit, n(data.c1), n(data.c2), n(data.c3), pct(data.taxa));
+  const lossesNow = n(data.b4n) * n(data.b4v);
+  const equivalent = n(data.c1) / 5 + n(data.c2);
+  const breakeven = lossesNow > 0 ? equivalent / lossesNow : null;
+  const gqMinutes = (n(data.F) * n(data.sq)) / 60;
+  const orderMinutes = {
+    today: L > 0 ? (record.totalT * 60) / L : (record.seconds.t.op + record.seconds.t.pr + record.seconds.t.gq + record.seconds.t.co) / 60,
+    ebr: L > 0 ? (record.totalE * 60) / L : (record.seconds.e.op + record.seconds.e.pr + record.seconds.e.gq + record.seconds.e.co) / 60,
+    gqToday: L > 0 ? (record.T.gq * 60) / L : record.seconds.t.gq / 60,
+    gqEbr: L > 0 ? (record.E.gq * 60) / L : record.seconds.e.gq / 60,
+  };
 
   return {
-    ops,
-    incluirHoras,
-    fte,
-    curve,
-    modo,
-    months,
-    money,
-    taxa,
-    dupla,
-    revisao,
-    capitalGiro: roundMoney(capitalGiro),
-    ambiente,
-    arquivo,
-    breakEven,
-    perdaAnual: n(input.b5Qtd) * n(input.b5Valor),
-    scenarios,
+    scenario: scenario.id,
+    factor: S,
+    rerr,
+    record,
+    save,
+    blocks,
+    H,
+    HV,
+    C,
+    benefit,
+    captura,
+    timeline,
+    lossesNow,
+    breakeven,
+    gqMinutes,
+    gqAlert: gqMinutes > 0 && (gqMinutes < 60 || gqMinutes > 240),
+    processAlert: n(data.b3br) > 50,
+    logbookNote: n(data.lbF) > 0 && n(data.b5l) > 0,
+    orderMinutes,
+    people: (record.totalT - record.totalE) / 1800,
+    investment: { c1: n(data.c1), c2: n(data.c2), c3: n(data.c3) },
+    blankFinance: n(data.c1) === 0 && n(data.c2) === 0,
     disclaimer: DISCLAIMER,
   };
 }
 
+function buildTimeline(annual, c1, c2, c3, rate) {
+  const months = [];
+  let accumulated = -c1;
+  let npv = -c1;
+  const monthlyRate = (1 + rate) ** (1 / 12) - 1;
+  let payback = null;
+  let benefit3 = 0;
+  let benefit5 = 0;
+  let cost3 = c1;
+  let cost5 = c1;
+  for (let month = 1; month <= 60; month += 1) {
+    const k = month - c3;
+    const factor = k <= 1 ? 0 : k === 2 ? 0.5 : 1;
+    const benefit = (annual / 12) * factor;
+    const cost = c2 / 12;
+    const flow = benefit - cost;
+    accumulated += flow;
+    npv += flow / (1 + monthlyRate) ** month;
+    if (payback == null && accumulated >= -0.005) payback = month;
+    if (month <= 36) {
+      benefit3 += benefit;
+      cost3 += cost;
+    }
+    benefit5 += benefit;
+    cost5 += cost;
+    months.push({ month, factor, benefit, cost, flow, accumulated });
+  }
+  const roi = (benefits, costs) => (c1 === 0 && c2 === 0 ? null : (benefits - costs) / costs);
+  return {
+    months,
+    payback: c1 === 0 && c2 === 0 ? null : payback,
+    npv5: npv,
+    roi3: roi(benefit3, cost3),
+    roi5: roi(benefit5, cost5),
+  };
+}
+
+function fmt(value, digits = 2) {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
+}
+
+function fmtMoney(value) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
+}
+
 export function formatNumber(value, digits = 0) {
-  if (value == null || !Number.isFinite(value)) return '—';
+  if (!Number.isFinite(value)) return '—';
   return new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -617,22 +421,31 @@ export function formatNumber(value, digits = 0) {
 }
 
 export function formatBRL(value) {
-  if (value == null || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(roundMoney(value));
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+
+export function formatCompactBRL(value) {
+  if (!Number.isFinite(value)) return '—';
+  const sign = value < 0 ? '−' : '';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${sign}R$ ${formatNumber(abs / 1_000_000, 1)} mi`;
+  if (abs >= 1_000) return `${sign}R$ ${formatNumber(abs / 1_000, abs >= 10_000 ? 0 : 1)} mil`;
+  return formatBRL(value);
 }
 
 export function formatPct(value) {
-  if (value == null || !Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
 }
 
-export function formatMonths(value) {
-  if (value == null) return 'Não se paga em 10 anos';
-  if (value === 0) return 'Imediato';
-  const rounded = Math.round(value * 10) / 10;
-  return `${formatNumber(rounded, Number.isInteger(rounded) ? 0 : 1)} meses`;
+export function formatPayback(result) {
+  if (result.blankFinance) return '—';
+  if (result.timeline.payback == null) return 'mais de 5 anos';
+  return `${result.timeline.payback} meses`;
+}
+
+export function formatRoi(value, blank) {
+  if (blank || value == null || !Number.isFinite(value)) return '—';
+  return formatPct(value);
 }
