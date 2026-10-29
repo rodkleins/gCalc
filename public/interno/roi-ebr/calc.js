@@ -449,3 +449,28 @@ export function formatRoi(value, blank) {
   if (blank || value == null || !Number.isFinite(value)) return '—';
   return formatPct(value);
 }
+
+/**
+ * Caixa acumulado do mês 0 ao 60, com o mesmo fluxo do payback
+ * (curva de aprendizado, custo recorrente e cenário já aplicados em evaluate).
+ */
+export function cashCurve(result) {
+  const c1 = result.investment.c1;
+  return [
+    { month: 0, factor: 0, benefit: 0, cost: c1, flow: -c1, accumulated: -c1 },
+    ...result.timeline.months,
+  ];
+}
+
+/** Resumo anual da curva: ano 0 (investimento) e anos 1 a 5. */
+export function yearlyCash(result) {
+  const curve = cashCurve(result);
+  const rows = [{ year: 0, benefit: 0, cost: curve[0].cost, flow: curve[0].flow, accumulated: curve[0].accumulated }];
+  for (let year = 1; year <= 5; year += 1) {
+    const slice = curve.slice((year - 1) * 12 + 1, year * 12 + 1);
+    const benefit = slice.reduce((sum, item) => sum + item.benefit, 0);
+    const cost = slice.reduce((sum, item) => sum + item.cost, 0);
+    rows.push({ year, benefit, cost, flow: benefit - cost, accumulated: slice[slice.length - 1].accumulated });
+  }
+  return rows;
+}

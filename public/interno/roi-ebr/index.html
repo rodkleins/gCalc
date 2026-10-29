@@ -5,220 +5,198 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex,nofollow" />
     <meta name="description" content="Calculadora interna de ROI do MES e do registro de lote eletrônico (EBR). Uso interno." />
-    <meta name="theme-color" content="#09070D" />
+    <meta name="theme-color" content="#061015" />
     <title>ROI MES/EBR NEO (interno)</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237C1BD8'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-size='11' fill='%23F5F2FA' font-family='sans-serif'%3ENEO%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230C1C22'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-size='11' font-weight='700' fill='%23F2F8F9' font-family='sans-serif'%3ENEO%3C/text%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <a class="skip" href="#resultados">Ir para o resultado</a>
-    <header class="top">
-      <div class="brand">
-        <img src="./t2-logo.png" alt="T2 Software" class="logo-t2" />
-        <span class="logo-neo" aria-label="NEO">NEO</span>
-      </div>
-      <div>
-        <p class="kicker">Uso interno · não indexar</p>
-        <h1>ROI do MES/EBR</h1>
-        <p class="lede">Cronometre o registro em papel, campo a campo, e compare com o registro de lote eletrônico (EBR). A aprovação do lote entra só com o tempo que você medir. Estimativa da planta, não promessa da T2.</p>
-      </div>
-      <div class="actions no-print">
-        <button type="button" id="theme">Tema claro</button>
-        <button type="button" id="print">Imprimir / PDF</button>
-      </div>
-    </header>
+    <div class="rv">
+      <a class="skip" href="#h-din">Ir para o resultado</a>
 
-    <div class="presets no-print">
-      <button type="button" id="load-example" class="primary">Carregar exemplo</button>
-      <button type="button" id="clear-all">Limpar todos os campos</button>
-      <button type="button" id="load-biolab">Biolab (estimado, interno)</button>
-    </div>
-    <p class="banner" id="preset-note" role="status"></p>
-
-    <div class="layout">
-      <form id="form" autocomplete="off">
-        <details class="block" open>
-          <summary><span>Dados da planta</span></summary>
-          <div class="grid">
-            <label>Ordens de produção por ano<input id="lotes" inputmode="decimal" /></label>
-            <label>Custo-hora de quem revisa (produção e GQ)<input id="cGQ" inputmode="decimal" /></label>
-            <label>Custo-hora do operador<input id="cOp" inputmode="decimal" /></label>
-            <label>Parcela das horas liberadas que vira caixa (%)<input id="captura" inputmode="decimal" /></label>
-            <label>Taxa de desconto anual para o VPL (%)<input id="taxa" inputmode="decimal" /></label>
+      <div class="sticky">
+        <div class="sticky-in">
+          <div class="brand">
+            <img src="./t2-logo.png" alt="T2 Software" class="logo-t2" width="720" height="115" />
+            <span class="logo-neo disp" aria-label="NEO">NEO <span class="logo-sub">· ROI do EBR</span></span>
           </div>
-        </details>
-
-        <details class="block" id="block-reg" open>
-          <summary><span>Registro de lote: papel e EBR</span><strong data-gain="reg"></strong></summary>
-          <p class="help">Meça na sua planta: cronometre o preenchimento e a revisão de algumas ordens reais e divida pelo número de campos.</p>
-          <h2>Hoje, em papel</h2>
-          <div class="grid">
-            <label>Campos por ordem de produção (sem logbooks)<input id="F" inputmode="decimal" /></label>
-            <label>Tempo do operador para preencher um campo (s)<input id="sf" inputmode="decimal" /></label>
-            <label>Tempo da produção para revisar um campo (s)<input id="sp" inputmode="decimal" /></label>
-            <label>Tempo da GQ para revisar um campo (s)<input id="sq" inputmode="decimal" /></label>
-            <label>Campos com erro que exigem correção (%)<input id="err" inputmode="decimal" /></label>
-            <label>Tempo por correção (min)<input id="mc" inputmode="decimal" /></label>
+          <div class="bar-kpis" aria-live="polite">
+            <span>Retorno <b class="mono" id="k-pay">—</b></span>
+            <span>ROI 5 anos <b class="mono" id="k-roi5">—</b></span>
+            <span>VPL <b class="mono" id="k-npv">—</b></span>
+            <span>Benefício/ano <b class="mono" id="k-ben">—</b></span>
           </div>
-          <p class="alert" id="gq-alert" hidden></p>
-          <h2>Com EBR</h2>
-          <p class="ref">Referência relatada no painel Maturidade Digital em Life Sciences, 1º Summit Organex (07/10/2026), números não auditados: revisão de 1h30–3h para 15–20 min; lote sem desvio em 5–10 min; cerca de 3.000 campos manuais por lote eliminados na pesagem.</p>
-          <div class="grid">
-            <label>Campos capturados automaticamente (%)<input id="auto" inputmode="decimal" /></label>
-            <label>Tempo para registrar um campo restante (s)<input id="se" inputmode="decimal" /></label>
-            <label>Campos que geram exceção (%)<input id="exc" inputmode="decimal" /></label>
-            <label>Tempo da produção por exceção (s)<input id="sxp" inputmode="decimal" /></label>
-            <label>Tempo da GQ por exceção (s)<input id="sxq" inputmode="decimal" /></label>
-            <label>Revisão final da GQ por ordem (min)<input id="fin" inputmode="decimal" /></label>
-            <label>Erros evitados, conservador (%)<input id="rerr_c" inputmode="decimal" /></label>
-            <label>Erros evitados, provável (%)<input id="rerr_p" inputmode="decimal" /></label>
-            <label>Erros evitados, otimista (%)<input id="rerr_o" inputmode="decimal" /></label>
+          <div class="seg" role="group" aria-label="Cenário">
+            <button type="button" data-scenario="conservador">Conservador</button>
+            <button type="button" data-scenario="provavel" aria-pressed="true">Provável</button>
+            <button type="button" data-scenario="otimista">Otimista</button>
           </div>
-          <p class="ref">Referência relatada: cerca de 1 erro a cada 100 entradas manuais no papel. Conservador, queda de 75% em erros humanos no eletrônico. Otimista, erros zerados nos módulos em uso — o EBR completo ainda não estava implantado nesse relato. Zero erros de preenchimento é defensável; zero desvios de processo, não.</p>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="reg"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Capital de giro na quarentena</span><strong data-gain="b1"></strong></summary>
-          <p class="help">Considere só os dias que dependem da revisão do registro, não do laboratório.</p>
-          <div class="grid">
-            <label>Valor médio de um lote (R$)<input id="b1vl" inputmode="decimal" /></label>
-            <label>Dias de quarentena a menos<input id="b1d" inputmode="decimal" /></label>
-            <label>Custo de capital anual (%)<input id="b1cc" inputmode="decimal" /></label>
+          <div class="tools no-print">
+            <button type="button" class="btn sm" id="theme">Tema claro</button>
+            <button type="button" class="btn sm" id="print">Imprimir / PDF</button>
           </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b1"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Desvios de documentação</span><strong data-gain="b3"></strong></summary>
-          <p class="help">Só o que vira desvio formal, com investigação. Correção simples dentro do registro já está no campo de erros. Referência relatada: plantas geram em média pouco mais de 1.000 desvios por ano, variando com o porte. Faixa típica de horas, a confirmar: menor 4–8 h, maior 16–40 h, crítico 40–100 h.</p>
-          <div class="grid">
-            <label>Desvios de documentação por mês<input id="b3d" inputmode="decimal" /></label>
-            <label>Horas por desvio<input id="b3h" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b3"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Desvios de processo</span><strong data-gain="b3b"></strong></summary>
-          <p class="help">Sequência, faixa fora, material errado, tempo de espera. Não é erro de preenchimento. A redução fica até 50%.</p>
-          <div class="grid">
-            <label>Desvios de processo por mês<input id="b3bd" inputmode="decimal" /></label>
-            <label>Horas por desvio<input id="b3bh" inputmode="decimal" /></label>
-            <label>Redução esperada (%)<input id="b3br" inputmode="decimal" /></label>
-          </div>
-          <p class="alert" id="process-alert" hidden>Redução acima de 50% em desvios de processo não tem referência publicada.</p>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b3b"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Lotes perdidos e retrabalho</span><strong data-gain="b4"></strong></summary>
-          <div class="grid">
-            <label>Lotes por ano por causa evitável<input id="b4n" inputmode="decimal" /></label>
-            <label>Custo médio de cada perda (R$)<input id="b4v" inputmode="decimal" /></label>
-            <label>Parcela que o sistema evitaria (%)<input id="b4e" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b4"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Limpeza e status de equipamento</span><strong data-gain="b5"></strong></summary>
-          <div class="grid">
-            <label>Limpezas por mês<input id="b5l" inputmode="decimal" /></label>
-            <label>Controle manual por limpeza (min)<input id="b5m" inputmode="decimal" /></label>
-            <label>Redução do controle manual (%)<input id="b5r" inputmode="decimal" /></label>
-            <label>Ocorrências por ano<input id="b5o" inputmode="decimal" /></label>
-            <label>Custo médio por ocorrência (R$)<input id="b5c" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b5"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Logbooks</span><strong data-gain="lb"></strong></summary>
-          <p class="help">Campos de equipamento, sala e limpeza que não estão na instrução da ordem.</p>
-          <div class="grid">
-            <label>Campos de logbook por ordem<input id="lbF" inputmode="decimal" /></label>
-            <label>Tempo para preencher um campo (s)<input id="lbsf" inputmode="decimal" /></label>
-            <label>Tempo para revisar um campo (s)<input id="lbsq" inputmode="decimal" /></label>
-            <label>Campos capturados ou eliminados (%)<input id="lbauto" inputmode="decimal" /></label>
-          </div>
-          <p class="alert" id="logbook-note" hidden>Não inclua no logbook os registros de limpeza já contados no bloco de limpeza.</p>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="lb"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Papel, impressão e arquivo</span><strong data-gain="b6"></strong></summary>
-          <div class="grid">
-            <label>Páginas por lote<input id="b6p" inputmode="decimal" /></label>
-            <label>Custo por página (R$)<input id="b6cp" inputmode="decimal" /></label>
-            <label>Arquivo físico por ano (R$)<input id="b6a" inputmode="decimal" /></label>
-            <label>Buscas de registros por ano<input id="b6b" inputmode="decimal" /></label>
-            <label>Horas por busca<input id="b6hb" inputmode="decimal" /></label>
-            <label>Registros eletrônicos por ano (R$)<input id="b6e" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b6"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Monitoramento ambiental</span><strong data-gain="b9"></strong></summary>
-          <div class="grid">
-            <label>Horas por mês em leituras manuais<input id="b9l" inputmode="decimal" /></label>
-            <label>Excursões investigadas por mês<input id="b9x" inputmode="decimal" /></label>
-            <label>Horas por investigação hoje<input id="b9hh" inputmode="decimal" /></label>
-            <label>Horas por investigação com correlação<input id="b9hc" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="b9"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Capacidade no gargalo</span><strong data-gain="cap"></strong></summary>
-          <p class="help">Só vale para o equipamento que limita a produção da planta e se houver demanda para os lotes adicionais. O preenchimento durante a execução não entra.</p>
-          <label class="check"><input type="checkbox" id="capOn" /> Minha planta vende tudo que produz</label>
-          <div class="grid">
-            <label>Minutos por ordem em que o gargalo espera documentação<input id="capm" inputmode="decimal" /></label>
-            <label>Redução com EBR (%)<input id="capr" inputmode="decimal" /></label>
-            <label>Horas de gargalo por lote<input id="caph" inputmode="decimal" /></label>
-            <label>Margem de contribuição por lote adicional (R$)<input id="capmg" inputmode="decimal" /></label>
-            <label>Parcela que o mercado absorveria (%)<input id="capd" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="cap"></div></details>
-        </details>
-
-        <details class="block">
-          <summary><span>Investimento e custos</span><strong data-gain="invest"></strong></summary>
-          <p class="help">Preencha o orçamento da planta. Estes campos não trazem preço da T2 nem do NEO. O controle de mudanças da validação CSV fica no seu projeto, não nesta conta.</p>
-          <div class="grid">
-            <label>Investimento inicial total (R$)<input id="c1" inputmode="decimal" /></label>
-            <label>Custos recorrentes por ano (R$)<input id="c2" inputmode="decimal" /></label>
-            <label>Meses até a entrada em operação<input id="c3" inputmode="decimal" /></label>
-          </div>
-          <details class="calc"><summary>Ver cálculo</summary><div data-formula="invest"></div></details>
-        </details>
-      </form>
-
-      <aside class="results" id="resultados" aria-live="polite">
-        <p class="kicker">Retorno do investimento</p>
-        <p class="payback" id="payback">—</p>
-        <div class="scenarios" role="group" aria-label="Cenário">
-          <button type="button" data-scenario="conservador">Conservador</button>
-          <button type="button" data-scenario="provavel" aria-pressed="true">Provável</button>
-          <button type="button" data-scenario="otimista">Otimista</button>
         </div>
-        <div class="kpis" id="kpis"></div>
-        <h2>Registro de lote: hoje × EBR</h2>
-        <div class="table-wrap"><table id="compare"></table></div>
-        <p class="note" id="compare-note"></p>
-        <h2>Ganho anual por bloco</h2>
-        <div id="bars"></div>
-        <h2>Cenários</h2>
-        <div class="table-wrap"><table id="scenario-table"></table></div>
-        <h2>Ponto de equilíbrio das perdas</h2>
-        <p id="breakeven"></p>
-        <p class="disclaimer" id="disclaimer">Estimativa baseada nos dados informados. Não substitui a avaliação do seu projeto nem a validação do sistema (CSV).</p>
-      </aside>
+      </div>
+
+      <main class="page">
+        <header class="hero">
+          <div class="hero-copy">
+            <div class="eyebrow">Uso interno · não indexar · MES e registro de lote eletrônico (EBR)</div>
+            <h1 class="disp">Quanto custa o papel na sua planta?</h1>
+            <p class="lede">Cronometre o registro em papel, campo a campo, e compare com o EBR. Os números em destaque são editáveis: troque pelos seus e veja o resultado mudar. Estimativa da planta, não promessa da T2.</p>
+            <div class="presets no-print">
+              <button type="button" class="btn" id="load-example">Carregar exemplo</button>
+              <button type="button" class="btn" id="clear-all">Limpar todos os campos</button>
+              <button type="button" class="btn" id="load-biolab">Biolab (estimado) · interno</button>
+            </div>
+          </div>
+          <div class="hero-result" id="resultados" aria-live="polite">
+            <div class="eyebrow">Retorno do investimento · <span id="scen-name">provável</span></div>
+            <div class="pay-row">
+              <span class="disp mono pay-big" id="pay-big">—</span>
+              <span class="pay-unit" id="pay-unit"></span>
+            </div>
+            <div class="pay-sub">ROI em 3 anos <b class="mono" id="h-roi3">—</b> · em 5 anos <b class="mono" id="h-roi5">—</b></div>
+          </div>
+        </header>
+
+        <p class="alert" id="preset-note" role="status" hidden></p>
+
+        <form id="form" autocomplete="off" onsubmit="return false">
+          <section class="sec" aria-labelledby="h-planta">
+            <div class="eyebrow" id="h-planta">01 · Sua planta, hoje no papel</div>
+            <p class="sent">Fazemos <input class="ml" id="lotes" inputmode="decimal" aria-label="Ordens de produção por ano"> ordens de produção por ano. Cada registro de lote tem <input class="ml" id="F" inputmode="decimal" aria-label="Campos por ordem de produção, sem logbooks"> campos. O operador leva <input class="ml" id="sf" inputmode="decimal" aria-label="Segundos do operador para preencher um campo"> s para preencher cada um; a produção leva <input class="ml" id="sp" inputmode="decimal" aria-label="Segundos da produção para revisar um campo"> s e a GQ <input class="ml" id="sq" inputmode="decimal" aria-label="Segundos da GQ para revisar um campo"> s para revisar. <input class="ml" id="err" inputmode="decimal" aria-label="Percentual de campos com erro que exigem correção">% dos campos têm erro, e cada correção custa <input class="ml" id="mc" inputmode="decimal" aria-label="Minutos por correção"> min. A hora de quem revisa (produção e GQ) custa R$ <input class="ml" id="cGQ" inputmode="decimal" aria-label="Custo-hora de quem revisa, em reais">; a do operador, R$ <input class="ml" id="cOp" inputmode="decimal" aria-label="Custo-hora do operador, em reais">.</p>
+            <p class="ref">Meça na sua planta: cronometre o preenchimento e a revisão de algumas ordens reais e divida pelo número de campos. Referência relatada (Pharmaceutical Technology): cerca de 1 erro a cada 100 entradas manuais.</p>
+            <p class="alert" id="gq-alert" role="status" hidden></p>
+          </section>
+
+          <section class="sec" aria-labelledby="h-ebr">
+            <div class="eyebrow" id="h-ebr">02 · A mesma ordem, com EBR <strong class="sec-gain mono" data-gain="reg"></strong></div>
+            <p class="sent">Com o EBR, <input class="ml" id="auto" inputmode="decimal" aria-label="Percentual de campos capturados automaticamente">% dos campos vêm direto da balança, do leitor ou do sistema, e cada campo restante leva <input class="ml" id="se" inputmode="decimal" aria-label="Segundos para registrar um campo restante"> s. Só <input class="ml" id="exc" inputmode="decimal" aria-label="Percentual de campos que geram exceção">% viram exceção: <input class="ml" id="sxp" inputmode="decimal" aria-label="Segundos da produção por exceção"> s na produção e <input class="ml" id="sxq" inputmode="decimal" aria-label="Segundos da GQ por exceção"> s na GQ cada, mais <input class="ml" id="fin" inputmode="decimal" aria-label="Minutos de revisão final da GQ por ordem"> min de revisão final. A validação na entrada evita <input class="ml" id="rerr_c" inputmode="decimal" aria-label="Erros evitados, cenário conservador, percentual">%, <input class="ml" id="rerr_p" inputmode="decimal" aria-label="Erros evitados, cenário provável, percentual">% ou <input class="ml" id="rerr_o" inputmode="decimal" aria-label="Erros evitados, cenário otimista, percentual">% dos erros (conservador, provável, otimista).</p>
+
+            <div class="mins">
+              <div class="mins-big">
+                <span class="disp mono big-old" id="min-paper">—</span>
+                <span class="disp arrow" aria-hidden="true">→</span>
+                <span class="disp mono big-new" id="min-ebr">—</span>
+                <span class="mins-unit">min por ordem</span>
+              </div>
+              <div class="mono mins-drop" id="min-drop"></div>
+            </div>
+
+            <div class="stack">
+              <div class="stack-grid">
+                <span class="eyebrow">Papel</span>
+                <div class="stackbar" id="segs-paper"></div>
+                <span class="eyebrow">EBR</span>
+                <div class="stackbar" id="segs-ebr"></div>
+              </div>
+              <div class="legend" id="seg-legend"></div>
+            </div>
+
+            <div class="panel table-panel">
+              <div class="panel-title">Registro de lote: hoje × EBR (h/ano)</div>
+              <div class="table-wrap"><table id="compare"></table></div>
+              <p class="ref" id="compare-note"></p>
+            </div>
+            <p class="ref">Este é o modelo da planta, sem cenário. Os cenários aplicam 50%, 75% ou 100% sobre essa economia; a redução de erros usa o valor de cada cenário. Referências relatadas: painel “Maturidade Digital em Life Sciences”, 1º Summit Organex (07/10/2026), revisão do lote de 1h30–3h para 15–20 min, lote sem desvio em 5–10 min e cerca de 3.000 campos manuais eliminados na pesagem (números relatados, não auditados); Körber/Ferring, material do fornecedor, revisão 60% mais rápida; Pharmaceutical Online (2021), 75% menos erros humanos no registro eletrônico. Zero erros de preenchimento é defensável; zero desvios de processo, não.</p>
+            <details class="calc"><summary>Ver cálculo</summary><div data-formula="reg"></div></details>
+          </section>
+
+          <section class="sec" aria-labelledby="h-horas">
+            <div class="eyebrow" id="h-horas">03 · Para onde vão as horas</div>
+            <div class="hours">
+              <div class="hours-main">
+                <h2 class="disp hours-title"><span id="fte">—</span> pessoas-ano de volta</h2>
+                <p class="muted hours-lede"><span class="mono" id="hrs">—</span> por ano deixam de ir para papel, revisão, correção e controles manuais. Você decide o destino delas: cortar custo ou produzir mais com o mesmo time.</p>
+                <div class="range-wrap">
+                  <label for="captura" class="range-label"><span class="c-people">Economizar pessoas · <span id="cap-people-pct">—</span></span><span class="c-cap"><span id="cap-cap-pct">—</span> · Aumentar capacidade</span></label>
+                  <input id="captura" class="range" type="range" min="0" max="100" step="1" aria-label="Parcela das horas liberadas que vira caixa (economia de pessoas), em %">
+                </div>
+                <div class="two">
+                  <div class="panel tile">
+                    <div class="tile-h c-people"><span class="key key-people" aria-hidden="true"></span>Economia de pessoas</div>
+                    <div class="mono tile-v" id="people-val">—</div>
+                    <div class="tile-s"><span id="people-fte">—</span> pessoas · entra no ROI</div>
+                  </div>
+                  <div class="panel tile">
+                    <div class="tile-h c-cap"><span class="key key-cap" aria-hidden="true"></span>Capacidade liberada</div>
+                    <div class="mono tile-v" id="cap-hrs">—</div>
+                    <div class="tile-s"><span id="cap-fte">—</span> pessoas · não entra no ROI</div>
+                  </div>
+                </div>
+                <p class="orders">Com essa capacidade, a mesma equipe que documenta <span class="mono" id="lotes-txt">—</span> ordens por ano daria conta de até <b class="mono c-cap" id="orders-cap">—</b>. <span class="muted">Considera só o tempo de documentação, não a capacidade dos equipamentos.</span></p>
+              </div>
+              <div class="panel people-panel">
+                <div class="muted small" id="people-caption"></div>
+                <div class="people" role="img" id="people"></div>
+                <div class="people-legend muted small">
+                  <span><svg class="pp e mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.6"></circle><path d="M4.5 21c0-4.2 3.4-7.4 7.5-7.4s7.5 3.2 7.5 7.4z"></path></svg>vira economia</span>
+                  <span><svg class="pp k mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.6"></circle><path d="M4.5 21c0-4.2 3.4-7.4 7.5-7.4s7.5 3.2 7.5 7.4z"></path></svg>vira capacidade</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="sec" aria-labelledby="h-outros">
+            <div class="eyebrow" id="h-outros">04 · Outros ganhos que você pode somar</div>
+            <p class="muted intro">Abra cada cartão que se aplica à sua planta. Campo vazio conta como zero.</p>
+            <div class="cards" id="cards"></div>
+          </section>
+
+          <section class="sec" aria-labelledby="h-din">
+            <div class="eyebrow" id="h-din">05 · O dinheiro, mês a mês <strong class="sec-gain mono" data-gain="invest"></strong></div>
+            <p class="sent">O projeto custa R$ <input class="ml" id="c1" inputmode="decimal" aria-label="Investimento inicial total, em reais"> para implantar e R$ <input class="ml" id="c2" inputmode="decimal" aria-label="Custos recorrentes por ano, em reais"> por ano para manter, e entra em operação em <input class="ml" id="c3" inputmode="decimal" aria-label="Meses até a entrada em operação"> meses. Descontamos o futuro a <input class="ml" id="taxa" inputmode="decimal" aria-label="Taxa de desconto anual para o VPL, percentual">% ao ano.</p>
+            <p class="ref">Preencha o orçamento da planta: licença ou implantação, validação (CSV), integrações, dispositivos, tempo do time interno, treinamento e revisão de receitas. Estes campos não trazem preço da T2 nem do NEO. O controle de mudanças da validação CSV fica no seu projeto, não nesta conta.</p>
+            <details class="calc"><summary>Ver cálculo do investimento</summary><div data-formula="invest"></div></details>
+
+            <div class="kpis" id="kpis"></div>
+
+            <div class="panel chart-panel">
+              <div class="chart-head">
+                <div class="panel-title">Caixa acumulado em 60 meses</div>
+                <div class="mono chart-meta" id="chart-meta"></div>
+              </div>
+              <p class="alert" id="chart-warn" role="status" hidden></p>
+              <div class="chart" id="chart"></div>
+              <div class="mono axis"><span>hoje</span><span>ano 1</span><span>ano 2</span><span>ano 3</span><span>ano 4</span><span>ano 5</span></div>
+              <div class="mono chart-foot" id="chart-foot"></div>
+              <details class="calc"><summary>Ver cálculo</summary><div id="chart-calc"></div></details>
+            </div>
+
+            <div class="split">
+              <div class="split-main">
+                <div class="panel-title">De onde vem o benefício anual</div>
+                <div class="legend">
+                  <span><span class="key key-cash" aria-hidden="true"></span>Caixa direto</span>
+                  <span><span class="key key-people" aria-hidden="true"></span>Pessoas economizadas</span>
+                  <span><span class="key key-cap" aria-hidden="true"></span>Capacidade (fora do ROI)</span>
+                </div>
+                <div class="bars" id="bars"></div>
+              </div>
+              <div class="split-side">
+                <div class="panel scen-panel">
+                  <div class="panel-title">Três cenários, mesma régua</div>
+                  <div id="scenario-rows"></div>
+                  <div class="muted xs">Fator sobre os ganhos: 50%, 75% e 100%.</div>
+                </div>
+                <div class="loss-test">
+                  <div class="panel-title">Teste das perdas</div>
+                  <p id="breakeven"></p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </form>
+
+        <footer class="foot">
+          <span id="disclaimer">Estimativa baseada nos dados informados. Não substitui a avaliação do seu projeto nem a validação do sistema (CSV).</span>
+          <span class="foot-brand"><img src="./t2-logo.png" alt="T2 Software" class="logo-t2 sm" width="720" height="115" /><span class="disp">NEO · T2 Software</span></span>
+        </footer>
+      </main>
     </div>
     <script type="module" src="./app.js"></script>
   </body>
