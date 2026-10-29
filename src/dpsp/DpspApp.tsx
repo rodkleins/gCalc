@@ -32,6 +32,7 @@ import {
 import { reanchor, sectionForField } from '../model/premises';
 import type { Inputs, ScenarioId } from '../model/types';
 import { NARROW_VIEWPORT_QUERY, isNarrowViewport, readUiFlag, writeUiFlag } from '../model/uiChrome';
+import { applyDpspDrivers, defaultDpspDrivers, sanitizeDpspDrivers, type DpspDrivers } from './drivers';
 import { DpspOrigin, DpspStorePicker } from './Origin';
 import { clearDpspSession, readDpspSession, writeDpspSession } from './storage';
 import { DPSP_BANNER, defaultDpspPreset, dpspPresets, type DpspPreset } from './stores';
@@ -90,6 +91,7 @@ interface BootState {
   wizardStep: number;
   adjustAnchor: Inputs;
   simulations: SimulationRecord[];
+  drivers: DpspDrivers;
 }
 
 function boot(initialInputs?: Inputs): BootState {
@@ -101,24 +103,27 @@ function boot(initialInputs?: Inputs): BootState {
       wizardStep: 0,
       adjustAnchor: structuredClone(initialInputs),
       simulations: [],
+      drivers: defaultDpspDrivers(),
     };
   }
   const loaded = readDpspSession(localStorage);
-  const fallbackInputs = structuredClone(defaultDpspPreset().inputs);
+  const source = loaded.draft?.inputs ?? defaultDpspPreset().inputs;
+  const applied = applyDpspDrivers(structuredClone(source), loaded.drivers);
   const draft = loaded.draft ?? {
-    inputs: fallbackInputs,
+    inputs: applied,
     scenario: 'base' as const,
     section: 'dashboard' as const,
     wizardStep: 0,
-    adjustAnchor: structuredClone(fallbackInputs),
+    adjustAnchor: structuredClone(applied),
   };
   return {
-    inputs: draft.inputs,
+    inputs: applied,
     scenario: draft.scenario,
     section: draft.section,
     wizardStep: draft.wizardStep,
-    adjustAnchor: draft.adjustAnchor,
+    adjustAnchor: structuredClone(applied),
     simulations: loaded.simulations,
+    drivers: loaded.drivers,
   };
 }
 
@@ -137,6 +142,7 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [railCollapsed, setRailCollapsed] = useState(() => readUiFlag(localStorage, RAIL_KEY) ?? isNarrowViewport());
   const [pendingPreset, setPendingPreset] = useState<DpspPreset | null>(null);
+  const [drivers, setDrivers] = useState<DpspDrivers>(booted.drivers);
   const presets = dpspPresets();
   const result = useMemo(() => evaluate(inputs, { scenario }), [inputs, scenario]);
 
@@ -164,12 +170,16 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
 
   useEffect(() => {
     if (initialInputs) return;
-    writeDpspSession(localStorage, {
-      version: STORAGE_VERSION,
-      draft: { inputs, scenario, section, wizardStep, adjustAnchor },
-      simulations,
-    });
-  }, [initialInputs, inputs, scenario, section, wizardStep, adjustAnchor, simulations]);
+    writeDpspSession(
+      localStorage,
+      {
+        version: STORAGE_VERSION,
+        draft: { inputs, scenario, section, wizardStep, adjustAnchor },
+        simulations,
+      },
+      drivers,
+    );
+  }, [initialInputs, inputs, scenario, section, wizardStep, adjustAnchor, simulations, drivers]);
 
   const summary = [
     inputs.fictional ? 'DADOS FICTÍCIOS' : 'Simulação',
@@ -211,8 +221,14 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
     setPendingPreset(preset);
   }
 
+  function changeDrivers(next: DpspDrivers) {
+    const clean = sanitizeDpspDrivers(next);
+    setDrivers(clean);
+    commitInputs(applyDpspDrivers(inputs, clean));
+  }
+
   function loadPreset(preset: DpspPreset) {
-    const next = structuredClone(preset.inputs);
+    const next = applyDpspDrivers(structuredClone(preset.inputs), drivers);
     resetDraft(next);
     setScenario('base');
     setSection('dashboard');
@@ -224,7 +240,9 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
   }
 
   function restoreExample() {
-    const model = structuredClone(defaultDpspPreset().inputs);
+    const restored = defaultDpspDrivers();
+    setDrivers(restored);
+    const model = applyDpspDrivers(structuredClone(defaultDpspPreset().inputs), restored);
     resetDraft(model);
     setScenario('base');
     setSection('dashboard');
@@ -236,7 +254,9 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
 
   function clearSaved() {
     clearDpspSession(localStorage);
-    const model = structuredClone(defaultDpspPreset().inputs);
+    const restored = defaultDpspDrivers();
+    setDrivers(restored);
+    const model = applyDpspDrivers(structuredClone(defaultDpspPreset().inputs), restored);
     resetDraft(model);
     setScenario('base');
     setSection('dashboard');
@@ -457,7 +477,9 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
               className="btn primary"
               data-testid="new-simulation"
               onClick={() => {
-                const seed = structuredClone(defaultDpspPreset().inputs);
+                const restored = defaultDpspDrivers();
+                setDrivers(restored);
+                const seed = applyDpspDrivers(structuredClone(defaultDpspPreset().inputs), restored);
                 resetDraft(seed);
                 setScenario('base');
                 setSection('wizard');
@@ -557,7 +579,7 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
         ) : null}
         {section === 'dashboard' ? (
           <>
-            <DpspOrigin presets={presets} onLoad={askPreset} />
+            <DpspOrigin presets={presets} drivers={drivers} inputs={inputs} onDrivers={changeDrivers} onLoad={askPreset} />
             <Dashboard
               inputs={inputs}
               anchor={adjustAnchor}
@@ -611,7 +633,7 @@ export default function DpspApp({ initialInputs }: { initialInputs?: Inputs }) {
             onExportLibrary={exportLibrary}
             onImport={importFile}
             onLoadPreset={() => undefined}
-            presetPanel={<DpspOrigin presets={presets} onLoad={askPreset} />}
+            presetPanel={<DpspOrigin presets={presets} drivers={drivers} inputs={inputs} onDrivers={changeDrivers} onLoad={askPreset} />}
           />
         ) : null}
         </PremiseFocus>

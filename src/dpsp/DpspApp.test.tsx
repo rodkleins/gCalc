@@ -70,6 +70,13 @@ describe('página DPSP', () => {
     expect(host.querySelector('[data-testid="kpi-payback"]')?.textContent).toBe(
       formatPayback(evaluate(dpspPresets()[0].inputs).payback),
     );
+    expect(host.querySelector('[data-testid="dpsp-positions"]')?.textContent).toContain('4,5 vagas');
+    expect(host.querySelector('[data-testid="dpsp-calc"]')?.textContent).toContain('9 × 50% = 4,5');
+    expect(host.querySelector('[data-testid="dpsp-calc"]')?.textContent).toContain('× (1 − 43%)');
+    const shown = dpspPresets().map(
+      (preset) => host.querySelector(`[data-testid="origin-payback-${preset.id}"]`)?.textContent,
+    );
+    expect(new Set(shown).size).toBe(3);
     expect(localStorage.getItem(DPSP_STORAGE_KEY)).toContain('327 DSP Fradique Coutinho');
     expect(localStorage.getItem(STORAGE_KEY)).toBe(before);
   });
