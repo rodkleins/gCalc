@@ -274,15 +274,54 @@ function renderHours(result) {
   $('lotes-txt').textContent = formatNumber(lotes, 0);
   $('orders-cap').textContent = lotes > 0 && totalT > freed ? formatNumber((lotes * totalT) / (totalT - freed), 0) : '—';
 
-  const n = Math.min(40, Math.round(fte * 2) / 2);
-  const whole = Math.ceil(n);
-  const peopleN = Math.round(n * capt);
+  const { prod, qa } = result.areas;
+  /* Arredonda as partes para que somem exatamente o total exibido. */
+  const parts = (total, first, digits) => {
+    const f = 10 ** digits;
+    const t = Math.round(total * f) / f;
+    const a = Math.round(first * f) / f;
+    return [a, Math.round((t - a) * f) / f, t];
+  };
+  const kilo = (value) => `R$ ${formatNumber(value, 0)} mil`;
+  const hP = parts(result.H * capt, prod.savingHours, 0);
+  const pP = parts(fte * capt, prod.savingPeople, 1);
+  const vP = parts((result.HV * capt) / 1000, prod.savingValue / 1000, 0);
+  $('people-split').innerHTML = `<thead><tr><th>Área</th><td>h/ano</td><td>pessoas</td><td>R$/ano</td></tr></thead><tbody>
+    <tr><th>Produção</th><td>${formatNumber(hP[0], 0)}</td><td>${formatNumber(pP[0], 1)}</td><td>${kilo(vP[0])}</td></tr>
+    <tr><th>Qualidade</th><td>${formatNumber(hP[1], 0)}</td><td>${formatNumber(pP[1], 1)}</td><td>${kilo(vP[1])}</td></tr>
+    <tr class="total"><th>Total</th><td>${formatNumber(hP[2], 0)}</td><td>${formatNumber(pP[2], 1)}</td><td>${kilo(vP[2])}</td></tr></tbody>`;
+  const hK = parts(result.H * (1 - capt), prod.capacityHours, 0);
+  const pK = parts(fte * (1 - capt), prod.capacityPeople, 1);
+  $('cap-split').innerHTML = `<thead><tr><th>Área</th><td>h/ano</td><td>pessoas</td></tr></thead><tbody>
+    <tr><th>Produção</th><td>${formatNumber(hK[0], 0)}</td><td>${formatNumber(pK[0], 1)}</td></tr>
+    <tr><th>Qualidade</th><td>${formatNumber(hK[1], 0)}</td><td>${formatNumber(pK[1], 1)}</td></tr>
+    <tr class="total"><th>Total</th><td>${formatNumber(hK[2], 0)}</td><td>${formatNumber(pK[2], 1)}</td></tr></tbody>`;
+
   const icon = (cls) => `<svg class="pp ${cls}" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.6"></circle><path d="M4.5 21c0-4.2 3.4-7.4 7.5-7.4s7.5 3.2 7.5 7.4z"></path></svg>`;
-  let html = '';
-  for (let i = 0; i < whole; i += 1) html += icon(i < peopleN ? 'e' : 'k');
-  $('people').innerHTML = html || '<span class="muted small">Sem horas liberadas.</span>';
-  $('people').setAttribute('aria-label', `${formatNumber(fte, 1)} pessoas-ano: ${formatNumber(fte * capt, 1)} viram economia e ${formatNumber(fte * (1 - capt), 1)} viram capacidade`);
-  $('people-caption').textContent = `Cada figura ≈ 1 pessoa-ano (${formatNumber(HOURS_PER_PERSON, 0)} h)${fte > 40 ? ' · mostrando até 40' : ''}`;
+  const scale = fte > 40 ? 40 / fte : 1;
+  const row = (area) => {
+    const n = Math.round(area.people * scale * 2) / 2;
+    const whole = Math.ceil(n);
+    const peopleN = Math.round(n * capt);
+    let html = '';
+    for (let i = 0; i < whole; i += 1) html += icon(i < peopleN ? 'e' : 'k');
+    const label = `${area.label}: ${formatNumber(area.people, 1)} pessoas-ano, ${formatNumber(area.savingPeople, 1)} viram economia e ${formatNumber(area.capacityPeople, 1)} viram capacidade`;
+    return `<div class="people-area" data-area="${area.id}">
+      <div class="people-area-h"><span>${area.label}</span><span class="mono">${formatNumber(area.people, 1)} pessoas · ${formatNumber(area.hours, 0)} h</span></div>
+      <div class="people" role="img" aria-label="${esc(label)}">${html || '<span class="muted small">Sem horas liberadas.</span>'}</div>
+    </div>`;
+  };
+  $('people').innerHTML = result.H > 0 ? row(prod) + row(qa) : '<span class="muted small">Sem horas liberadas.</span>';
+  $('people-caption').textContent = `Cada figura ≈ 1 pessoa-ano (${formatNumber(HOURS_PER_PERSON, 0)} h)${fte > 40 ? ' · escala reduzida para até 40 figuras' : ''}`;
+
+  const itemRows = (area) => area.items.filter((item) => item.hours > 0).map((item) => `<tr><th>${area.id === 'prod' ? 'Produção' : 'Qualidade'} · ${item.label}</th><td class="num">${formatNumber(item.hours, 1)}</td><td class="num">${formatBRL(item.cost)}</td><td class="num">${formatBRL(item.hv)}</td></tr>`).join('');
+  const sumRow = (area) => `<tr class="total"><th>${area.label}</th><td class="num">${formatNumber(area.hours, 1)}</td><td class="num"></td><td class="num">${formatBRL(area.hv)}</td></tr>`;
+  $('hours-calc').innerHTML = `
+    <p class="formula">Horas liberadas = soma das horas de todos os blocos = ${formatNumber(result.H, 1)} h/ano. Pessoas-ano = horas ÷ ${formatNumber(HOURS_PER_PERSON, 0)} h = ${formatNumber(fte, 2)}.</p>
+    <p class="formula">Produção = preenchimento do registro, revisão da produção, limpeza e preenchimento de logbook. Garantia da Qualidade = revisão da GQ, correções, desvios, buscas de registros, monitoramento ambiental e revisão de logbook. Custo-hora: operador ${formatBRL(Number(state.cOp) || 0)}; quem revisa (produção e GQ) ${formatBRL(Number(state.cGQ) || 0)}, como na spec.</p>
+    <div class="table-wrap"><table class="yearly"><thead><tr><th>Área · atividade</th><th class="num">h/ano</th><th class="num">R$/h</th><th class="num">Valor/ano</th></tr></thead><tbody>${itemRows(prod)}${sumRow(prod)}${itemRows(qa)}${sumRow(qa)}<tr class="total"><th>Total</th><td class="num">${formatNumber(result.H, 1)}</td><td class="num"></td><td class="num">${formatBRL(result.HV)}</td></tr></tbody></table></div>
+    <p class="formula">Economia de pessoas (${formatPct(capt)}): Produção ${formatNumber(prod.savingHours, 1)} h = ${formatNumber(prod.savingPeople, 2)} pessoas = ${formatBRL(prod.savingValue)}; Qualidade ${formatNumber(qa.savingHours, 1)} h = ${formatNumber(qa.savingPeople, 2)} pessoas = ${formatBRL(qa.savingValue)}; total ${formatBRL(result.HV * capt)}, que entra no ROI.</p>
+    <p class="formula">Capacidade liberada (${formatPct(1 - capt)}): Produção ${formatNumber(prod.capacityHours, 1)} h; Qualidade ${formatNumber(qa.capacityHours, 1)} h; total ${formatNumber(result.H * (1 - capt), 1)} h. Não entra no ROI.</p>`;
 }
 
 function renderBlocks(result) {

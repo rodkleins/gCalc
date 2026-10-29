@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'vitest';
 import {
+  BIOLAB_PRESET,
   DISCLAIMER,
   TERMS,
   emptyInput,
@@ -164,5 +165,23 @@ describe('página /interno/roi-ebr/', () => {
     }
     const mes = readFileSync(join(root, 'public/interno/roi-mes/calc.js'), 'utf8');
     assert.equal(mes.includes('neo-roi:v1:current'), false);
+  });
+});
+
+describe('divisão Produção × Garantia da Qualidade', () => {
+  for (const [name, input] of [['exemplo', exampleInput()], ['biolab', { ...BIOLAB_PRESET, capOn: false }]]) {
+    it(`soma exatamente os totais (${name})`, () => {
+      const r = evaluate(input);
+      const { prod, qa } = r.areas;
+      close(prod.hours + qa.hours, r.H, 6);
+      close(prod.hv + qa.hv, r.HV, 6);
+      close(prod.savingValue + qa.savingValue, r.HV * r.captura, 6);
+      close(prod.capacityHours + qa.capacityHours, r.H * (1 - r.captura), 6);
+      assert.ok(prod.hours > 0 && qa.hours > 0);
+    });
+  }
+  it('não muda payback nem ROI', () => {
+    const r = evaluate(exampleInput());
+    assert.equal(formatPayback(r), '30 meses');
   });
 });

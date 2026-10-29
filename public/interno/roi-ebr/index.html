@@ -121,24 +121,27 @@
                     <div class="tile-h c-people"><span class="key key-people" aria-hidden="true"></span>Economia de pessoas</div>
                     <div class="mono tile-v" id="people-val">—</div>
                     <div class="tile-s"><span id="people-fte">—</span> pessoas · entra no ROI</div>
+                    <table class="area-split" id="people-split" aria-label="Economia de pessoas por área"></table>
                   </div>
                   <div class="panel tile">
                     <div class="tile-h c-cap"><span class="key key-cap" aria-hidden="true"></span>Capacidade liberada</div>
                     <div class="mono tile-v" id="cap-hrs">—</div>
                     <div class="tile-s"><span id="cap-fte">—</span> pessoas · não entra no ROI</div>
+                    <table class="area-split" id="cap-split" aria-label="Capacidade liberada por área"></table>
                   </div>
                 </div>
                 <p class="orders">Com essa capacidade, a mesma equipe que documenta <span class="mono" id="lotes-txt">—</span> ordens por ano daria conta de até <b class="mono c-cap" id="orders-cap">—</b>. <span class="muted">Considera só o tempo de documentação, não a capacidade dos equipamentos.</span></p>
               </div>
               <div class="panel people-panel">
                 <div class="muted small" id="people-caption"></div>
-                <div class="people" role="img" id="people"></div>
+                <div class="people-areas" id="people"></div>
                 <div class="people-legend muted small">
                   <span><svg class="pp e mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.6"></circle><path d="M4.5 21c0-4.2 3.4-7.4 7.5-7.4s7.5 3.2 7.5 7.4z"></path></svg>vira economia</span>
                   <span><svg class="pp k mini" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.6"></circle><path d="M4.5 21c0-4.2 3.4-7.4 7.5-7.4s7.5 3.2 7.5 7.4z"></path></svg>vira capacidade</span>
                 </div>
               </div>
             </div>
+            <details class="calc"><summary>Ver cálculo</summary><div id="hours-calc"></div></details>
           </section>
 
           <section class="sec" aria-labelledby="h-outros">

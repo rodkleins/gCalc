@@ -127,6 +127,15 @@ body{margin:0}
 .rv .pp circle,.rv .pp path{stroke:currentColor;stroke-width:2}
 .rv .pp.e{color:var(--people)}.rv .pp.e circle,.rv .pp.e path{fill:currentColor}
 .rv .pp.k{color:var(--cap)}.rv .pp.k circle,.rv .pp.k path{fill:none}
+.rv .area-split{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.rv .area-split th,.rv .area-split td{padding:5px 0;border-top:1px solid var(--line);text-align:left;font-weight:500;color:var(--muted)}
+.rv .area-split td{font-family:"IBM Plex Mono",monospace;text-align:right;color:var(--text);padding-left:10px;white-space:nowrap}
+.rv .area-split tr.total th,.rv .area-split tr.total td{color:var(--ink);font-weight:600}
+.rv .people-areas{display:flex;flex-direction:column;gap:14px}
+.rv .people-area{display:flex;flex-direction:column;gap:6px}
+.rv .people-area-h{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:600;color:var(--ink);flex-wrap:wrap}
+.rv .people-area-h .mono{font-weight:500;color:var(--muted)}
+.rv .people-area + .people-area{border-top:1px dashed var(--line);padding-top:12px}
 
 /* 04 · cartões */
 .rv .intro{margin:0}

@@ -264,6 +264,8 @@ export function evaluate(input = {}) {
   const b5Cash = n(data.b5o) * n(data.b5c) * pct(data.b5r) * S;
   const lbHours = n(data.lbF) * L * (n(data.lbsf) + n(data.lbsq)) / 3600 * pct(data.lbauto) * S;
   const lbHv = n(data.lbF) * L * (n(data.lbsf) * cOp + n(data.lbsq) * cGQ) / 3600 * pct(data.lbauto) * S;
+  const lbHoursProd = n(data.lbF) * L * n(data.lbsf) / 3600 * pct(data.lbauto) * S;
+  const lbHoursQa = n(data.lbF) * L * n(data.lbsq) / 3600 * pct(data.lbauto) * S;
   const paperGain = (n(data.b6p) * L * n(data.b6cp) + n(data.b6a)) * S;
   const b6Cash = paperGain - n(data.b6e);
   const b6Hours = n(data.b6b) * n(data.b6hb) * S;
@@ -325,6 +327,51 @@ export function evaluate(input = {}) {
   const benefit = C + HV * captura;
   for (const item of blocks) item.gain = item.cash + item.hv * captura;
 
+  /*
+   * Divisão por área (só exibição; H, HV e o benefício não mudam).
+   * Produção: preenchimento (cOp), revisão da produção (cGQ, como na spec),
+   * limpeza (cOp) e preenchimento de logbook (cOp).
+   * Garantia da Qualidade: revisão da GQ, correções, desvios, buscas de
+   * registros, monitoramento ambiental (todos cGQ) e revisão de logbook (cGQ).
+   */
+  const areaItem = (label, hours, cost) => ({ label, hours, cost, hv: hours * cost });
+  const prodItems = [
+    areaItem('Preenchimento do registro', save.op, cOp),
+    areaItem('Revisão da produção', save.pr, cGQ),
+    areaItem('Limpeza', b5Hours, cOp),
+    areaItem('Logbooks, preenchimento', lbHoursProd, cOp),
+  ];
+  const qaItems = [
+    areaItem('Revisão da GQ', save.gq, cGQ),
+    areaItem('Correções', save.co, cGQ),
+    areaItem('Desvios de documentação', b3Hours, cGQ),
+    areaItem('Desvios de processo', b3bHours, cGQ),
+    areaItem('Buscas de registros', b6Hours, cGQ),
+    areaItem('Monitoramento ambiental', b9Hours, cGQ),
+    areaItem('Logbooks, revisão', lbHoursQa, cGQ),
+  ];
+  const areaOf = (id, label, items) => {
+    const hours = items.reduce((sum, item) => sum + item.hours, 0);
+    const hv = items.reduce((sum, item) => sum + item.hv, 0);
+    return {
+      id,
+      label,
+      items,
+      hours,
+      hv,
+      people: hours / 1800,
+      savingHours: hours * captura,
+      savingPeople: (hours * captura) / 1800,
+      savingValue: hv * captura,
+      capacityHours: hours * (1 - captura),
+      capacityPeople: (hours * (1 - captura)) / 1800,
+    };
+  };
+  const areas = {
+    prod: areaOf('prod', 'Produção', prodItems),
+    qa: areaOf('qa', 'Garantia da Qualidade', qaItems),
+  };
+
   const timeline = buildTimeline(benefit, n(data.c1), n(data.c2), n(data.c3), pct(data.taxa));
   const lossesNow = n(data.b4n) * n(data.b4v);
   const equivalent = n(data.c1) / 5 + n(data.c2);
@@ -344,6 +391,7 @@ export function evaluate(input = {}) {
     record,
     save,
     blocks,
+    areas,
     H,
     HV,
     C,
