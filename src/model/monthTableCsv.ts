@@ -8,6 +8,7 @@ export type MonthTableColumnKey =
   | 'robotCosts'
   | 'taxes'
   | 'oneTimeEvents'
+  | 'residual'
   | 'netFlow'
   | 'cumulative';
 
@@ -23,6 +24,7 @@ export function monthTableColumns(table: MonthTable): MonthTableColumn[] {
     { key: 'robotCosts', label: 'Custos mensais do robô' },
     table.hasTaxes ? { key: 'taxes', label: 'Impostos' } : null,
     table.hasOneTimeEvents ? { key: 'oneTimeEvents', label: 'Eventos pontuais' } : null,
+    table.hasResidual ? { key: 'residual', label: 'Valor residual' } : null,
     { key: 'netFlow', label: 'Fluxo líquido do mês' },
     { key: 'cumulative', label: 'Saldo acumulado' },
   ];

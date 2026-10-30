@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard';
 import { MonthByMonthTable } from './components/MonthByMonthTable';
 import { FloatingPayback } from './components/FloatingPayback';
 import { InflationPanel, InflationStress } from './components/InflationPanel';
+import { FiscalSensitivity, RootFiscalPanel } from './components/RootFiscalPanel';
 import { PremiseFocus } from './components/Fields';
 import { MoreActions } from './components/MoreActions';
 import { PrintReport } from './components/PrintReport';
@@ -41,7 +42,7 @@ import { reanchor, sectionForField } from './model/premises';
 import type { Inputs, ScenarioId } from './model/types';
 import { wizardSeed } from './model/wizard';
 import type { StorePreset } from './model/presets';
-import { rootDefaultStorePreset } from './model/rootPresets';
+import { rootDefaultStorePreset, withRootGuards } from './model/rootPresets';
 import {
   NARROW_VIEWPORT_QUERY,
   RAIL_COLLAPSED_KEY,
@@ -134,11 +135,14 @@ function boot(initialInputs?: Inputs): BootState {
 
 export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   const [booted] = useState(() => boot(initialInputs));
-  const [inputs, setInputs] = useState(booted.inputs);
+  const [rawInputs, setInputs] = useState(booted.inputs);
+  // Raiz: trava de dupla contagem vale também para rascunhos e simulações salvas ou importadas.
+  const inputs = useMemo(() => withRootGuards(rawInputs), [rawInputs]);
   const [scenario, setScenario] = useState<ScenarioId>(booted.scenario);
   const [section, setSection] = useState<SectionId>(booted.section);
   const [wizardStep, setWizardStep] = useState(booted.wizardStep);
   const [adjustAnchor, setAdjustAnchor] = useState(booted.adjustAnchor);
+  const guardedAnchor = useMemo(() => withRootGuards(adjustAnchor), [adjustAnchor]);
   const [focusField, setFocusField] = useState<string | null>(null);
   const [simulations, setSimulations] = useState<SimulationRecord[]>(booted.simulations);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -537,7 +541,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
 
         <FloatingPayback
           inputs={inputs}
-          anchor={adjustAnchor}
+          anchor={guardedAnchor}
           scenario={scenario}
           result={result}
           onUndo={() => setInputs(structuredClone(adjustAnchor))}
@@ -565,7 +569,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         {section === 'dashboard' ? (
           <Dashboard
             inputs={inputs}
-            anchor={adjustAnchor}
+            anchor={guardedAnchor}
             result={result}
             scenario={scenario}
             onScenario={setScenario}
@@ -591,14 +595,22 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             advanced={inputs.assumptions.viewMode !== 'simples'}
           />
         ) : null}
-        {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'logistica' ? <LogisticsForm inputs={inputs} result={result} onChange={commitInputs} rootGuards /> : null}
         {section === 'estoque' ? <StockForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
-        {section === 'investimento' ? <InvestmentForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'investimento' ? (
+          <InvestmentForm
+            inputs={inputs}
+            result={result}
+            onChange={commitInputs}
+            rootFiscal={<RootFiscalPanel inputs={inputs} result={result} onChange={commitInputs} />}
+          />
+        ) : null}
         {section === 'cenarios' ? (
           <ScenarioPanel inputs={inputs} scenario={scenario} onScenario={setScenario} onChange={commitInputs} />
         ) : null}
         {section === 'sensibilidade' ? <SensitivityPanel inputs={inputs} scenario={scenario} /> : null}
         {section === 'sensibilidade' ? <InflationStress inputs={inputs} scenario={scenario} /> : null}
+        {section === 'sensibilidade' ? <FiscalSensitivity inputs={inputs} scenario={scenario} /> : null}
         {section === 'fluxo' ? <CashflowTable result={result} /> : null}
         {section === 'auditoria' ? <AuditPanel result={result} /> : null}
         {section === 'simulacoes' ? (

@@ -62,6 +62,20 @@ function yearIndex(annualRate: number, month: number): number {
   return Math.pow(1 + annualRate, (month - 1) / 12);
 }
 
+/**
+ * Trava de dupla contagem (só quando logistics.requireCashPath está ligado, na raiz):
+ * com corte de folha, as horas de movimentação/inventário podem ser das vagas cortadas.
+ */
+function cashPathBlock(
+  inputs: Inputs,
+  card: { hoursOwner?: string; cashPath?: string },
+): string | null {
+  if (!inputs.logistics.requireCashPath) return null;
+  if (!inputs.people.payroll.enabled || inputs.people.payroll.positionsReduced <= 0) return null;
+  if ((card.hoursOwner ?? '').trim() && (card.cashPath === 'hora_extra' || card.cashPath === 'terceiro')) return null;
+  return 'Dupla contagem: o corte de folha já tira as vagas, e estas horas podem ser delas. Só entra informando de quem são as horas (ex.: outros colaboradores que permanecem) e como viram caixa (hora extra evitada ou terceiro evitado).';
+}
+
 function activeTaxPolicy(inputs: Inputs): TaxPolicy {
   if (!inputs.robot.includeTax) return 'sem_impostos';
   if (inputs.robot.taxPolicy === 'sem_impostos') return 'incremental_simplificado';
@@ -110,10 +124,16 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
   const journey = Math.max(1, inputs.people.journeyHoursPerMonth || 176);
   const remainingHeadcount = roleHeadcount > 0 ? Math.max(0, roleHeadcount - positions) : Number.POSITIVE_INFINITY;
   const hourBudget = remainingHeadcount * journey;
+  const movementCashBlock = cashPathBlock(inputs, inputs.logistics.movement);
+  const countCashBlock = cashPathBlock(inputs, inputs.logistics.inventoryCount);
   const claimedHours =
     (inputs.people.supervision.alreadyCountedInPayroll ? 0 : Math.max(0, inputs.people.supervision.hoursSavedPerMonth)) +
-    (inputs.logistics.movement.alreadyCountedInPayroll ? 0 : Math.max(0, inputs.logistics.movement.hoursSavedPerMonth)) +
-    Math.max(0, inputs.logistics.inventoryCount.hoursSavedPerMonth) +
+    (inputs.logistics.movement.alreadyCountedInPayroll || movementCashBlock
+      ? 0
+      : Math.max(0, inputs.logistics.movement.hoursSavedPerMonth)) +
+    (inputs.logistics.inventoryCount.alreadyCountedInPayroll || countCashBlock
+      ? 0
+      : Math.max(0, inputs.logistics.inventoryCount.hoursSavedPerMonth)) +
     Math.max(0, inputs.people.consultativeSales.hoursFreedPerMonth) +
     Math.max(0, inputs.people.reallocatedHours.hoursPerMonth);
   const hourScale = !Number.isFinite(hourBudget) || claimedHours <= hourBudget || claimedHours <= 0 ? 1 : hourBudget / claimedHours;
@@ -243,7 +263,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
       ? 'Vem do quadro de RH. A hora já está na folha do quadro e não entra de novo.'
       : inputs.logistics.movement.alreadyCountedInPayroll
         ? 'Horas de movimentação já foram retiradas na redução de folha. Não são monetizadas de novo.'
-        : null,
+        : movementCashBlock,
   );
   const countGate = gateBenefit(
     inputs.logistics.inventoryCount.enabled,
@@ -251,7 +271,9 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     includePotential,
     inputs.logistics.inventoryCount.rosterSuppressed
       ? 'Vem do quadro de RH. A hora de inventário já está na folha do quadro e não entra de novo.'
-      : null,
+      : inputs.logistics.inventoryCount.alreadyCountedInPayroll
+        ? 'Horas de inventário já foram retiradas na redução de folha. Não são monetizadas de novo.'
+        : countCashBlock,
   );
   const lossesGate = gateBenefit(
     inputs.stock.losses.enabled,
@@ -700,16 +722,23 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     return 0;
   };
 
+  const operatedAtHorizon = Math.max(0, HORIZON_MONTHS - goLive + 1);
+  const bookAtHorizon = round2(
+    Math.max(0, netInvestment - Math.min(operatedAtHorizon, depreciationMonths) * (netInvestment / depreciationMonths)),
+  );
+  const residualGross =
+    inputs.robot.residualMode === 'pct_contabil'
+      ? round2(bookAtHorizon * Math.max(0, inputs.robot.residualPctOfBook ?? 0))
+      : round2(inputs.robot.residualValue * capexMultiplier);
   const residualAt = (month: number) => {
     if (month !== HORIZON_MONTHS) return 0;
-    const residual = round2(inputs.robot.residualValue * capexMultiplier);
-    if (activeTaxPolicy(inputs) === 'sem_impostos' || !inputs.robot.extraordinaryEventsTaxable || residual === 0) {
+    const residual = residualGross;
+    const policy = activeTaxPolicy(inputs);
+    // No modo “só escudo da depreciação” o residual não é tratado como venda: sem ganho nem perda de capital.
+    if (policy === 'sem_impostos' || policy === 'escudo_depreciacao' || !inputs.robot.extraordinaryEventsTaxable || residual === 0) {
       return residual;
     }
-    const operated = HORIZON_MONTHS - goLive + 1;
-    const depreciated = Math.min(operated, depreciationMonths) * (netInvestment / depreciationMonths);
-    const book = Math.max(0, netInvestment - depreciated);
-    const tax = (residual - book) * inputs.robot.taxRate;
+    const tax = (residual - bookAtHorizon) * inputs.robot.taxRate;
     return round2(residual - tax);
   };
 
@@ -740,7 +769,11 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     const taxableRaw = preTax - depreciation;
     let taxableBase = taxableRaw;
     let tax = 0;
-    if (taxPolicy === 'incremental_simplificado') {
+    if (taxPolicy === 'escudo_depreciacao') {
+      // Só o escudo: a depreciação abate IR/CSLL de outros lucros; a economia do robô não é tributada aqui.
+      taxableBase = -depreciation;
+      tax = round2(-depreciation * inputs.robot.taxRate);
+    } else if (taxPolicy === 'incremental_simplificado') {
       tax = round2(Math.max(0, taxableRaw) * inputs.robot.taxRate);
     } else if (taxPolicy === 'prejuizo_com_limite') {
       if (taxableRaw < 0) {
@@ -933,7 +966,11 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
   if (inputs.robot.financing.enabled) {
     warnings.push('O financiamento aparece à parte. VPL, TIR, ROI e payback usam o investimento total, sem a dívida.');
   }
-  if (inputs.robot.includeTax) {
+  if (inputs.robot.includeTax && taxPolicy === 'escudo_depreciacao') {
+    warnings.push(
+      'Benefício fiscal da depreciação ligado: só vale para empresa no lucro real com lucro tributável para absorver a despesa, e precisa de validação fiscal. A economia do robô não foi tributada neste modo.',
+    );
+  } else if (inputs.robot.includeTax) {
     warnings.push(
       'Imposto simplificado sobre o resultado incremental. A alíquota não vale para qualquer regime e precisa de validação tributária. Prejuízo não gera crédito automático.',
     );
@@ -1051,6 +1088,13 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     audit,
     warnings,
     financing,
+    residual: {
+      book: bookAtHorizon,
+      gross: residualGross,
+      depreciableBase: netInvestment,
+      depreciationMonths,
+      mode: inputs.robot.residualMode ?? 'fixo',
+    },
     informational: {
       workingCapitalRelease: round2(releaseBase),
       financialCostAvoidedAnnual: round2(releaseBase * inputs.stock.workingCapital.costOfCapitalAnnual),

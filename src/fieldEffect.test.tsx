@@ -7,6 +7,7 @@ import { partialAvailabilityMatters } from './model/benefitStatus';
 import { evaluate } from './model/calculate';
 import { formatPayback } from './model/format';
 import { storePresets } from './model/presets';
+import { rootDefaultStorePreset } from './model/rootPresets';
 import RhApp from './rh/RhApp';
 import { rhStorePresets } from './rh/presets';
 import { applyRoster } from './rh/roster';
@@ -189,6 +190,10 @@ describe('campos visíveis', () => {
         render: () => <App initialInputs={structuredClone(preset.inputs)} />,
       });
     }
+    cases.push({
+      name: 'raiz padrão loja-2m',
+      render: () => <App initialInputs={structuredClone(rootDefaultStorePreset().inputs)} />,
+    });
     for (const preset of rhStorePresets()) {
       if (preset.id === 'exemplo') continue;
       cases.push({
@@ -227,7 +232,7 @@ describe('campos visíveis', () => {
       }
     }
     expect(failures).toEqual([]);
-  }, 180_000);
+  }, 300_000);
 });
 
 describe('modelos de loja', () => {

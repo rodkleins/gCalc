@@ -66,7 +66,8 @@ function Legend({ table }: { table: MonthTable }) {
       estoque e quebra evitadas.
       {table.hasOtherBenefits ? ' Outros ganhos reúne logística, área, caixas, contagem e vendas.' : ''}
       {table.hasTaxes ? ' Impostos é o imposto sobre o resultado incremental.' : ''}
-      {table.hasOneTimeEvents ? ' Eventos pontuais reúne rescisão, capital de giro, recrutamento e treinamento evitados e valor residual.' : ''}{' '}
+      {table.hasOneTimeEvents ? ' Eventos pontuais reúne rescisão, capital de giro, recrutamento e treinamento evitados.' : ''}
+      {table.hasResidual ? ' Valor residual é o que o robô ainda vale no mês 60, evento único no fim do horizonte.' : ''}{' '}
       O fluxo do mês é a soma das colunas, e o saldo acumulado é o mesmo da aba Fluxo.
       {table.paybackMonth !== null ? ` A linha destacada (mês ${table.paybackMonth}) é onde o saldo vira positivo.` : ' O saldo não vira positivo no horizonte.'}
     </p>

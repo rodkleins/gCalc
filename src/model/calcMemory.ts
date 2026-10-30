@@ -2,6 +2,7 @@ import { evaluate } from './calculate';
 import { formatBRL, formatIrr, formatPayback, formatPercent } from './format';
 import { FOCUS_SOURCE_TEXT, hasInflation, withoutInflation } from './inflation';
 import { marketReferenceText } from './laborReference';
+import { rootFiscalMemory } from './rootFiscal';
 import { energyMonthlyCost, informedMonthlyRobotCost } from './robotCost';
 import type { AuditLine, Inputs, ModelResult } from './types';
 
@@ -183,6 +184,7 @@ export function calculationMemory(inputs: Inputs, result: ModelResult): MemoryBl
         },
         { id: 'payback', label: 'Payback simples', text: paybackText, considered: true },
         ...inflationRows,
+        ...rootFiscalMemory(inputs, result),
       ],
     },
     {

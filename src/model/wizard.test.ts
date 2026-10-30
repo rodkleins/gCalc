@@ -79,6 +79,6 @@ describe('assistente', () => {
     const result = evaluate(inputs);
     expect(result.netInvestment).toBe(1_247_500);
     expect(result.monthlyOpex).toBe(6_604);
-    expect(result.steadyNet).toBe(49_593.53);
+    expect(result.steadyNet).toBe(46_080.74);
   });
 });

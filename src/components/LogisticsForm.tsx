@@ -1,5 +1,56 @@
-import { BenefitCard, Callout, CheckField, ModuleImpact, NumberField, SelectField, StageNote, editCard } from './Fields';
-import type { Inputs, ModelResult, SpaceMode, SpaceTreatment, StoreType } from '../model/types';
+import { BenefitCard, Callout, CheckField, ModuleImpact, NumberField, SelectField, StageNote, TextField, editCard } from './Fields';
+import type { CashPath, Inputs, ModelResult, SpaceMode, SpaceTreatment, StoreType } from '../model/types';
+
+const CASH_PATHS: Array<{ value: CashPath; label: string }> = [
+  { value: '', label: 'Não informado (não entra no caixa)' },
+  { value: 'hora_extra', label: 'Hora extra evitada' },
+  { value: 'terceiro', label: 'Terceiro evitado' },
+];
+
+export const DOUBLE_COUNT_WARNING =
+  'Dupla contagem: o corte de folha já tira as vagas. Horas de movimentação e inventário podem ser dessas mesmas vagas. Para entrar no caixa, informe de quem são as horas (ex.: outros colaboradores que permanecem) e como viram caixa (hora extra evitada ou terceiro evitado).';
+
+/** Campos da trava de dupla contagem (só na raiz, com corte de folha ligado). */
+function CashPathFields({
+  prefix,
+  card,
+  onPatch,
+}: {
+  prefix: 'movement' | 'inventory';
+  card: { hoursOwner?: string; cashPath?: CashPath };
+  onPatch: (patch: { hoursOwner?: string; cashPath?: CashPath }) => void;
+}) {
+  return (
+    <>
+      <div className="span-2" data-testid={`${prefix}-double-count-warning`}>
+        <Callout tone="warn">{DOUBLE_COUNT_WARNING}</Callout>
+      </div>
+      <TextField
+        testId={`${prefix}-hours-owner`}
+        label="De quem são estas horas"
+        value={card.hoursOwner ?? ''}
+        hint="Ex.: outros colaboradores que permanecem."
+        help="Quem faz estas horas hoje e continua no quadro depois do corte. Sem esta resposta, as horas não entram."
+        noEffect={
+          (card.hoursOwner ?? '').trim()
+            ? 'Registro de quem faz as horas. Preenchido, o texto não muda o valor.'
+            : card.cashPath
+              ? undefined
+              : 'Sem dizer como as horas viram caixa, elas continuam fora.'
+        }
+        onChange={(hoursOwner) => onPatch({ hoursOwner })}
+      />
+      <SelectField
+        label="Como viram caixa"
+        value={card.cashPath ?? ''}
+        options={CASH_PATHS}
+        help="Hora extra evitada ou terceiro evitado. Hora que só fica livre não é caixa. Sem esta resposta, as horas não entram."
+        noEffect={(card.hoursOwner ?? '').trim() ? undefined : 'Sem dizer de quem são as horas, elas continuam fora.'}
+        onChange={(cashPath) => onPatch({ cashPath: cashPath as CashPath })}
+      />
+    </>
+  );
+}
 
 const SPACE_TREATMENTS: Array<{ value: SpaceTreatment; label: string }> = [
   { value: 'aluguel_evitado', label: 'Aluguel evitado' },
@@ -51,16 +102,25 @@ export function LogisticsForm({
   result,
   onChange,
   rosterLocked = false,
+  rootGuards = false,
 }: {
   inputs: Inputs;
   result: ModelResult;
   onChange: (inputs: Inputs) => void;
   /** Na versão de RH, movimentação e inventário vêm do quadro e não aceitam número. */
   rosterLocked?: boolean;
+  /** Só a raiz: trava de dupla contagem com o corte de folha. */
+  rootGuards?: boolean;
 }) {
   const logistics = inputs.logistics;
   const setLogistics = (next: Inputs['logistics']) => onChange({ ...inputs, logistics: next });
   const space = logistics.space;
+  const payrollCut = inputs.people.payroll.enabled && inputs.people.payroll.positionsReduced > 0;
+  const guardOn = rootGuards && payrollCut;
+  const blocked = (card: { hoursOwner?: string; cashPath?: string }) =>
+    guardOn && !((card.hoursOwner ?? '').trim() && (card.cashPath === 'hora_extra' || card.cashPath === 'terceiro'))
+      ? 'Fora do caixa por dupla contagem com o corte de folha: informe de quem são as horas e como viram caixa.'
+      : undefined;
 
   return (
     <div className="stack">
@@ -71,6 +131,15 @@ export function LogisticsForm({
         de fora.
       </StageNote>
       <ModuleImpact result={result} module="Logística" />
+      {guardOn ? (
+        <div data-testid="double-count-warning">
+          <Callout tone="warn">
+            Corte de folha ligado ({inputs.people.payroll.positionsReduced} vagas). Movimentação interna e inventário
+            começam desligados: as horas podem ser das mesmas vagas e seriam contadas duas vezes (dupla contagem). Para ligar, informe de
+            quem são as horas e como viram caixa. Sem isso, elas não entram.
+          </Callout>
+        </div>
+      ) : null}
       <Callout>
         O robô não elimina sozinho a caixa do fornecedor. Ocupação e margem comercial da mesma área não entram juntas.
         O valor das prateleiras abate o investimento no mês 0. A manutenção evitada é benefício mensal. Os dois valem
@@ -270,6 +339,7 @@ export function LogisticsForm({
         onConfidence={(confidence) => setLogistics({ ...logistics, movement: { ...logistics.movement, confidence } })}
       >
         <NumberField
+          noEffect={blocked(logistics.movement)}
           fieldId="logistics.movement.hoursSavedPerMonth"
           label="Horas por mês"
           value={logistics.movement.hoursSavedPerMonth}
@@ -283,6 +353,7 @@ export function LogisticsForm({
           label="Custo da hora"
           value={logistics.movement.costPerHour}
           suffix="R$"
+          noEffect={blocked(logistics.movement)}
           help="Custo de uma hora de movimentação, em R$. Multiplica as horas evitadas e entra como benefício mensal, salvo se a hora já foi contada na folha."
           onChange={(costPerHour) =>
             setLogistics({ ...logistics, movement: editCard(logistics.movement, { costPerHour }) })
@@ -297,6 +368,13 @@ export function LogisticsForm({
           label="Estas horas já foram retiradas na redução de folha"
           help="Ligado, a movimentação fica fora do fluxo para não pagar a mesma hora duas vezes. Na versão de RH o quadro já trava esta conta."
         />
+        {guardOn ? (
+          <CashPathFields
+            prefix="movement"
+            card={logistics.movement}
+            onPatch={(patch) => setLogistics({ ...logistics, movement: editCard(logistics.movement, patch) })}
+          />
+        ) : null}
       </BenefitCard>
 
       <BenefitCard
@@ -315,6 +393,7 @@ export function LogisticsForm({
         }
       >
         <NumberField
+          noEffect={blocked(logistics.inventoryCount)}
           fieldId="logistics.inventoryCount.hoursSavedPerMonth"
           label="Horas por mês"
           value={logistics.inventoryCount.hoursSavedPerMonth}
@@ -331,11 +410,35 @@ export function LogisticsForm({
           label="Custo da hora"
           value={logistics.inventoryCount.costPerHour}
           suffix="R$"
+          noEffect={blocked(logistics.inventoryCount)}
           help="Custo de uma hora de inventário, em R$. Multiplica as horas evitadas e entra como benefício mensal quando o módulo está ligado."
           onChange={(costPerHour) =>
             setLogistics({ ...logistics, inventoryCount: editCard(logistics.inventoryCount, { costPerHour }) })
           }
         />
+        {rootGuards ? (
+          <CheckField
+            className="field check span-2"
+            checked={logistics.inventoryCount.alreadyCountedInPayroll ?? false}
+            onChange={(alreadyCountedInPayroll) =>
+              setLogistics({
+                ...logistics,
+                inventoryCount: editCard(logistics.inventoryCount, { alreadyCountedInPayroll }),
+              })
+            }
+            label="Estas horas já foram retiradas na redução de folha"
+            help="Ligado, o inventário fica fora do fluxo para não pagar a mesma hora duas vezes."
+          />
+        ) : null}
+        {guardOn ? (
+          <CashPathFields
+            prefix="inventory"
+            card={logistics.inventoryCount}
+            onPatch={(patch) =>
+              setLogistics({ ...logistics, inventoryCount: editCard(logistics.inventoryCount, patch) })
+            }
+          />
+        ) : null}
       </BenefitCard>
     </div>
   );

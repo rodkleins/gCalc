@@ -34,10 +34,13 @@ export function InvestmentForm({
   inputs,
   result,
   onChange,
+  rootFiscal,
 }: {
   inputs: Inputs;
   result: ModelResult;
   onChange: (inputs: Inputs) => void;
+  /** Só a raiz: bloco próprio de benefício fiscal e valor residual, no lugar dos campos de imposto e residual. */
+  rootFiscal?: React.ReactNode;
 }) {
   const robot = inputs.robot;
   const setRobot = (next: Inputs['robot']) => onChange({ ...inputs, robot: next });
@@ -200,7 +203,7 @@ export function InvestmentForm({
       </section>
 
       <section className="card">
-        <h2>Operação, imposto e taxa</h2>
+        <h2>{rootFiscal ? 'Operação e taxa' : 'Operação, imposto e taxa'}</h2>
         <div className="form-grid">
           <PercentField
             label="Disponibilidade operacional"
@@ -236,6 +239,8 @@ export function InvestmentForm({
             hint="Antes disso o incremental operacional é zero. O CAPEX sai na data zero."
             onChange={(goLiveMonth) => setRobot({ ...robot, goLiveMonth })}
           />
+          {rootFiscal ? null : (
+            <>
           <NumberField
             label="Valor residual no mês 60"
             value={robot.residualValue}
@@ -280,6 +285,8 @@ export function InvestmentForm({
               { value: 'beneficio_condicionado', label: 'Benefício condicionado à capacidade' },
             ]}
           />
+            </>
+          )}
           <PercentField
             fieldId="robot.discountRateAnnual"
             label="Taxa de desconto anual efetiva"
@@ -287,14 +294,18 @@ export function InvestmentForm({
             hint="Vira taxa mensal equivalente: (1 + i) elevado a 1/12, menos 1."
             onChange={(discountRateAnnual) => setRobot({ ...robot, discountRateAnnual })}
           />
+          {rootFiscal ? null : (
           <CheckField
             checked={robot.includeTax}
             onChange={(includeTax) => setRobot({ ...robot, includeTax })}
             label="Trazer imposto para o caixa. Prejuízo não vira crédito sozinho."
             help="Ligado, a alíquota reduz o benefício no fluxo de caixa. Prejuízo fiscal não gera crédito automático. Desligado, o imposto fica só na leitura."
           />
+          )}
         </div>
       </section>
+
+      {rootFiscal}
 
       <section className="card">
         <header className="benefit-head">

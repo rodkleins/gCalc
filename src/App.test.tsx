@@ -34,9 +34,9 @@ describe('aplicação', () => {
     });
     const text = (selector: string) => host.querySelector(selector)?.textContent?.replace(/\u00a0/g, ' ') ?? '';
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 945.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.796');
-    expect(text('[data-testid="kpi-payback"]')).toContain('50,3');
-    expect(text('[data-testid="kpi-roi"]')).toBe('23,9%');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 17.596');
+    expect(text('[data-testid="kpi-payback"]')).toContain('53,7');
+    expect(text('[data-testid="kpi-roi"]')).toBe('22,3%');
     const charts = host.querySelector('.chart-grid');
     const summary = host.querySelector('[data-testid="executive-summary"]');
     const comparison = host.querySelector('table');
@@ -54,6 +54,7 @@ describe('aplicação', () => {
     expect(summary?.textContent).toMatch(/não repete o valor do equipamento/i);
     expect(host.querySelector('[data-testid="store-presets"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="example-check"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="example-check"]')?.textContent).toMatch(/dupla contagem/);
     expect(host.querySelector<HTMLAnchorElement>('[data-testid="open-headtohead"]')?.getAttribute('href')).toBe(
       'headtohead/',
     );
@@ -291,7 +292,7 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-investimento-up"]')?.click();
     });
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 992.250');
-    expect(text('[data-testid="quick-kpi-payback"]')).toContain('52,8 meses');
+    expect(text('[data-testid="quick-kpi-payback"]')).toContain('56,4 meses');
     expect(text('[data-testid="quick-kpi-roi"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-npv"]')).toContain('vs original');
     expect(text('[data-testid="quick-kpi-irr"]')).toContain('vs original');
@@ -300,7 +301,7 @@ describe('aplicação', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="quick-undo"]')?.click();
     });
     expect(text('[data-testid="kpi-investment"]')).toContain('R$ 945.000');
-    expect(text('[data-testid="kpi-net"]')).toContain('R$ 18.796');
+    expect(text('[data-testid="kpi-net"]')).toContain('R$ 17.596');
     expect(text('[data-testid="quick-kpi-payback"]')).toContain('igual ao original');
     act(() => root.unmount());
   });
@@ -503,9 +504,9 @@ describe('aplicação', () => {
     expect(host.querySelector('[data-testid="quick-dock-panel"]')?.hasAttribute('hidden')).toBe(true);
     expect(host.querySelector('[data-testid="quick-dock-toggle"]')?.getAttribute('aria-expanded')).toBe('false');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('Payback');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('50,3');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('53,7');
     expect(text('[data-testid="quick-dock-toggle"]')).toContain('ROI');
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('23,9%');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('22,3%');
 
     const logistica = [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Logística') as HTMLButtonElement;
     await act(async () => {
@@ -513,7 +514,7 @@ describe('aplicação', () => {
     });
     expect(host.querySelector('nav .is-active')?.textContent).toBe('Logística');
     expect(host.querySelector('[data-testid="quick-dock"]')).not.toBeNull();
-    expect(text('[data-testid="quick-dock-toggle"]')).toContain('50,3');
+    expect(text('[data-testid="quick-dock-toggle"]')).toContain('53,7');
     expect(host.textContent).toContain('Valor das prateleiras evitadas ou liberadas');
 
     const resultados = [...host.querySelectorAll('nav button')].find((button) => button.textContent === 'Resultados') as HTMLButtonElement;

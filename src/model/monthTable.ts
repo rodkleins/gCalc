@@ -16,8 +16,10 @@ export interface MonthTableRow {
   robotCosts: number;
   /** Imposto sobre o resultado incremental (negativo quando pago). */
   taxes: number;
-  /** Eventos pontuais fora o investimento: rescisão, capital de giro, recrutamento e treinamento evitados, residual. */
+  /** Eventos pontuais fora o investimento e o residual: rescisão, capital de giro, recrutamento e treinamento evitados. */
   oneTimeEvents: number;
+  /** Valor residual do robô (evento do mês 60), já com o imposto sobre ganho ou perda quando houver. */
+  residual: number;
   /** Fluxo líquido do mês = soma das colunas acima. */
   netFlow: number;
   /** Saldo acumulado, igual à coluna Acumulado da aba Fluxo. */
@@ -33,6 +35,7 @@ export interface MonthTable {
   hasOtherBenefits: boolean;
   hasTaxes: boolean;
   hasOneTimeEvents: boolean;
+  hasResidual: boolean;
 }
 
 /**
@@ -57,6 +60,7 @@ export function buildMonthTable(result: ModelResult): MonthTable {
       robotCosts: 0,
       taxes: 0,
       oneTimeEvents: 0,
+      residual: 0,
       netFlow: opening,
       cumulative: opening,
       isPayback: false,
@@ -65,7 +69,8 @@ export function buildMonthTable(result: ModelResult): MonthTable {
 
   for (const month of result.months.slice(0, lastMonth)) {
     const otherBenefits = round2(month.benefit - month.laborSavings - month.lossReduction);
-    const oneTimeEvents = round2(month.oneTime - month.capexTranche);
+    const residual = round2(month.residual ?? 0);
+    const oneTimeEvents = round2(month.oneTime - month.capexTranche - residual);
     rows.push({
       month: month.month,
       investment: month.capexTranche,
@@ -75,6 +80,7 @@ export function buildMonthTable(result: ModelResult): MonthTable {
       robotCosts: round2(-month.opex),
       taxes: round2(-month.tax),
       oneTimeEvents,
+      residual,
       netFlow: month.incremental,
       cumulative: month.cumulative,
       isPayback: false,
@@ -101,5 +107,6 @@ export function buildMonthTable(result: ModelResult): MonthTable {
     hasOtherBenefits: any((row) => row.otherBenefits),
     hasTaxes: any((row) => row.taxes),
     hasOneTimeEvents: any((row) => row.oneTimeEvents),
+    hasResidual: any((row) => row.residual),
   };
 }

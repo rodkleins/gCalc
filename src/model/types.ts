@@ -15,7 +15,13 @@ export type TaxPolicy =
   | 'sem_impostos'
   | 'incremental_simplificado'
   | 'prejuizo_com_limite'
-  | 'beneficio_condicionado';
+  | 'beneficio_condicionado'
+  /** Só o escudo fiscal da depreciação: a economia não é tributada (calculadora raiz). */
+  | 'escudo_depreciacao';
+/** Como a hora liberada vira caixa quando o corte de folha está ligado. */
+export type CashPath = '' | 'hora_extra' | 'terceiro';
+/** Valor residual no mês 60: valor fixo em R$ ou percentual do valor contábil. */
+export type ResidualMode = 'fixo' | 'pct_contabil';
 export type ViewMode = 'simples' | 'avancado';
 export type MoneyBasis = 'nominal' | 'real';
 
@@ -200,12 +206,24 @@ export interface Inputs {
       rosterSuppressed?: boolean;
       hoursSavedPerMonth: number;
       costPerHour: number;
+      /** De quem são as horas (raiz, com corte de folha ligado). */
+      hoursOwner?: string;
+      /** Como as horas viram caixa (raiz, com corte de folha ligado). */
+      cashPath?: CashPath;
     };
     inventoryCount: BenefitSwitch & {
+      alreadyCountedInPayroll?: boolean;
       rosterSuppressed?: boolean;
       hoursSavedPerMonth: number;
       costPerHour: number;
+      hoursOwner?: string;
+      cashPath?: CashPath;
     };
+    /**
+     * Trava de dupla contagem da calculadora raiz: com corte de folha ligado, movimentação e inventário
+     * só entram com dono das horas e caminho de caixa informados. Ausente nas outras rotas.
+     */
+    requireCashPath?: boolean;
   };
   stock: {
     salesIndependenceConfirmed: boolean;
@@ -271,6 +289,9 @@ export interface Inputs {
     conversionFactor: number;
     goLiveMonth: number;
     residualValue: number;
+    /** Ausente = 'fixo' (residualValue em R$). 'pct_contabil' usa residualPctOfBook × valor contábil no mês 60. */
+    residualMode?: ResidualMode;
+    residualPctOfBook?: number;
     depreciationYears: number;
     includeTax: boolean;
     taxRate: number;
@@ -396,6 +417,8 @@ export interface ModelResult {
   audit: AuditLine[];
   warnings: string[];
   financing: FinancingResult | null;
+  /** Valor residual no mês 60: valor contábil (base depreciável menos depreciação acumulada) e valor bruto lançado. */
+  residual?: { book: number; gross: number; depreciableBase: number; depreciationMonths: number; mode: ResidualMode };
   informational: {
     workingCapitalRelease: number;
     financialCostAvoidedAnnual: number;

@@ -50,6 +50,12 @@ export function Dashboard({
   suppressReferenceBanner?: boolean;
 }) {
   const illustrative = matchesIllustrativeExample(result);
+  const guardedExample =
+    !illustrative &&
+    Boolean(inputs.logistics.requireCashPath) &&
+    matchesIllustrativeExample(
+      evaluate({ ...inputs, logistics: { ...inputs.logistics, requireCashPath: false } }, { scenario: result.scenario }),
+    );
   const nova = evaluate(inputs, { scenario, storeTypeOverride: 'nova' });
   const existente = evaluate(inputs, { scenario, storeTypeOverride: 'existente' });
   const scenarios = SCENARIOS.map((id) => ({ id, result: evaluate(inputs, { scenario: id }) }));
@@ -84,7 +90,14 @@ export function Dashboard({
           18.796 por mês, payback de 50,3 meses e ROI de 23,9%.
         </div>
       ) : null}
-      {!suppressReferenceBanner && !illustrative ? (
+      {!suppressReferenceBanner && guardedExample ? (
+        <div className="banner" data-testid="example-check" data-guarded="true">
+          Exemplo do escopo, cenário base, loja nova. O documento chega a R$ 18.796 por mês, payback de 50,3 meses e ROI
+          de 23,9% somando horas de movimentação e inventário que o corte de folha já tira. Sem essa dupla contagem, o
+          benefício líquido fica em {formatBRL(result.steadyNet)} por mês e o payback em {formatPayback(result.payback)}.
+        </div>
+      ) : null}
+      {!suppressReferenceBanner && !illustrative && !guardedExample ? (
         <div className="banner">
           Os números do documento (R$ 945.000, R$ 18.796 por mês, payback de 50,3 meses, ROI de 23,9%) aparecem no
           exemplo fictício, cenário base e loja nova.
