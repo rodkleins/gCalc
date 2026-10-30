@@ -1,26 +1,17 @@
 import { formatBRL } from '../model/format';
 import { buildMonthTable, type MonthTable } from '../model/monthTable';
+import {
+  CSV_BOM,
+  monthTableColumns,
+  monthTableCsv,
+  monthTableFilename,
+  type MonthTableColumn,
+} from '../model/monthTableCsv';
 import type { ModelResult } from '../model/types';
 
-type Column = {
-  key: 'investment' | 'laborSavings' | 'lossReduction' | 'otherBenefits' | 'robotCosts' | 'taxes' | 'oneTimeEvents' | 'netFlow' | 'cumulative';
-  label: string;
-};
+type Column = MonthTableColumn;
 
-export function monthTableColumns(table: MonthTable): Column[] {
-  const columns: Array<Column | null> = [
-    { key: 'investment', label: 'Investimento' },
-    { key: 'laborSavings', label: 'Economia de mão de obra' },
-    { key: 'lossReduction', label: 'Redução de perdas' },
-    table.hasOtherBenefits ? { key: 'otherBenefits', label: 'Outros ganhos' } : null,
-    { key: 'robotCosts', label: 'Custos mensais do robô' },
-    table.hasTaxes ? { key: 'taxes', label: 'Impostos' } : null,
-    table.hasOneTimeEvents ? { key: 'oneTimeEvents', label: 'Eventos pontuais' } : null,
-    { key: 'netFlow', label: 'Fluxo líquido do mês' },
-    { key: 'cumulative', label: 'Saldo acumulado' },
-  ];
-  return columns.filter((column): column is Column => column !== null);
-}
+export { monthTableColumns };
 
 function cell(value: number, key: Column['key']): string {
   if (key !== 'netFlow' && key !== 'cumulative' && Math.abs(value) < 0.005) return '—';
@@ -82,7 +73,22 @@ function Legend({ table }: { table: MonthTable }) {
   );
 }
 
-export function MonthByMonthTable({ result }: { result: ModelResult }) {
+export function downloadMonthTableCsv(table: MonthTable, simulationName?: string | null): string {
+  const filename = monthTableFilename(simulationName);
+  const blob = new Blob([CSV_BOM + monthTableCsv(table)], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  return filename;
+}
+
+export function MonthByMonthTable({ result, simulationName }: { result: ModelResult; simulationName?: string | null }) {
   const table = buildMonthTable(result);
   return (
     <section className="card month-table-card" data-testid="month-table-card">
@@ -91,6 +97,16 @@ export function MonthByMonthTable({ result }: { result: ModelResult }) {
           <h2>Tabela mês a mês</h2>
         </summary>
         <Legend table={table} />
+        <div className="month-table-actions no-print">
+          <button
+            type="button"
+            className="btn ghost month-table-export"
+            data-testid="month-table-export"
+            onClick={() => downloadMonthTableCsv(table, simulationName)}
+          >
+            Exportar CSV
+          </button>
+        </div>
         <div className="table-wrap tall">
           <MonthTableGrid table={table} variant="screen" />
         </div>

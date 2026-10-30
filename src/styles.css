@@ -824,3 +824,4 @@ th.num { white-space: normal; }
 .table-wrap .month-table th:first-child, .table-wrap .month-table td:first-child { width: 96px; }
 .month-table tr.is-payback td { background: #e6f2ea; font-weight: 700; }
 .month-table .payback-tag { font-size: 0.75rem; font-weight: 650; color: var(--ok); text-transform: uppercase; letter-spacing: 0.03em; }
+.month-table-actions { display: flex; justify-content: flex-end; margin: 0 0 12px; }

@@ -572,7 +572,12 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onOpenPremise={openPremise}
           />
         ) : null}
-        {section === 'dashboard' ? <MonthByMonthTable result={result} /> : null}
+        {section === 'dashboard' ? (
+          <MonthByMonthTable
+            result={result}
+            simulationName={activeId ? simulations.find((simulation) => simulation.id === activeId)?.name ?? null : null}
+          />
+        ) : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'pessoas' ? (
           <PeopleForm

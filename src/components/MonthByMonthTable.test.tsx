@@ -1,13 +1,17 @@
 /** @vitest-environment happy-dom */
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { evaluate } from '../model/calculate';
 import { formatBRL } from '../model/format';
 import { buildMonthTable } from '../model/monthTable';
+import { monthTableCsv } from '../model/monthTableCsv';
 import { defaultStorePreset } from '../model/presets';
 import RhApp from '../rh/RhApp';
+
+// @ts-expect-error o teste lê o CSS no Node; o app não depende dos tipos de fs
+import { readFileSync } from 'node:fs';
 
 class ResizeObserverStub {
   observe() {}
@@ -25,6 +29,7 @@ describe('tabela mês a mês na tela e na impressão', () => {
     root = null;
     document.body.innerHTML = '';
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   async function mount(node: ReactNode) {
@@ -107,5 +112,41 @@ describe('tabela mês a mês na tela e na impressão', () => {
       host.querySelector<HTMLButtonElement>('[data-testid="print-choice-completo"]')?.click();
     });
     expect(host.querySelector('[data-testid="print-month-table"]')).toBeNull();
+  });
+
+  it('o botão Exportar CSV baixa as colunas visíveis com BOM e o nome da simulação', async () => {
+    const host = await mount(<App />);
+    const blobs: Blob[] = [];
+    const created = vi.fn((blob: Blob) => {
+      blobs.push(blob);
+      return 'blob:tabela';
+    });
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: created });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
+    const downloads: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push(this.download);
+    });
+    const button = host.querySelector<HTMLButtonElement>('[data-testid="month-table-card"] details [data-testid="month-table-export"]');
+    expect(button?.textContent).toBe('Exportar CSV');
+    expect(button?.closest('.no-print')).not.toBeNull();
+    await act(async () => {
+      button?.click();
+    });
+    expect(downloads).toHaveLength(1);
+    expect(downloads[0]).toMatch(/^tabela-mes-a-mes-simulacao-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(blobs[0].type).toContain('text/csv');
+    const bytes = new Uint8Array(await blobs[0].arrayBuffer());
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+    const table = buildMonthTable(evaluate(defaultStorePreset().inputs));
+    expect(text).toBe('\uFEFF' + monthTableCsv(table));
+    const visible = [...host.querySelectorAll('[data-testid="month-table-screen"] thead th')].map((node) => node.textContent);
+    expect(text.slice(1).split('\r\n')[0]).toBe([...visible, 'Payback'].join(';'));
+  });
+
+  it('o CSS de impressão esconde o botão de exportar', () => {
+    const css = readFileSync('src/components/print.css', 'utf8');
+    expect(css).toMatch(/@media print \{[\s\S]*\.month-table-export \{ display: none !important; \}/);
   });
 });
