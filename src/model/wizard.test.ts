@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from './calculate';
-import { defaultStorePreset } from './presets';
+import { rootDefaultStorePreset as defaultStorePreset } from './rootPresets';
 import { normalizeWizardStep, validateWizardStep, wizardSeed, withOtherCapex, withTotalOpex, WIZARD_STEPS } from './wizard';
 
 describe('assistente', () => {
@@ -79,6 +79,6 @@ describe('assistente', () => {
     const result = evaluate(inputs);
     expect(result.netInvestment).toBe(1_247_500);
     expect(result.monthlyOpex).toBe(6_604);
-    expect(result.steadyNet).toBe(50_116);
+    expect(result.steadyNet).toBe(49_593.53);
   });
 });

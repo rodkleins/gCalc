@@ -4,6 +4,7 @@ import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
 import { MonthByMonthTable } from './components/MonthByMonthTable';
 import { FloatingPayback } from './components/FloatingPayback';
+import { InflationPanel, InflationStress } from './components/InflationPanel';
 import { PremiseFocus } from './components/Fields';
 import { MoreActions } from './components/MoreActions';
 import { PrintReport } from './components/PrintReport';
@@ -39,7 +40,8 @@ import {
 import { reanchor, sectionForField } from './model/premises';
 import type { Inputs, ScenarioId } from './model/types';
 import { wizardSeed } from './model/wizard';
-import { defaultStorePreset, type StorePreset } from './model/presets';
+import type { StorePreset } from './model/presets';
+import { rootDefaultStorePreset } from './model/rootPresets';
 import {
   NARROW_VIEWPORT_QUERY,
   RAIL_COLLAPSED_KEY,
@@ -112,7 +114,7 @@ function boot(initialInputs?: Inputs): BootState {
     };
   }
   const loaded = readSession(localStorage);
-  const fallbackInputs = structuredClone(defaultStorePreset().inputs);
+  const fallbackInputs = structuredClone(rootDefaultStorePreset().inputs);
   const draft = loaded.draft ?? {
     inputs: fallbackInputs,
     scenario: 'base' as const,
@@ -231,7 +233,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
   }
 
   function restoreExample() {
-    const model = structuredClone(defaultStorePreset().inputs);
+    const model = structuredClone(rootDefaultStorePreset().inputs);
     resetDraft(model);
     setScenario('base');
     setSection('dashboard');
@@ -243,7 +245,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
 
   function clearSaved() {
     clearSession(localStorage);
-    const model = structuredClone(defaultStorePreset().inputs);
+    const model = structuredClone(rootDefaultStorePreset().inputs);
     resetDraft(model);
     setScenario('base');
     setSection('dashboard');
@@ -572,6 +574,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onOpenPremise={openPremise}
           />
         ) : null}
+        {section === 'dashboard' ? <InflationPanel inputs={inputs} onChange={commitInputs} /> : null}
         {section === 'dashboard' ? (
           <MonthByMonthTable
             result={result}
@@ -579,6 +582,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           />
         ) : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
+        {section === 'perfil' ? <InflationPanel inputs={inputs} onChange={commitInputs} /> : null}
         {section === 'pessoas' ? (
           <PeopleForm
             inputs={inputs}
@@ -594,6 +598,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
           <ScenarioPanel inputs={inputs} scenario={scenario} onScenario={setScenario} onChange={commitInputs} />
         ) : null}
         {section === 'sensibilidade' ? <SensitivityPanel inputs={inputs} scenario={scenario} /> : null}
+        {section === 'sensibilidade' ? <InflationStress inputs={inputs} scenario={scenario} /> : null}
         {section === 'fluxo' ? <CashflowTable result={result} /> : null}
         {section === 'auditoria' ? <AuditPanel result={result} /> : null}
         {section === 'simulacoes' ? (

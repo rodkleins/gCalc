@@ -1,4 +1,4 @@
-import { defaultStorePreset } from './presets';
+import { rootDefaultStorePreset as defaultStorePreset } from './rootPresets';
 import { informedMonthlyRobotCost } from './robotCost';
 import type { Inputs } from './types';
 

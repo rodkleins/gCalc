@@ -1,4 +1,6 @@
+import { evaluate } from './calculate';
 import { formatBRL, formatIrr, formatPayback, formatPercent } from './format';
+import { FOCUS_SOURCE_TEXT, hasInflation, withoutInflation } from './inflation';
 import { marketReferenceText } from './laborReference';
 import { energyMonthlyCost, informedMonthlyRobotCost } from './robotCost';
 import type { AuditLine, Inputs, ModelResult } from './types';
@@ -112,6 +114,8 @@ export function calculationMemory(inputs: Inputs, result: ModelResult): MemoryBl
         ? 'Sem desembolso a recuperar, o payback é imediato.'
         : `${money(result.netInvestment)} ÷ ${money(result.steadyNet)} por mês = ${formatPayback(result.payback)}. A conta interpola o caixa acumulado e não usa a taxa de desconto.`;
 
+  const inflationRows = inflationMemory(inputs, result);
+
   return [
     {
       id: 'investimento',
@@ -178,6 +182,7 @@ export function calculationMemory(inputs: Inputs, result: ModelResult): MemoryBl
           considered: true,
         },
         { id: 'payback', label: 'Payback simples', text: paybackText, considered: true },
+        ...inflationRows,
       ],
     },
     {
@@ -222,6 +227,49 @@ export function calculationMemory(inputs: Inputs, result: ModelResult): MemoryBl
         ignored.length > 0
           ? ignored
           : [{ id: 'none', label: 'Fora da conta', text: 'Nenhum campo preenchido ficou de fora neste cenário.', considered: true }],
+    },
+  ];
+}
+
+/**
+ * Efeito da inflação no fluxo. Só aparece quando há reajuste ou base real,
+ * então simulações sem inflação (as de /rh/ e /dpsp/) não mudam.
+ */
+function inflationMemory(inputs: Inputs, result: ModelResult): MemoryRow[] {
+  const profile = inputs.profile;
+  if (!hasInflation(inputs) && profile.moneyBasis !== 'real') return [];
+  if (profile.moneyBasis === 'real' && !hasInflation(inputs)) {
+    return [
+      {
+        id: 'inflation',
+        label: 'Inflação',
+        text: `Base real: fluxos em moeda constante, sem reajuste, descontados à taxa real de ${formatPercent(result.discountRateAnnual, 2)} ao ano.`,
+        considered: true,
+      },
+    ];
+  }
+  const flat = evaluate(withoutInflation(inputs), { scenario: result.scenario });
+  const year5 = (rate: number) => formatPercent(Math.pow(1 + rate, 59 / 12) - 1, 1);
+  const delta = (a: number | null, b: number | null) =>
+    a === null || b === null ? '' : ` (${a - b >= 0 ? '+' : '−'}${Math.abs(a - b).toFixed(1).replace('.', ',')} meses)`;
+  return [
+    {
+      id: 'inflation',
+      label: 'Inflação',
+      text:
+        `Salários +${formatPercent(profile.wageGrowthPctPerYear, 2)} ao ano, OPEX +${formatPercent(profile.opexInflationPctPerYear, 2)} e IPCA +${formatPercent(profile.priceInflationPctPerYear, 2)}, ` +
+        `compostos mês a mês: fator do mês = (1 + taxa)^((mês − 1) ÷ 12). No mês 60 a folha vale ${year5(profile.wageGrowthPctPerYear)} a mais, ` +
+        `o OPEX ${year5(profile.opexInflationPctPerYear)} e perdas e margens ${year5(profile.priceInflationPctPerYear)}. Fonte do IPCA padrão: ${FOCUS_SOURCE_TEXT}`,
+      considered: true,
+    },
+    {
+      id: 'inflation-effect',
+      label: 'Efeito da inflação',
+      text:
+        `Sem reajuste: payback ${formatPayback(flat.payback)}, VPL ${money(flat.npv)}, líquido do mês 60 ${money(flat.steadyNet)}. ` +
+        `Com reajuste: payback ${formatPayback(result.payback)}${delta(result.payback, flat.payback)}, VPL ${money(result.npv)}, líquido do mês 60 ${money(result.steadyNet)}. ` +
+        `A taxa de desconto de ${formatPercent(result.discountRateAnnual, 2)} é nominal e não muda.`,
+      considered: true,
     },
   ];
 }

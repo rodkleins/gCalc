@@ -6,7 +6,7 @@ import App from './App';
 import { evaluate } from './model/calculate';
 import { exampleInputs } from './model/example';
 import { formatBRL, formatPayback, formatPercent } from './model/format';
-import { defaultStorePreset } from './model/presets';
+import { rootDefaultStorePreset as defaultStorePreset } from './model/rootPresets';
 import { STORAGE_KEY, STORAGE_VERSION, writeSession } from './model/storage';
 import { QUICK_ADJUST_OPEN_KEY, QUICK_DOCK_OPEN_KEY, RAIL_COLLAPSED_KEY } from './model/uiChrome';
 import { WIZARD_STEPS } from './model/wizard';

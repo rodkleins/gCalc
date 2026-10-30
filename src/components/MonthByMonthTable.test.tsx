@@ -7,7 +7,7 @@ import { evaluate } from '../model/calculate';
 import { formatBRL } from '../model/format';
 import { buildMonthTable } from '../model/monthTable';
 import { monthTableCsv } from '../model/monthTableCsv';
-import { defaultStorePreset } from '../model/presets';
+import { rootDefaultStorePreset as defaultStorePreset } from '../model/rootPresets';
 import RhApp from '../rh/RhApp';
 
 // @ts-expect-error o teste lê o CSS no Node; o app não depende dos tipos de fs

@@ -430,10 +430,15 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     );
   };
 
+  // Perdas em R$ acompanham o IPCA, como no modo detalhado. Com inflação zero o fator é 1.
   const historicalLosses = (month: number) =>
-    round2(inputs.profile.historicalLossesMonthly * volumeGrowth(month) * inventoryCapture * stockRamp(month));
+    round2(
+      inputs.profile.historicalLossesMonthly * volumeGrowth(month) * inventoryCapture * stockRamp(month) * priceIndex(month),
+    );
   const projectedLosses = (month: number) =>
-    round2(inputs.stock.losses.projectedLossesMonthly * volumeGrowth(month) * inventoryCapture * stockRamp(month));
+    round2(
+      inputs.stock.losses.projectedLossesMonthly * volumeGrowth(month) * inventoryCapture * stockRamp(month) * priceIndex(month),
+    );
 
   const lossesAmount = (month: number) => {
     if (!lossesGate.included || month < goLive) return 0;

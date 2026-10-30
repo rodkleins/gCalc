@@ -825,3 +825,8 @@ th.num { white-space: normal; }
 .month-table tr.is-payback td { background: #e6f2ea; font-weight: 700; }
 .month-table .payback-tag { font-size: 0.75rem; font-weight: 650; color: var(--ok); text-transform: uppercase; letter-spacing: 0.03em; }
 .month-table-actions { display: flex; justify-content: flex-end; margin: 0 0 12px; }
+
+/* Bloco Inflação (calculadora raiz) */
+.inflation-card .seg { display: inline-flex; width: fit-content; max-width: 100%; margin-top: 8px; }
+.inflation-card .inflation-source { margin-top: 4px; font-size: 0.8rem; line-height: 1.35; }
+@media (min-width: 900px) { .inflation-card .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

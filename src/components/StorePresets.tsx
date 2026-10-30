@@ -1,6 +1,7 @@
 import { evaluate } from '../model/calculate';
 import { formatBRL, formatPayback, formatPercent } from '../model/format';
-import { storePresets, type StorePreset } from '../model/presets';
+import type { StorePreset } from '../model/presets';
+import { rootStorePresets as storePresets } from '../model/rootPresets';
 
 export function StoreSizePicker({
   onLoad,
