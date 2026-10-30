@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'vitest';
 import {
-  BIOLAB_PRESET,
+  CASO_REAL_PRESET,
   DISCLAIMER,
   TERMS,
   emptyInput,
@@ -65,7 +65,7 @@ describe('spec v1.0', () => {
     close(result.orderMinutes.gqEbr, 35);
   });
 
-  it('T2 fecha o registro estimado da Biolab sem o fator de cenário', () => {
+  it('T2 fecha o registro estimado do caso real (cliente farmacêutico) sem o fator de cenário', () => {
     const row = recordHours({
       lotes: 2500, F: 500, sf: 15, sp: 10, sq: 15, err: 2, mc: 5,
       auto: 30, se: 8, exc: 3, sxp: 30, sxq: 60, fin: 10,
@@ -169,7 +169,7 @@ describe('página /interno/roi-ebr/', () => {
 });
 
 describe('divisão Produção × Garantia da Qualidade', () => {
-  for (const [name, input] of [['exemplo', exampleInput()], ['biolab', { ...BIOLAB_PRESET, capOn: false }]]) {
+  for (const [name, input] of [['exemplo', exampleInput()], ['casoreal', { ...CASO_REAL_PRESET, capOn: false }]]) {
     it(`soma exatamente os totais (${name})`, () => {
       const r = evaluate(input);
       const { prod, qa } = r.areas;
@@ -183,5 +183,18 @@ describe('divisão Produção × Garantia da Qualidade', () => {
   it('não muda payback nem ROI', () => {
     const r = evaluate(exampleInput());
     assert.equal(formatPayback(r), '30 meses');
+  });
+});
+
+import { readdirSync as __rd, readFileSync as __rf } from 'node:fs';
+import { join as __j } from 'node:path';
+describe('roi-ebr sem nome de cliente', () => {
+  it('nenhum arquivo de public/interno/roi-ebr contém o nome do cliente', () => {
+    const dir = __j(process.cwd(), 'public/interno/roi-ebr');
+    const re = new RegExp('bio' + 'lab', 'i');
+    for (const f of __rd(dir, { recursive: true })) {
+      let t; try { t = __rf(__j(dir, String(f)), 'utf8'); } catch { continue; }
+      assert.equal(re.test(t), false, String(f));
+    }
   });
 });

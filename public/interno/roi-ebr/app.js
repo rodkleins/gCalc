@@ -1,5 +1,5 @@
 import {
-  BIOLAB_PRESET,
+  CASO_REAL_PRESET,
   DISCLAIMER,
   FIELD_IDS,
   SCENARIOS,
@@ -21,7 +21,7 @@ const STORAGE_KEY = 'neo-roi:v1:current';
 const THEME_KEY = 'neo-roi:v1:theme';
 const NOTES = {
   exemplo: 'Os campos estão preenchidos com uma planta fictícia de médio porte, apenas para demonstração. Os valores de investimento são hipotéticos e não representam o preço do NEO.',
-  biolab: 'Simulação interna da Biolab com dados estimados. Só o número de campos por instrução (500) foi informado; todo o resto é premissa a validar com a Biolab. O investimento é hipotético e não é o valor do contrato. Não divulgar sem autorização do cliente.',
+  casoreal: 'Simulação interna de um cliente farmacêutico com dados estimados. Só o número de campos por instrução (500) foi informado; todo o resto é premissa a validar com o cliente. O investimento é hipotético e não é o valor do contrato. Não divulgar sem autorização do cliente.',
   vazio: 'Campos limpos. Captura permanece em 50% e a taxa de desconto em 14%.',
 };
 const HOURS_PER_PERSON = 1800;
@@ -195,6 +195,7 @@ function restore() {
     }
     state.scenario = SCENARIOS[data.scenario] ? data.scenario : 'provavel';
     state.preset = data.preset || '';
+    if (/^b\x69olab$/i.test(state.preset)) state.preset = 'casoreal';
     writeForm({ ...emptyInput(), ...data, capOn: data.capOn === true });
     showNote(state.preset);
     refresh();
@@ -486,7 +487,7 @@ function bind() {
   form.addEventListener('change', refresh);
   $('load-example').addEventListener('click', () => loadPreset(exampleInput(), 'exemplo'));
   $('clear-all').addEventListener('click', () => loadPreset(emptyInput(), 'vazio'));
-  $('load-biolab').addEventListener('click', () => loadPreset({ ...BIOLAB_PRESET, capOn: false }, 'biolab'));
+  $('load-casoreal').addEventListener('click', () => loadPreset({ ...CASO_REAL_PRESET, capOn: false }, 'casoreal'));
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-scenario]');
     if (!button) return;

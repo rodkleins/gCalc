@@ -98,7 +98,7 @@ const EXAMPLE = {
   c3: 6,
 };
 
-export const BIOLAB_PRESET = {
+export const CASO_REAL_PRESET = {
   lotes: 2500,
   cGQ: 130,
   cOp: 65,
