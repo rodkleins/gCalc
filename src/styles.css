@@ -815,3 +815,12 @@ th.num { white-space: normal; }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* Tabela mês a mês (Resultados) */
+.month-table-card > details > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; list-style: revert; }
+.month-table-card > details > summary h2 { display: inline; margin: 0; }
+.month-table-card .month-table-note { margin: 12px 0; }
+.table-wrap .month-table { min-width: 1040px; }
+.table-wrap .month-table th:first-child, .table-wrap .month-table td:first-child { width: 96px; }
+.month-table tr.is-payback td { background: #e6f2ea; font-weight: 700; }
+.month-table .payback-tag { font-size: 0.75rem; font-weight: 650; color: var(--ok); text-transform: uppercase; letter-spacing: 0.03em; }

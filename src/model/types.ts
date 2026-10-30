@@ -328,6 +328,10 @@ export interface MonthDetail {
   costWith: number;
   salesMargin: number;
   benefit: number;
+  /** Parte do benefício que vem de pessoas: folha, contratações evitadas, turnover, supervisão e horas realocadas. */
+  laborSavings: number;
+  /** Parte do benefício que vem de estoque: perdas evitadas e quebra/furto evitados. */
+  lossReduction: number;
   opex: number;
   accountingResult: number;
   taxableBase: number;
@@ -338,6 +342,8 @@ export interface MonthDetail {
   resale: number;
   residual: number;
   oneTime: number;
+  /** Parcela do investimento paga neste mês (negativa), já incluída em oneTime. */
+  capexTranche: number;
   incremental: number;
   cumulative: number;
   discountedIncremental: number;

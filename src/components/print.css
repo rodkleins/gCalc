@@ -134,3 +134,6 @@
     box-shadow: none !important;
   }
 }
+
+.print-sheet .month-table tr.is-payback td { background: #e6f2ea; font-weight: 700; }
+.print-sheet .month-table .payback-tag { font-size: 6.5pt; text-transform: uppercase; }

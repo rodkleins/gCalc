@@ -792,12 +792,19 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
     const costWithout = round2(nonSales - lossAvoided + historical);
     const costWith = round2(projected + opex);
 
+    const laborSavings = round2(
+      payrollAmount(month) + futureHireCost(month) + turnoverAmount(month) + supervisionAmount(month) + reallocatedAmount(month),
+    );
+    const lossReduction = round2(lossAvoided + shrinkageAmount(month));
+
     months.push({
       month,
       costWithout,
       costWith,
       salesMargin,
       benefit,
+      laborSavings,
+      lossReduction,
       opex,
       accountingResult: preTax,
       taxableBase: round2(taxableBase),
@@ -808,6 +815,7 @@ export function evaluate(rawInputs: Inputs, options: EvalOptions = {}): ModelRes
       resale,
       residual,
       oneTime,
+      capexTranche,
       incremental,
       cumulative,
       discountedIncremental,

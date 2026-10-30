@@ -4,6 +4,7 @@ import { CalcMemoryPrint } from './CalcMemory';
 import { formatBRL, formatIrr, formatNumber, formatPayback, formatPercent, scenarioLabel, storeLabel } from '../model/format';
 import { potentialGain } from '../model/potentialGain';
 import { energyConsumptionKwh, energyMonthlyCost, informedMonthlyRobotCost } from '../model/robotCost';
+import { MonthByMonthPrint } from './MonthByMonthTable';
 import type { AuditLine, Inputs, ModelResult, ScenarioId } from '../model/types';
 import './print.css';
 
@@ -504,6 +505,7 @@ function ReportBody({
   kind,
   edition,
   completeExtra,
+  monthTable = false,
 }: {
   inputs: Inputs;
   result: ModelResult;
@@ -511,6 +513,7 @@ function ReportBody({
   kind: PrintKind;
   edition: 'raiz' | 'rh';
   completeExtra?: ReactNode;
+  monthTable?: boolean;
 }) {
   return (
     <article className="print-sheet" data-testid="print-sheet" data-print-kind={kind}>
@@ -529,6 +532,7 @@ function ReportBody({
           <Parameters inputs={inputs} scenario={scenario} />
           <CalcMemoryPrint inputs={inputs} result={result} />
           {completeExtra}
+          {monthTable ? <MonthByMonthPrint result={result} /> : null}
           <Cashflow result={result} />
         </>
       ) : null}
@@ -543,12 +547,15 @@ export function PrintReport({
   scenario,
   edition,
   completeExtra,
+  monthTable = false,
 }: {
   inputs: Inputs;
   result: ModelResult;
   scenario: ScenarioId;
   edition: 'raiz' | 'rh';
   completeExtra?: ReactNode;
+  /** Mostra a tabela mês a mês no relatório completo. Só a calculadora da raiz liga. */
+  monthTable?: boolean;
 }) {
   const [dialog, setDialog] = useState(false);
   const [kind, setKind] = useState<PrintKind | null>(null);
@@ -602,7 +609,7 @@ export function PrintReport({
             </button>
             <span>{kind === 'resumo' ? 'Resumo executivo' : 'Relatório completo'} · A4 retrato</span>
           </div>
-          <ReportBody inputs={inputs} result={result} scenario={scenario} kind={kind} edition={edition} completeExtra={completeExtra} />
+          <ReportBody inputs={inputs} result={result} scenario={scenario} kind={kind} edition={edition} completeExtra={completeExtra} monthTable={monthTable} />
         </div>
       ) : null}
     </>

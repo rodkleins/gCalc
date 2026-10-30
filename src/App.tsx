@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuditPanel } from './components/AuditPanel';
 import { CashflowTable } from './components/CashflowTable';
 import { Dashboard } from './components/Dashboard';
+import { MonthByMonthTable } from './components/MonthByMonthTable';
 import { FloatingPayback } from './components/FloatingPayback';
 import { PremiseFocus } from './components/Fields';
 import { MoreActions } from './components/MoreActions';
@@ -542,7 +543,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
         <div className="main-clip">
         <PremiseFocus field={focusField}>
         {section === 'dashboard' || section === 'simulacoes' ? (
-          <PrintReport inputs={inputs} result={result} scenario={scenario} edition="raiz" />
+          <PrintReport inputs={inputs} result={result} scenario={scenario} edition="raiz" monthTable />
         ) : null}
         {section === 'wizard' ? (
           <Wizard
@@ -571,6 +572,7 @@ export default function App({ initialInputs }: { initialInputs?: Inputs }) {
             onOpenPremise={openPremise}
           />
         ) : null}
+        {section === 'dashboard' ? <MonthByMonthTable result={result} /> : null}
         {section === 'perfil' ? <ProfileForm inputs={inputs} result={result} onChange={commitInputs} /> : null}
         {section === 'pessoas' ? (
           <PeopleForm
