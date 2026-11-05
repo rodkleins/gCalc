@@ -2053,6 +2053,8 @@ function samLayout(d, model) {
  */
 const SAM_CHUTE_ESTIMATE = { out: 0.28, yIn: 1.16, yOut: 1.06, wall: 0.06, lip: 0.07 };
 const SAM_CHUTE = SAM_CHUTE_ESTIMATE;
+/** ESTIMATIVA: calha vertical simples da esteira (no trilho) até cada saída do SAM; meia profundidade em m. */
+const SAM_DROP = { half: 0.12 };
 function samChuteFloorY(xg, x) {
   const t = Math.min(1, Math.max(0, (xg - x) / SAM_CHUTE.out));
   return SAM_CHUTE.yIn + (SAM_CHUTE.yOut - SAM_CHUTE.yIn) * t;
@@ -2695,7 +2697,7 @@ function createViewer(canvas) {
     const aisleW = 0.62;
     const gap = 0.045;
     const rowDepth = 0.32;
-    const RACK_LETTERS = 'BCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const RACK_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const PACK_TONES = ['#f6ead2', '#e7a23a', '#d5e6c8', '#f3d3cf', '#cfe3f6', '#f4f1ea'];
     const CYCLE = 8.6;
 
@@ -2943,11 +2945,12 @@ function createViewer(canvas) {
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    /* Esteira interna sempre colada na parede longa oposta à cabeça (com ou sem SAM).
-       Sem SAM corre no alto até a saída da frente; com SAM fica logo acima da faixa do SAM e alimenta as saídas. */
+    /* Esteira interna sempre colada na parede longa oposta à cabeça (com ou sem SAM), SEMPRE na altura do trilho
+       do braço (acompanha a altura do robô). Com SAM, as saídas ficam na altura de coleta delas (SAM_BAND) e cada
+       uma recebe uma calha vertical simples que desce da esteira até a bandeja (simplificação visual). */
     const beltX0 = shellX0 + 0.03;
     const beltX1 = beltX0 + 0.23;
-    const beltTop = sam ? SAM_BAND.y1 + 0.11 : railY0 - 0.02;
+    const beltTop = railY0 - 0.02;
     const beltBottom = beltTop - 0.07;
     const beltLines = [];
     const beltShift = (time * 0.42) % 0.3;
@@ -2962,6 +2965,24 @@ function createViewer(canvas) {
         faces: { top: { lines: beltLines, lineColor: '#4a5158', lineAlpha: 0.7 * mix } },
       }),
     );
+    // Calhas de descida da esteira até cada saída do SAM: duto vertical cinza, da face de baixo da esteira até
+    // o alto da faixa do SAM. Simplificação: o desenho real da descida ainda não veio da Gollmann.
+    if (sam) {
+      const dropTop = beltBottom;
+      const dropBottom = SAM_BAND.y1 - 0.02;
+      if (dropTop - dropBottom > 0.05) {
+        for (const td of sam.trays) {
+          faces.push(
+            ...box(beltX0 + 0.04, beltX1 - 0.04, dropBottom, dropTop, td - SAM_DROP.half, td + SAM_DROP.half, {
+              fill: '#9aa1a6',
+              alpha: 0.55 * mix,
+              stroke: '#5d6468',
+              strokeAlpha: 0.8 * mix,
+            }),
+          );
+        }
+      }
+    }
     // Consoles de parede (não mais pendurais no teto).
     for (const bracket of [0.4, L * 0.5, L - 0.4]) {
       faces.push(
@@ -3147,10 +3168,16 @@ function createViewer(canvas) {
           boxD = td;
           const xIn = shellX0 + 0.06;
           const xStop = shellX0 - SAM_CHUTE.out + 0.015 + 0.065;
-          if (v < 0.3) {
-            const w = v / 0.3;
+          const pickY = samChuteFloorY(shellX0, xIn) + 0.01;
+          if (v < 0.18) {
+            // Desce pela calha vertical, da esteira (altura do trilho) até a altura de coleta do SAM.
+            const w = smoothstep(v / 0.18);
+            boxX = beltCenter;
+            boxY = beltTop + (pickY - beltTop) * w;
+          } else if (v < 0.3) {
+            const w = (v - 0.18) / 0.12;
             boxX = beltCenter + (xIn - beltCenter) * w;
-            boxY = beltTop + (samChuteFloorY(shellX0, xIn) + 0.01 - beltTop) * w;
+            boxY = pickY;
           } else {
             const w = Math.min(1, (v - 0.3) / 0.4);
             const e = 1 - (1 - w) * (1 - w);

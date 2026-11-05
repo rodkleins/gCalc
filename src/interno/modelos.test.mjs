@@ -1058,7 +1058,7 @@ describe('página de modelos isolada', () => {
     assert.match(app, /const gap = 0\.045;/);
     assert.match(app, /const rowDepth = 0\.32;/);
     assert.match(app, /const aisleW = 0\.62;/);
-    assert.match(app, /const RACK_LETTERS = 'BCDEFGHIJKLMNOPQRSTUVWXYZ';/);
+    assert.match(app, /const RACK_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';/);
     assert.match(app, /const CYCLE = 8\.6;/);
     assert.match(app, /const gripperCycle = \(phase, zone0, zone1\)/);
     assert.match(app, /feixe de laser/);
@@ -1224,5 +1224,23 @@ describe('lacunas finais: presets/matriz, 2º braço, espelhamento, SAM e Safari
     assert.match(css, /height: -webkit-fill-available;/);
     assert.match(css, /-webkit-backdrop-filter: blur/);
     assert.match(css, /\.fs-panel \{ touch-action: manipulation;/);
+  });
+});
+
+describe('esteira na altura do trilho e letras dos módulos', () => {
+  const src = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+  it('a esteira segue sempre a altura do robô (trilho do braço), com ou sem SAM', () => {
+    assert.match(src, /const railY0 = H - 0\.24;/);
+    assert.match(src, /const beltTop = railY0 - 0\.02;/);
+    assert.doesNotMatch(src, /beltTop = sam \? SAM_BAND\.y1/);
+  });
+  it('com SAM, calhas verticais descem da esteira até as saídas, que ficam na altura de coleta', () => {
+    assert.match(src, /const SAM_DROP = \{ half: 0\.12 \};/);
+    assert.match(src, /const dropBottom = SAM_BAND\.y1 - 0\.02;/);
+    assert.match(src, /for \(const td of sam\.trays\) \{\n          faces\.push\(\n            \.\.\.box\(beltX0 \+ 0\.04, beltX1 - 0\.04, dropBottom, dropTop/);
+    assert.match(src, /boxY = beltTop \+ \(pickY - beltTop\) \* w;/);
+  });
+  it('letras dos módulos começam em A', () => {
+    assert.match(src, /const RACK_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';/);
   });
 });
