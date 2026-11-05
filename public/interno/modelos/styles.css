@@ -1173,3 +1173,12 @@ html.viewer-fs-lock, html.viewer-fs-lock body { overflow: hidden; }
 .class-rec-actions .class-rec-apply { background: #e0a526; border-color: #c98a0b; color: #2b1c00; font-weight: 700; }
 .capacity-note { margin: 0.4rem 0 0; }
 @media print { .class-rec { display: none; } }
+.class-rec-badge {
+  display: inline-block; margin-top: 0.4rem; padding: 0.2rem 0.55rem; max-width: 100%; text-align: left;
+  font: inherit; font-size: 0.76rem; line-height: 1.3; cursor: pointer;
+  border: 1px solid #e0a526; border-radius: 8px; background: rgba(255, 243, 214, 0.92); color: #5c3d00;
+}
+.class-rec-badge:hover { background: #ffe9b3; }
+.dims-rec { margin-top: 0.4rem; }
+.dims-rec .class-rec-badge { margin-top: 0; }
+@media print { .class-rec-badge, .dims-rec { display: none; } }

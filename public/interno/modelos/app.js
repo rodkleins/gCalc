@@ -133,6 +133,10 @@ function setLang(next) {
 
 const STORAGE_KEY = 'gcalc.modelos.interno.v3';
 
+/** Referência da classe recomendada: medidas e comprimento antes da 1ª mudança de altura/largura. */
+let recBase = null;
+let recDismissed = false;
+
 const VIEW_DEFAULTS = { theme: 'azul', xray: false, human: true };
 
 const SECTIONS = [
@@ -474,6 +478,11 @@ function loadState() {
     // A referência de largura saiu da tela: a sala sempre compara com a largura final do tipo + SAM.
     next.roomWidthRef = 'final';
     state = next;
+    const ref = parsed.classRecRef;
+    if (ref && typeof ref === 'object' && [ref.heightM, ref.widthSam, ref.lengthM].every(Number.isFinite) && typeof ref.classId === 'string') {
+      recBase = { heightM: ref.heightM, widthSam: ref.widthSam, classId: ref.classId, lengthM: ref.lengthM };
+      recDismissed = ref.dismissed === true;
+    }
     if (parsed.view && typeof parsed.view === 'object') {
       if (['azul', 'verde', 'magenta'].includes(parsed.view.theme)) view.theme = parsed.view.theme;
       if (typeof parsed.view.xray === 'boolean') view.xray = parsed.view.xray;
@@ -486,7 +495,7 @@ function loadState() {
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, headSideAll: true, view }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, headSideAll: true, view, classRecRef: recBase ? { ...recBase, dismissed: recDismissed } : null }));
   } catch {
     /* navegador sem armazenamento */
   }
@@ -1712,29 +1721,29 @@ function renderModelChrome(result) {
 /* Classe recomendada: ao crescer altura ou largura mantendo a classe, a tabela pode ter uma classe   */
 /* maior no mesmo comprimento que o robô tinha antes da mudança. Só avisa; o modo continua classe-first. */
 /* ------------------------------------------------------------------------------------------------ */
-let recBase = null;
 let classRec = null;
 function captureRecBase() {
   const config = getConfig(state.heightM, state.widthSam, state.classId);
   recBase = config ? { heightM: state.heightM, widthSam: state.widthSam, classId: state.classId, lengthM: config.lengthM } : null;
+  recDismissed = false;
+}
+function clearRec() {
+  recBase = null;
+  recDismissed = false;
 }
 function computeClassRec() {
   classRec = null;
   if (!recBase) return;
-  if (state.classId !== recBase.classId) {
-    recBase = null;
-    return;
-  }
   const currentConfig = getConfig(state.heightM, state.widthSam, state.classId);
   if (!currentConfig) return;
   const ref = recBase.lengthM;
   const rec = recommendClass(state.heightM, state.widthSam, ref);
+  // Some só quando a classe atual é a recomendada para o comprimento de referência (ou aplicada).
   if (rec && rec.classId === state.classId) {
-    // Mesma classe no mesmo comprimento (inclusive ao voltar às medidas de antes): sem aviso.
-    recBase = null;
+    clearRec();
     return;
   }
-  const base = { baseLengthM: ref, currentId: state.classId, currentLengthM: currentConfig.lengthM };
+  const base = { baseLengthM: ref, currentId: state.classId, currentLengthM: currentConfig.lengthM, dismissed: recDismissed };
   if (rec) {
     classRec = { ...rec, ...base, mode: classRank(rec.classId) > classRank(state.classId) ? 'up' : 'down' };
     return;
@@ -1744,7 +1753,9 @@ function computeClassRec() {
   const smallest = smallestId ? getConfig(state.heightM, state.widthSam, smallestId) : null;
   if (!smallest) return;
   if (smallestId === state.classId) {
-    classRec = { ...base, mode: 'smallest' };
+    // Só informativo: ao dispensar, some (não há classe para recomendar).
+    if (recDismissed) clearRec();
+    else classRec = { ...base, mode: 'smallest' };
     return;
   }
   classRec = { classId: smallestId, capacityPacks: smallest.capacityPacks, lengthM: smallest.lengthM, priceEur: smallest.priceEur, ...base, mode: 'down' };
@@ -1762,8 +1773,26 @@ function classRecText(rec) {
   }
   return t('rec.text', `Com esta altura/largura, no mesmo comprimento (${ref}) cabe a classe ${rec.classId} (${packs}). Recomendamos mudar para ${rec.classId}.`, { length: ref, cls: rec.classId, packs });
 }
+function classRecBadge() {
+  const rec = classRec;
+  const length = formatMeters(rec.baseLengthM);
+  const badge = el(
+    'button',
+    'class-rec-badge',
+    t('rec.badge', `⚠ Classe ${rec.currentId} incompatível com estas medidas no comprimento de ${length} (recomendada: ${rec.classId})`, { cur: rec.currentId, length, cls: rec.classId }),
+  );
+  badge.type = 'button';
+  badge.title = t('rec.badgeTitle', 'Abrir o aviso da classe recomendada');
+  badge.addEventListener('click', () => {
+    recDismissed = false;
+    if (current) render(current);
+    persist();
+  });
+  return badge;
+}
 function classRecBox() {
   const rec = classRec;
+  if (rec.dismissed) return classRecBadge();
   const box = el('div', `class-rec is-${rec.mode}`);
   box.setAttribute('role', 'status');
   box.append(el('p', null, classRecText(rec)));
@@ -1782,17 +1811,24 @@ function classRecBox() {
   const dismiss = el('button', 'class-rec-dismiss', t('rec.dismiss', 'Dispensar'));
   dismiss.type = 'button';
   dismiss.addEventListener('click', () => {
-    recBase = null;
+    recDismissed = true;
     if (current) render(current);
+    persist();
   });
   actions.append(dismiss);
   box.append(actions);
   return box;
 }
 function renderClassRec() {
-  document.querySelectorAll('#form .class-rec').forEach((node) => node.remove());
+  document.querySelectorAll('#form .class-rec, #form .class-rec-badge, .dims-rec').forEach((node) => node.remove());
   const wrap = controls.get('classId')?.wrap;
   if (wrap && classRec) wrap.append(classRecBox());
+  const dims = document.getElementById('dims');
+  if (dims && classRec?.dismissed) {
+    const line = el('div', 'dims-rec');
+    line.append(classRecBadge());
+    dims.after(line);
+  }
 }
 
 function render(result) {
@@ -3654,7 +3690,7 @@ function syncFsPanel() {
       input.disabled = source.select.disabled;
     }
   }
-  panel.querySelectorAll('.class-rec').forEach((node) => node.remove());
+  panel.querySelectorAll('.class-rec, .class-rec-badge').forEach((node) => node.remove());
   const classRow = panel.querySelector('.fs-row[data-key="classId"]');
   if (classRow && classRec) classRow.after(classRecBox());
 }

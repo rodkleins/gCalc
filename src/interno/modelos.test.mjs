@@ -1165,3 +1165,19 @@ describe('classe recomendada ao diminuir altura ou largura', () => {
     assert.equal((loc.match(/'rec\.smallest'/g) || []).length, 2);
   });
 });
+
+describe('aviso compacto depois de dispensar', () => {
+  it('mantém o selo, salva a referência e reabre o aviso', () => {
+    const src = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+    assert.match(src, /classRecRef: recBase \? \{ \.\.\.recBase, dismissed: recDismissed \} : null/);
+    assert.match(src, /const ref = parsed\.classRecRef;/);
+    assert.match(src, /if \(rec\.dismissed\) return classRecBadge\(\);/);
+    assert.match(src, /if \(dims && classRec\?\.dismissed\)/);
+    assert.match(src, /badge\.addEventListener\('click', \(\) => \{\n    recDismissed = false;/);
+    assert.match(src, /dismiss\.addEventListener\('click', \(\) => \{\n    recDismissed = true;/);
+    const en = readFileSync(new URL('../../public/interno/modelos/i18n.js', import.meta.url), 'utf8');
+    const loc = readFileSync(new URL('../../public/interno/modelos/i18n.locales.js', import.meta.url), 'utf8');
+    assert.match(en, /'rec\.badge': '⚠ Class \{cur\} does not match/);
+    assert.equal((loc.match(/'rec\.badge'/g) || []).length, 2);
+  });
+});
