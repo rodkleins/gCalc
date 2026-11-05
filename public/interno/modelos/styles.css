@@ -1151,3 +1151,25 @@ html.viewer-fs-lock, html.viewer-fs-lock body { overflow: hidden; }
 .fs-row:has(input[type='checkbox']) { grid-template-columns: auto 1fr; align-items: center; gap: 0.45rem; }
 .fs-row-label { color: var(--muted, #4a5a56); font-weight: 600; }
 .fs-row select { width: 100%; font: inherit; padding: 0.3rem 0.4rem; border-radius: 8px; border: 1px solid var(--line, #d8d3c8); background: rgba(255, 255, 255, 0.9); }
+
+/* Aviso de classe recomendada (barra lateral e painel da tela cheia). */
+.class-rec {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #e0a526;
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: rgba(255, 243, 214, 0.92);
+  color: #5c3d00;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.class-rec p { margin: 0 0 0.45rem; }
+.class-rec-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.class-rec-actions button {
+  font: inherit; font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid #c98a0b; background: #fff; color: #5c3d00;
+}
+.class-rec-actions .class-rec-apply { background: #e0a526; border-color: #c98a0b; color: #2b1c00; font-weight: 700; }
+.capacity-note { margin: 0.4rem 0 0; }
+@media print { .class-rec { display: none; } }

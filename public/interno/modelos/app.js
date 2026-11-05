@@ -14,6 +14,9 @@ import {
   brazilCost,
   classOf,
   classesAt,
+  classRank,
+  getConfig,
+  recommendClass,
   evaluate,
   explain as explainResult,
   formatBRL as formatBRLLocale,
@@ -175,7 +178,7 @@ const SECTIONS = [
         kind: 'select',
         keep: 'height',
         wide: true,
-        tooltip: '10 alturas, de 2,20 m a 3,55 m, uma tabela por altura (slides 14 a 23). Acima de 2,95 m somem as larguras maiores.',
+        tooltip: '10 alturas, de 2,20 m a 3,55 m, uma tabela por altura (slides 13 a 22). Acima de 2,95 m somem as larguras maiores.',
       },
       {
         key: 'classId',
@@ -233,7 +236,7 @@ const SECTIONS = [
           { value: 27000, label: 'Máx. (€ 27.000)' },
           { value: 0, label: '€ 0' },
         ],
-        tooltip: 'Varia por obra. Padrão: média de € 22.500 das 7 classes do slide 8 (S € 18.000, M € 19.500, L € 21.000, XL € 22.500, XXL € 24.000, 3XL € 25.500, 4XL € 27.000).',
+        tooltip: 'Varia por obra. Padrão: média de € 22.500 das 7 classes do slide 7 (S € 18.000, M € 19.500, L € 21.000, XL € 22.500, XXL € 24.000, 3XL € 25.500, 4XL € 27.000).',
       },
       {
         key: 'localServicesBrl',
@@ -434,7 +437,7 @@ const SECTIONS = [
           { value: 50, label: '50 robôs (6%)' },
           { value: 100, label: '100 robôs (8%)' },
         ],
-        tooltip: 'Faixas de desconto por volume (slides 11 e 12): 1–9 robôs = 0%, 10–24 = 2%, 25–49 = 4%, 50–99 = 6%, 100+ = 8%.',
+        tooltip: 'Faixas de desconto por volume (slides 10 e 11): 1–9 robôs = 0%, 10–24 = 2%, 25–49 = 4%, 50–99 = 6%, 100+ = 8%.',
       },
     ],
   },
@@ -698,6 +701,7 @@ function renderField(field) {
     select.id = field.key;
     select.setAttribute('aria-describedby', tip.id);
     select.addEventListener('change', () => {
+      if ((field.key === 'heightM' || field.key === 'widthSam') && !recBase) captureRecBase();
       state[field.key] = readSelect(field.key, select.value);
       commit(field.keep ?? null);
     });
@@ -772,7 +776,7 @@ function renderField(field) {
   return wrap;
 }
 
-/** Atalho 'class' do transporte e instalação: o valor da classe escolhida no slide 8. */
+/** Atalho 'class' do transporte e instalação: o valor da classe escolhida no slide 7. */
 function quickValue(value) {
   return value === 'class' ? classOf(state.classId).servicesEur : value;
 }
@@ -1175,6 +1179,13 @@ function renderDims(result) {
       return pill;
     }),
   );
+  let note = document.getElementById('capacity-note');
+  if (!note) {
+    note = el('p', 'fine capacity-note');
+    note.id = 'capacity-note';
+    host.after(note);
+  }
+  note.textContent = t('dims.capacityNote', 'A classe define a capacidade; altura e largura mudam comprimento e preço (Gollmann, slide 2).');
 }
 
 function applyConfig(config) {
@@ -1630,7 +1641,7 @@ function renderRollout(result) {
   const slideList = SLIDE_12.milestones
     .map((item) => t('rollout.slide', `${item.robot}º robô ${cents(item.bonusToDateCents)}`, { n: item.robot, value: cents(item.bonusToDateCents) }))
     .join(' · ');
-  document.getElementById('milestone-note').textContent = t('rollout.milestone', `Nota de crédito: ao alcançar 10, 25, 50 e 100 robôs, os robôs já pedidos são levados à faixa nova, com ${formatEUR(volume.unitGrossEur)} por robô. Conferência do slide 12, com ${formatEUR(100000)} por robô: ${slideList} de desconto acumulado.`, {
+  document.getElementById('milestone-note').textContent = t('rollout.milestone', `Nota de crédito: ao alcançar 10, 25, 50 e 100 robôs, os robôs já pedidos são levados à faixa nova, com ${formatEUR(volume.unitGrossEur)} por robô. Conferência do slide 11, com ${formatEUR(100000)} por robô: ${slideList} de desconto acumulado.`, {
     unit: formatEUR(volume.unitGrossEur),
     base: formatEUR(100000),
     list: slideList,
@@ -1697,8 +1708,69 @@ function renderModelChrome(result) {
   if (colorGroup) colorGroup.setAttribute('aria-label', t('viewer.colorModel', `Cor do ${model.name}`, { model: model.name }));
 }
 
+/* ------------------------------------------------------------------------------------------------ */
+/* Classe recomendada: ao crescer altura ou largura mantendo a classe, a tabela pode ter uma classe   */
+/* maior no mesmo comprimento que o robô tinha antes da mudança. Só avisa; o modo continua classe-first. */
+/* ------------------------------------------------------------------------------------------------ */
+let recBase = null;
+let classRec = null;
+function captureRecBase() {
+  const config = getConfig(state.heightM, state.widthSam, state.classId);
+  recBase = config ? { heightM: state.heightM, widthSam: state.widthSam, classId: state.classId, lengthM: config.lengthM } : null;
+}
+function computeClassRec() {
+  classRec = null;
+  if (!recBase) return;
+  const grew = state.heightM > recBase.heightM + 1e-9 || state.widthSam > recBase.widthSam + 1e-9;
+  if (state.classId !== recBase.classId || !grew) {
+    recBase = null;
+    return;
+  }
+  const rec = recommendClass(state.heightM, state.widthSam, recBase.lengthM);
+  if (rec && classRank(rec.classId) > classRank(state.classId)) classRec = { ...rec, baseLengthM: recBase.lengthM };
+}
+function classRecBox() {
+  const rec = classRec;
+  const box = el('div', 'class-rec');
+  box.setAttribute('role', 'status');
+  const length = formatMeters(rec.baseLengthM);
+  const packs = formatPacks(rec.capacityPacks);
+  box.append(
+    el(
+      'p',
+      null,
+      t('rec.text', `Com esta altura/largura, no mesmo comprimento (${length}) cabe a classe ${rec.classId} (${packs}). Recomendamos mudar para ${rec.classId}.`, { length, cls: rec.classId, packs }),
+    ),
+  );
+  const actions = el('div', 'class-rec-actions');
+  const apply = el('button', 'class-rec-apply', t('rec.apply', 'Aplicar classe recomendada'));
+  apply.type = 'button';
+  apply.addEventListener('click', () => {
+    const select = controls.get('classId')?.select;
+    if (!select) return;
+    select.value = rec.classId;
+    select.dispatchEvent(new Event('change'));
+  });
+  const dismiss = el('button', 'class-rec-dismiss', t('rec.dismiss', 'Dispensar'));
+  dismiss.type = 'button';
+  dismiss.addEventListener('click', () => {
+    recBase = null;
+    if (current) render(current);
+  });
+  actions.append(apply, dismiss);
+  box.append(actions);
+  return box;
+}
+function renderClassRec() {
+  document.querySelectorAll('#form .class-rec').forEach((node) => node.remove());
+  const wrap = controls.get('classId')?.wrap;
+  if (wrap && classRec) wrap.append(classRecBox());
+}
+
 function render(result) {
   current = result;
+  computeClassRec();
+  renderClassRec();
   syncLocks();
   syncQuick();
   renderModelChrome(result);
@@ -3461,7 +3533,8 @@ function initFullscreen() {
 /* Painel flutuante da tela cheia (desktop): espelha os controles da barra lateral. Cada controle do painel
  * escreve no controle da barra e dispara o mesmo 'change', então estado, 3D, resultados e persistência
  * seguem um único caminho. O painel só lê o estado em syncFsPanel(), chamado a cada render. */
-const FS_PANEL_KEYS = ['modelLine', 'samOn', 'headSide', 'widthSam', 'heightM', 'classId', 'coolingModule'];
+const FS_PANEL_KEYS = ['modelLine', 'samOn', 'headSide', 'widthSam', 'heightM', 'classId', 'secondGripper', 'coolingModule'];
+const FS_PANEL_CHECKS = ['samOn', 'secondGripper', 'coolingModule'];
 const FS_PANEL_STORE = 'gcalc.modelos.fsPanel';
 function fsPanelCollapsed() {
   try {
@@ -3506,7 +3579,7 @@ function initFsPanel() {
     const row = el('label', 'fs-row');
     row.dataset.key = key;
     const name = el('span', 'fs-row-label');
-    const isCheck = key === 'samOn' || key === 'coolingModule';
+    const isCheck = FS_PANEL_CHECKS.includes(key);
     const input = el(isCheck ? 'input' : 'select');
     if (isCheck) input.type = 'checkbox';
     input.id = `fs-${key}`;
@@ -3553,6 +3626,9 @@ function syncFsPanel() {
       input.disabled = source.select.disabled;
     }
   }
+  panel.querySelectorAll('.class-rec').forEach((node) => node.remove());
+  const classRow = panel.querySelector('.fs-row[data-key="classId"]');
+  if (classRow && classRec) classRow.after(classRecBox());
 }
 
 function setXray(on) {

@@ -1,6 +1,6 @@
 /**
  * Modelos GO.compact e acordo-quadro Gollmann × DPSP. Dados da apresentação de 21.10.2026:
- * slides 4 e 8 (classes e serviços), 5 a 7 (composição do preço e opcionais), 11 e 12 (faixas de desconto
+ * slides 3 e 7 (classes e serviços), 5 a 7 (composição do preço e opcionais), 11 e 12 (faixas de desconto
  * por volume e notas de crédito) e 14 a 23 (uma tabela por altura). Tudo fica embutido aqui: a página não busca nada em tempo de execução.
  */
 
@@ -118,13 +118,13 @@ export function formatPacks(value, locale = 'pt-BR') {
   return `${formatFlex(value, 0, locale)} ${word}`;
 }
 
-/** Os 10 pés-direitos de robô (slides 14 a 23). */
+/** Os 10 pés-direitos de robô (slides 13 a 22). */
 export const HEIGHTS = [2.2, 2.35, 2.5, 2.65, 2.8, 2.95, 3.1, 3.25, 3.4, 3.55];
 
 /**
  * As 7 larguras das tabelas. A chave é a classe (rótulo = GO.compact com SAM), que é a coluna dos slides e do
  * preço. compact = raster dos compactadores; sam = compact + 0,20; direct = compact + 0,40, salvo 1,69 → 2,20 e
- * 3,00 → 3,55 (Gollmann, 05/11/2026). O slide 3 fala em 8 larguras, mas as tabelas
+ * 3,00 → 3,55 (Gollmann, 05/11/2026). O slide 2 fala em 8 larguras, mas as tabelas
  * trazem 7: valem as tabelas.
  */
 export const WIDTHS = [
@@ -165,7 +165,7 @@ export function finalWidthM(widthSam, modelLine = 'compact', samOn = true) {
   return physicalWidthM(widthSam, modelLine, samOn);
 }
 
-/** Slide 4 (capacidade e "a partir de") e slide 8 (serviços de transporte e instalação). */
+/** Slide 3 (capacidade e "a partir de") e slide 7 (serviços de transporte e instalação). */
 export const CLASSES = [
   { id: 'S', approxPacks: 10000, fromEur: 89000, servicesEur: 18000 },
   { id: 'M', approxPacks: 15000, fromEur: 98000, servicesEur: 19500 },
@@ -176,30 +176,30 @@ export const CLASSES = [
   { id: '4XL', approxPacks: 40000, fromEur: 123000, servicesEur: 27000 },
 ];
 
-/** Média dos serviços de transporte e instalação das 7 classes do slide 8: padrão do campo editável. */
+/** Média dos serviços de transporte e instalação das 7 classes do slide 7: padrão do campo editável. */
 export const AVERAGE_SERVICES_EUR = CLASSES.reduce((sum, cls) => sum + cls.servicesEur, 0) / CLASSES.length;
 
-/** Slide 5: todo preço de tabela já traz a carga automática com OCR e o SAM com 4 saídas. */
+/** Slide 4: todo preço de tabela já traz a carga automática com OCR e o SAM com 4 saídas. */
 export const PRICE_BUILD_UP = {
   autoLoadingEur: 22000,
   samEur: 3000,
   bundledEur: 25000,
 };
 
-/** Slide 5: o comprimento da tabela já soma a carga manual e a opção speed, gratuita. */
+/** Slide 4: o comprimento da tabela já soma a carga manual e a opção speed, gratuita. */
 export const LENGTH_INCLUDED = {
   manualLoadingM: 0.15,
   speedOptionM: 0.17,
 };
 
-/** Slide 6. A esteira é "sob consulta": o valor é digitado. */
+/** Slide 5. A esteira é "sob consulta": o valor é digitado. */
 export const OPTIONS = {
   secondGripperEur: 14000,
   secondGripperLengthM: 0.68,
   coolingEur: 8000,
 };
 
-/** Slide 11: faixa pela contagem acumulada dos 5 anos, todas as farmácias DPSP juntas. */
+/** Slide 10: faixa pela contagem acumulada dos 5 anos, todas as farmácias DPSP juntas. */
 export const VOLUME_TIERS = [
   { from: 1, pct: 0 },
   { from: 10, pct: 2 },
@@ -208,14 +208,14 @@ export const VOLUME_TIERS = [
   { from: 100, pct: 8 },
 ];
 
-/** Slide 10: 5 anos; anos 1 e 2 com preço fixo, a partir do 3º no máximo o VPI alemão do ano anterior. */
+/** Slide 9: 5 anos; anos 1 e 2 com preço fixo, a partir do 3º no máximo o VPI alemão do ano anterior. */
 export const AGREEMENT = {
   years: 5,
   fixedYears: 2,
 };
 
 /**
- * Slides 14 a 23, linha por classe, coluna por largura c/ SAM (1,89 · 2,40 · 2,80 · 3,20 · 3,75 · 4,15 · 4,55).
+ * Slides 13 a 22, linha por classe, coluna por largura c/ SAM (1,89 · 2,40 · 2,80 · 3,20 · 3,75 · 4,15 · 4,55).
  * Cada célula: [preço total do robô em €, comprimento em m, capacidade garantida em pacotes]. null = "–".
  * A tabela só tem as colunas que existem naquela altura.
  */
@@ -398,13 +398,31 @@ export function classOf(classId) {
   return CLASSES.find((cls) => cls.id === classId) ?? null;
 }
 
+/**
+ * Classe recomendada ao crescer altura ou largura mantendo o comprimento: a maior classe cuja célula da
+ * tabela em (altura, largura) tem comprimento <= maxLengthM. Só valores da tabela; células "–" ficam de fora.
+ */
+export function recommendClass(heightM, widthSam, maxLengthM) {
+  let best = null;
+  for (const cls of CLASSES) {
+    const config = getConfig(heightM, widthSam, cls.id);
+    if (config && config.lengthM <= maxLengthM + 1e-9) best = config;
+  }
+  return best ? { classId: best.classId, capacityPacks: best.capacityPacks, lengthM: best.lengthM, priceEur: best.priceEur } : null;
+}
+
+/** Índice da classe na ordem S → 4XL (−1 se não existe). */
+export function classRank(classId) {
+  return CLASSES.findIndex((cls) => cls.id === classId);
+}
+
 /** Menor e maior preço de tabela por classe, nas 10 alturas e 7 larguras. */
 export function classPriceRange(classId) {
   const prices = CONFIGURATIONS.filter((config) => config.classId === classId).map((config) => config.priceEur);
   return { min: Math.min(...prices), max: Math.max(...prices), count: prices.length };
 }
 
-/** Exemplos dos slides 7 e 8, todos na altura 2,95 m. */
+/** Exemplos dos slides 6 e 7, todos na altura 2,95 m. */
 export const PRESETS = [
   {
     id: 'ex1',
@@ -622,8 +640,8 @@ export function resolveSelection(raw = {}, keep = null) {
 }
 
 /**
- * Composição do preço de um robô (slides 5 a 8) e as medidas que dela decorrem. Opcionais e transporte e
- * instalação ficam separados; o desconto por volume (slide 11) incide sobre o pedido Gollmann inteiro. Os
+ * Composição do preço de um robô (slides 4 a 7) e as medidas que dela decorrem. Opcionais e transporte e
+ * instalação ficam separados; o desconto por volume (slide 10) incide sobre o pedido Gollmann inteiro. Os
  * serviços locais são faturados em reais no Brasil e ficam fora do pedido em euro.
  */
 export function quoteRobot(config, raw = {}) {
@@ -970,7 +988,7 @@ export function nextTier(count) {
 }
 
 /**
- * Bônus robô a robô (slides 11 e 12). Cada robô é faturado com a faixa vigente no pedido, a dos robôs já
+ * Bônus robô a robô (slides 10 e 11). Cada robô é faturado com a faixa vigente no pedido, a dos robôs já
  * pedidos antes dele. Quando o robô r alcança uma faixa nova, a nota de crédito leva todos os robôs até r à
  * faixa nova: crédito = faixa nova × volume acumulado − bônus já concedido (faturas + notas anteriores).
  * Entrada: lista de pedidos { eur, year } ou números. Tudo em centavos.
@@ -1033,7 +1051,7 @@ export function bonusLedger(orders = []) {
 }
 
 /**
- * Linhas no formato do slide 12, uma por faixa. Cada faixa vai do robô seguinte ao marco anterior até o
+ * Linhas no formato do slide 11, uma por faixa. Cada faixa vai do robô seguinte ao marco anterior até o
  * próprio marco; a última ("101 e mais") fatura 8% direto. Faixa não alcançada fica com reached = false.
  */
 export function milestoneTable(ledger) {
@@ -1161,7 +1179,7 @@ const TIER_LABELS = ['1 a 9 robôs', '10 a 24 robôs', '25 a 49 robôs', '50 a 9
 /**
  * Tabela das faixas de desconto por volume para um pedido Gollmann bruto por robô (equipamento, opcionais e
  * transporte e instalação). Cada faixa traz o preço unitário com o desconto, o total no Brasil com os serviços
- * locais e a nota de crédito retroativa do marco (slide 12). O resumo é o da quantidade escolhida.
+ * locais e a nota de crédito retroativa do marco (slide 11). O resumo é o da quantidade escolhida.
  */
 export function volumeTiersTable(unitOrderEur, raw = {}) {
   const input = sanitize(raw);
@@ -1339,7 +1357,7 @@ function explainPt(result) {
     {
       title: 'Preço do robô (tabela)',
       lines: [
-        `Preço de tabela ${eur(quote.tablePriceEur)}. Na classe ${cls.id} a tabela vai de ${eur(range.min)} a ${eur(range.max)} em ${formatFlex(range.count)} células; o slide 4 diz "a partir de ${eur(cls.fromEur)}".`,
+        `Preço de tabela ${eur(quote.tablePriceEur)}. Na classe ${cls.id} a tabela vai de ${eur(range.min)} a ${eur(range.max)} em ${formatFlex(range.count)} células; o slide 3 diz "a partir de ${eur(cls.fromEur)}".`,
         `Robô base = ${eur(quote.tablePriceEur)} − ${eur(PRICE_BUILD_UP.bundledEur)} = ${eur(quote.baseRobotEur)}. + Carga automática com OCR e carga manual ${eur(quote.autoLoadingEur)} + SAM com 4 saídas ${eur(quote.samEur)} = ${eur(quote.robotPriceEur)}.`,
       ],
     },
@@ -1347,7 +1365,7 @@ function explainPt(result) {
       title: 'Opcionais e serviços (separados)',
       lines: [
         `Opcionais: 2º braço com 2º SAM ${quote.secondGripper ? eur(quote.secondGripperEur) : 'não'}, refrigeração ${quote.coolingModule ? eur(quote.coolingEur) : 'não'}, esteiras ${eur(quote.conveyorEur)}. Subtotal de opcionais ${eur(quote.optionsEur)}; robô + opcionais = ${eur(quote.equipmentEur)}.`,
-        `Transporte e instalação: ${servicesText}. Na tabela do slide 8 a classe ${cls.id} custa ${eur(quote.classServicesEur)} (de ${eur(18000)} no S a ${eur(27000)} no 4XL).`,
+        `Transporte e instalação: ${servicesText}. Na tabela do slide 7 a classe ${cls.id} custa ${eur(quote.classServicesEur)} (de ${eur(18000)} no S a ${eur(27000)} no 4XL).`,
         `Pedido Gollmann bruto por robô = ${eur(quote.equipmentEur)} + ${eur(quote.servicesEur)} = ${eur(quote.orderEur)}. É a base do desconto por volume.`,
         `Serviços locais faturados no Brasil: ${brl(quote.localServicesBrl)} (≈ ${eur(quote.localServicesEurApprox)} pelo câmbio). Ficam fora do pedido em euro, da nacionalização e do crédito.`,
       ],
@@ -1441,7 +1459,7 @@ function explainEn(result) {
     {
       title: 'Robot price (table)',
       lines: [
-        `Table price ${eur(quote.tablePriceEur)}. In class ${cls.id} the table runs from ${eur(range.min)} to ${eur(range.max)} across ${flex(range.count, 0)} cells; slide 4 says "from ${eur(cls.fromEur)}".`,
+        `Table price ${eur(quote.tablePriceEur)}. In class ${cls.id} the table runs from ${eur(range.min)} to ${eur(range.max)} across ${flex(range.count, 0)} cells; slide 3 says "from ${eur(cls.fromEur)}".`,
         `Base robot = ${eur(quote.tablePriceEur)} − ${eur(PRICE_BUILD_UP.bundledEur)} = ${eur(quote.baseRobotEur)}. + Automatic loading with OCR and manual loading ${eur(quote.autoLoadingEur)} + SAM with 4 outputs ${eur(quote.samEur)} = ${eur(quote.robotPriceEur)}.`,
       ],
     },
@@ -1449,7 +1467,7 @@ function explainEn(result) {
       title: 'Options and services (separate)',
       lines: [
         `Options: 2nd arm with 2nd SAM ${quote.secondGripper ? eur(quote.secondGripperEur) : 'no'}, cooling ${quote.coolingModule ? eur(quote.coolingEur) : 'no'}, conveyors ${eur(quote.conveyorEur)}. Options subtotal ${eur(quote.optionsEur)}; robot + options = ${eur(quote.equipmentEur)}.`,
-        `Transport and installation: ${servicesText}. On the slide 8 table, class ${cls.id} costs ${eur(quote.classServicesEur)} (from ${eur(18000)} for S to ${eur(27000)} for 4XL).`,
+        `Transport and installation: ${servicesText}. On the slide 7 table, class ${cls.id} costs ${eur(quote.classServicesEur)} (from ${eur(18000)} for S to ${eur(27000)} for 4XL).`,
         `Gross Gollmann order per robot = ${eur(quote.equipmentEur)} + ${eur(quote.servicesEur)} = ${eur(quote.orderEur)}. This is the base of the volume discount.`,
         `Local services invoiced in Brazil: ${brl(quote.localServicesBrl)} (≈ ${eur(quote.localServicesEurApprox)} at the exchange rate). They stay outside the euro order, import taxes, and credits.`,
       ],
@@ -1544,7 +1562,7 @@ function explainDe(result) {
     {
       title: 'Preis des Kommissionierautomaten (Tabelle)',
       lines: [
-        `Tabellenpreis ${eur(quote.tablePriceEur)}. In Klasse ${cls.id} läuft die Tabelle von ${eur(range.min)} bis ${eur(range.max)} über ${flex(range.count, 0)} Zellen; Folie 4 sagt „ab ${eur(cls.fromEur)}“.`,
+        `Tabellenpreis ${eur(quote.tablePriceEur)}. In Klasse ${cls.id} läuft die Tabelle von ${eur(range.min)} bis ${eur(range.max)} über ${flex(range.count, 0)} Zellen; Folie 3 sagt „ab ${eur(cls.fromEur)}“.`,
         `Basisautomat = ${eur(quote.tablePriceEur)} − ${eur(PRICE_BUILD_UP.bundledEur)} = ${eur(quote.baseRobotEur)}. + Automatische Beladung mit OCR und Handbeladung ${eur(quote.autoLoadingEur)} + SAM mit 4 Ausgaben ${eur(quote.samEur)} = ${eur(quote.robotPriceEur)}.`,
       ],
     },
@@ -1552,7 +1570,7 @@ function explainDe(result) {
       title: 'Optionen und Leistungen (getrennt)',
       lines: [
         `Optionen: 2. Greifer mit 2. SAM ${quote.secondGripper ? eur(quote.secondGripperEur) : 'nein'}, Kühlung ${quote.coolingModule ? eur(quote.coolingEur) : 'nein'}, Fördertechnik ${eur(quote.conveyorEur)}. Optionen zusammen ${eur(quote.optionsEur)}; Automat + Optionen = ${eur(quote.equipmentEur)}.`,
-        `Transport und Installation: ${servicesText}. In der Tabelle von Folie 8 kostet Klasse ${cls.id} ${eur(quote.classServicesEur)} (von ${eur(18000)} für S bis ${eur(27000)} für 4XL).`,
+        `Transport und Installation: ${servicesText}. In der Tabelle von Folie 7 kostet Klasse ${cls.id} ${eur(quote.classServicesEur)} (von ${eur(18000)} für S bis ${eur(27000)} für 4XL).`,
         `Bruttoauftrag Gollmann je Kommissionierautomat = ${eur(quote.equipmentEur)} + ${eur(quote.servicesEur)} = ${eur(quote.orderEur)}. Das ist die Basis des Mengenrabatts.`,
         `In Brasilien fakturierte lokale Leistungen: ${brl(quote.localServicesBrl)} (≈ ${eur(quote.localServicesEurApprox)} zum Wechselkurs). Sie bleiben außerhalb des Euro-Auftrags, der Einfuhrabgaben und der Gutschriften.`,
       ],
@@ -1647,7 +1665,7 @@ function explainEs(result) {
     {
       title: 'Precio del robot (tabla)',
       lines: [
-        `Precio de tabla ${eur(quote.tablePriceEur)}. En la clase ${cls.id} la tabla va de ${eur(range.min)} a ${eur(range.max)} en ${flex(range.count, 0)} celdas; la diapositiva 4 dice «desde ${eur(cls.fromEur)}».`,
+        `Precio de tabla ${eur(quote.tablePriceEur)}. En la clase ${cls.id} la tabla va de ${eur(range.min)} a ${eur(range.max)} en ${flex(range.count, 0)} celdas; la diapositiva 3 dice «desde ${eur(cls.fromEur)}».`,
         `Robot base = ${eur(quote.tablePriceEur)} − ${eur(PRICE_BUILD_UP.bundledEur)} = ${eur(quote.baseRobotEur)}. + Carga automática con OCR y carga manual ${eur(quote.autoLoadingEur)} + SAM con 4 salidas ${eur(quote.samEur)} = ${eur(quote.robotPriceEur)}.`,
       ],
     },
@@ -1655,7 +1673,7 @@ function explainEs(result) {
       title: 'Opciones y servicios (por separado)',
       lines: [
         `Opciones: 2.º brazo con 2.º SAM ${quote.secondGripper ? eur(quote.secondGripperEur) : 'no'}, refrigeración ${quote.coolingModule ? eur(quote.coolingEur) : 'no'}, cintas ${eur(quote.conveyorEur)}. Subtotal de opciones ${eur(quote.optionsEur)}; robot + opciones = ${eur(quote.equipmentEur)}.`,
-        `Transporte e instalación: ${servicesText}. En la tabla de la diapositiva 8, la clase ${cls.id} cuesta ${eur(quote.classServicesEur)} (de ${eur(18000)} en S a ${eur(27000)} en 4XL).`,
+        `Transporte e instalación: ${servicesText}. En la tabla de la diapositiva 7, la clase ${cls.id} cuesta ${eur(quote.classServicesEur)} (de ${eur(18000)} en S a ${eur(27000)} en 4XL).`,
         `Pedido bruto Gollmann por robot = ${eur(quote.equipmentEur)} + ${eur(quote.servicesEur)} = ${eur(quote.orderEur)}. Es la base del descuento por volumen.`,
         `Servicios locales facturados en Brasil: ${brl(quote.localServicesBrl)} (≈ ${eur(quote.localServicesEurApprox)} al tipo de cambio). Quedan fuera del pedido en euros, de los impuestos de importación y de los créditos.`,
       ],

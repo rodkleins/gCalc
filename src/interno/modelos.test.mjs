@@ -32,6 +32,8 @@ import {
   formatPacks,
   fitsRoom,
   getConfig,
+  recommendClass,
+  classRank,
   maxHeightOf,
   milestoneTable,
   ncmTaxReference,
@@ -60,8 +62,8 @@ function close(actual, expected, digits = 6) {
   assert.ok(Math.abs(actual - expected) < 10 ** -digits, `${actual} ≠ ${expected}`);
 }
 
-describe('tabelas da proposta (slides 4, 8 e 14 a 23)', () => {
-  it('tem 10 alturas, 7 larguras e 7 classes com os serviços do slide 8', () => {
+describe('tabelas da proposta (slides 3, 7 e 13 a 22)', () => {
+  it('tem 10 alturas, 7 larguras e 7 classes com os serviços do slide 7', () => {
     assert.deepEqual(HEIGHTS, [2.2, 2.35, 2.5, 2.65, 2.8, 2.95, 3.1, 3.25, 3.4, 3.55]);
     assert.deepEqual(
       WIDTHS.map((width) => [width.sam, width.compact, width.direct]),
@@ -113,13 +115,13 @@ describe('tabelas da proposta (slides 4, 8 e 14 a 23)', () => {
     );
     assert.equal(getConfig(3.1, 3.75, 'S'), null);
     assert.equal(getConfig(2.2, 1.89, 'L'), null);
-    // Lacuna real do slide 23: 3,55 m × 3,20 m não tem XL, mas tem XXL.
+    // Lacuna real do slide 22: 3,55 m × 3,20 m não tem XL, mas tem XXL.
     assert.equal(getConfig(3.55, 3.2, 'XL'), null);
     assert.ok(getConfig(3.55, 3.2, 'XXL'));
     assert.deepEqual(classesAt(2.2, 1.89), ['S', 'M']);
   });
 
-  it('confere o mínimo e o máximo de cada classe com o slide 4', () => {
+  it('confere o mínimo e o máximo de cada classe com o slide 3', () => {
     const expected = {
       S: [89000, 103000],
       M: [98000, 117000],
@@ -148,7 +150,7 @@ describe('tabelas da proposta (slides 4, 8 e 14 a 23)', () => {
   });
 });
 
-describe('composição do preço e exemplos dos slides 7 e 8', () => {
+describe('composição do preço e exemplos dos slides 6 e 7', () => {
   it('robô base = tabela − 25.000 em todas as 286 células', () => {
     assert.deepEqual(PRICE_BUILD_UP, { autoLoadingEur: 22000, samEur: 3000, bundledEur: 25000 });
     for (const config of CONFIGURATIONS) {
@@ -226,7 +228,7 @@ describe('composição do preço e exemplos dos slides 7 e 8', () => {
   });
 });
 
-describe('opcionais e serviços (slide 6)', () => {
+describe('opcionais e serviços (slide 5)', () => {
   const config = cell(2.95, 3.2, 'L');
 
   it('soma 14.000 e 0,68 m com o 2º braço, e a área cresce junto', () => {
@@ -395,14 +397,14 @@ describe('seleção sempre numa célula da tabela', () => {
   });
 });
 
-describe('acordo-quadro: VPI, faixas e notas de crédito (slides 10 a 12)', () => {
+describe('acordo-quadro: VPI, faixas e notas de crédito (slides 9 a 11)', () => {
   it('usa as faixas pela contagem acumulada', () => {
     assert.deepEqual(VOLUME_TIERS.map((tier) => [tier.from, tier.pct]), [[1, 0], [10, 2], [25, 4], [50, 6], [100, 8]]);
     const cases = [[0, 0], [1, 0], [9, 0], [10, 2], [24, 2], [25, 4], [49, 4], [50, 6], [99, 6], [100, 8], [500, 8]];
     for (const [count, pct] of cases) assert.equal(volumeBonusPct(count), pct, String(count));
   });
 
-  it('repete o slide 12 com € 100.000 por robô', () => {
+  it('repete o slide 11 com € 100.000 por robô', () => {
     const ledger = bonusLedger(Array.from({ length: 120 }, () => 100000));
     assert.deepEqual(
       ledger.milestones.map((item) => [item.robot, item.fromPct, item.toPct, item.bandInvoiceBonusCents, item.creditNoteCents, item.cumulativeCents, item.bonusToDateCents]),
@@ -750,7 +752,7 @@ describe('Preço Total e faixas de desconto por volume', () => {
     assert.equal(table.fleetTotalGrossBrl, toCents(table.unitTotalGrossBrl * 30) / 100);
     assert.equal(table.fleetTotalNetBrl, toCents(table.unitTotalNetBrl * 30) / 100);
     assert.equal(volumeTiersTable(130500, { fleetRobots: 150 }).next, null);
-    // Com € 100.000 por robô as notas repetem o slide 12.
+    // Com € 100.000 por robô as notas repetem o slide 11.
     assert.deepEqual(volumeTiersTable(100000, {}).tiers.map((tier) => tier.bonusToDateEur), [0, 20000, 100000, 300000, 800000]);
   });
 
@@ -1002,7 +1004,14 @@ describe('página de modelos isolada', () => {
     assert.match(fsEn, /'viewer\.fullscreen': 'Fullscreen'/);
     assert.match(fsLoc, /'viewer\.fullscreen': 'Vollbild'/);
     assert.match(fsLoc, /'viewer\.fullscreen': 'Pantalla completa'/);
-    assert.match(appSrc, /const FS_PANEL_KEYS = \['modelLine', 'samOn', 'headSide', 'widthSam', 'heightM', 'classId', 'coolingModule'\]/);
+    assert.match(appSrc, /const FS_PANEL_KEYS = \['modelLine', 'samOn', 'headSide', 'widthSam', 'heightM', 'classId', 'secondGripper', 'coolingModule'\]/);
+    assert.match(appSrc, /const FS_PANEL_CHECKS = \['samOn', 'secondGripper', 'coolingModule'\]/);
+    assert.match(appSrc, /if \(classRow && classRec\) classRow\.after\(classRecBox\(\)\)/);
+    assert.match(appSrc, /\(field\.key === 'heightM' \|\| field\.key === 'widthSam'\) && !recBase\) captureRecBase\(\)/);
+    assert.match(fsEn, /'rec\.apply': 'Apply recommended class'/);
+    assert.match(fsLoc, /'rec\.apply': 'Empfohlene Klasse übernehmen'/);
+    assert.match(fsLoc, /'rec\.apply': 'Aplicar clase recomendada'/);
+    assert.match(fsEn, /'dims\.capacityNote'/);
     assert.match(appSrc, /target\.dispatchEvent\(new Event\('change'\)\)/);
     assert.match(appSrc, /viewer\?\.setModel\(result\);\n  syncFsPanel\(\);/);
     assert.match(appSrc, /const stage = document\.querySelector\('#viewer-card \.viewer-stage'\)/);
@@ -1098,5 +1107,27 @@ describe('página de modelos isolada', () => {
       const text = readFileSync(join(root, file), 'utf8');
       assert.equal(text.includes('interno/modelos'), false, file);
     }
+  });
+});
+
+describe('classe recomendada no mesmo comprimento', () => {
+  it('2,95 m, L em 1,89 (6,55 m) → largura 3,20 recomenda 4XL com 39.000 pacotes', () => {
+    assert.equal(getConfig(2.95, 1.89, 'L').lengthM, 6.55);
+    const rec = recommendClass(2.95, 3.2, 6.55);
+    assert.deepEqual(rec, { classId: '4XL', capacityPacks: 39000, lengthM: 6.26, priceEur: 129000 });
+    assert.ok(classRank(rec.classId) > classRank('L'));
+  });
+  it('mais altura: 2,20 → 2,80 m em 3,20 com 5,34 m recomenda XL', () => {
+    assert.equal(getConfig(2.2, 3.2, 'L').lengthM, 5.34);
+    assert.equal(recommendClass(2.8, 3.2, 5.34).classId, 'XL');
+    assert.equal(recommendClass(2.8, 3.2, 5.34).capacityPacks, 24000);
+  });
+  it('pula células "–" e não recomenda classe menor ou igual', () => {
+    // 3,55 m × 3,20 não tem XL: com 5,00 m a maior que cabe é 3XL.
+    assert.equal(getConfig(3.55, 3.2, 'XL'), null);
+    assert.equal(recommendClass(3.55, 3.2, 5.0).classId, '3XL');
+    // 2,95 → 3,55 m em 3,20 com 4,00 m: continua L, então não há aviso.
+    assert.equal(recommendClass(3.55, 3.2, 4.0).classId, 'L');
+    assert.equal(recommendClass(2.95, 1.89, 1.0), null);
   });
 });
