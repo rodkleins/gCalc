@@ -546,8 +546,8 @@ export function sanitize(raw = {}) {
   input.classId = classOf(raw.classId) ? raw.classId : DEFAULTS.classId;
   input.modelLine = raw.modelLine === 'direct' ? 'direct' : 'compact';
   input.samOn = typeof raw.samOn === 'boolean' ? raw.samOn : DEFAULTS.samOn;
-  // Lado da cabeça: escolha só no GO.compact sem SAM. Com SAM a cabeça fica do lado das portas (direita).
-  input.headSide = input.modelLine === 'compact' && !input.samOn && raw.headSide === 'left' ? 'left' : 'right';
+  // Lado da cabeça: escolha em todos os tipos; esteira/SAM sempre na parede oposta e o 3D espelha por inteiro.
+  input.headSide = raw.headSide === 'left' ? 'left' : 'right';
   for (const key of ['secondGripper', 'coolingModule', 'includeServices', 'roomFilterOn', 'exTarifario', 'convenioIcms5291', 'creditPisCofins', 'creditIcms']) {
     if (typeof raw[key] === 'boolean') input[key] = raw[key];
   }

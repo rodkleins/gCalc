@@ -987,6 +987,12 @@ describe('página de modelos isolada', () => {
     assert.match(page, /no máximo 4 saídas/);
     assert.match(page, /esteira interna fica sempre colada na parede/);
     assert.match(page, /calha plástica externa que se projeta ~0,3 m/);
+    assert.match(page, /lado da cabeça de picking \(esquerda ou direita\) é escolhível em todos os tipos/);
+    const appSrc = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+    assert.match(appSrc, /if \(model\.headSide === 'left'\) return \{ shell: mirrorFaces\(shell\), internals: mirrorFaces\(internals\), outside: mirrorFaces\(outside\) \};/);
+    assert.match(appSrc, /parsed\.headSideAll !== true && \(next\.samOn \|\| next\.modelLine === 'direct'\)\) next\.headSide = 'right'/);
+    assert.match(appSrc, /headSideAll: true, view/);
+    assert.doesNotMatch(appSrc, /key: 'headSide',[\s\S]{0,120}showIf/);
     assert.match(app, /key: 'modelLine'/);
     assert.match(app, /gcalc\.modelos\.interno\.v3/);
     assert.match(calc, /modelLine: 'compact'/);
@@ -1010,8 +1016,10 @@ describe('página de modelos isolada', () => {
       assert.equal(other.quote.capacityPacks, base.quote.capacityPacks);
     }
     assert.equal(sanitize({ modelLine: 'compact', samOn: false, headSide: 'left' }).headSide, 'left');
-    assert.equal(sanitize({ modelLine: 'compact', samOn: true, headSide: 'left' }).headSide, 'right');
-    assert.equal(sanitize({ modelLine: 'direct', samOn: false, headSide: 'left' }).headSide, 'right');
+    assert.equal(sanitize({ modelLine: 'compact', samOn: true, headSide: 'left' }).headSide, 'left');
+    assert.equal(sanitize({ modelLine: 'direct', samOn: false, headSide: 'left' }).headSide, 'left');
+    assert.equal(sanitize({ modelLine: 'direct', samOn: true, headSide: 'left' }).headSide, 'left');
+    assert.equal(sanitize({ modelLine: 'direct', samOn: true, headSide: 'x' }).headSide, 'right');
   });
 
   it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {

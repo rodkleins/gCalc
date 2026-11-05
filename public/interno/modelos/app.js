@@ -159,8 +159,7 @@ const SECTIONS = [
         label: 'Lado da cabeça de picking',
         kind: 'select',
         wide: true,
-        showIf: (s) => s.modelLine === 'compact' && !s.samOn,
-        tooltip: 'Só no GO.compact sem SAM: a cabeça de picking corre à esquerda ou à direita; a esteira interna fica do lado oposto, acima dos compactadores.',
+        tooltip: 'Em todos os tipos: a cabeça de picking corre à esquerda ou à direita e o 3D espelha por inteiro. A esteira interna e o SAM (saídas e calhas externas) ficam sempre na parede oposta; no GO.compact as portas de vidro de correr ficam do lado da cabeça.',
       },
       {
         key: 'widthSam',
@@ -467,6 +466,8 @@ function loadState() {
         next[key] = value;
       }
     }
+    // Saves antigos (antes do espelhamento geral): com SAM ou GO.direct a cabeça era sempre à direita.
+    if (parsed.headSideAll !== true && (next.samOn || next.modelLine === 'direct')) next.headSide = 'right';
     // A referência de largura saiu da tela: a sala sempre compara com a largura final do tipo + SAM.
     next.roomWidthRef = 'final';
     state = next;
@@ -482,7 +483,7 @@ function loadState() {
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, view }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, headSideAll: true, view }));
   } catch {
     /* navegador sem armazenamento */
   }
@@ -601,8 +602,8 @@ function selectOptions(key) {
   }
   if (key === 'headSide') {
     return [
-      { value: 'right', label: t('opt.head.right', 'Direita (esteira à esquerda)') },
-      { value: 'left', label: t('opt.head.left', 'Esquerda (esteira à direita)') },
+      { value: 'right', label: t('opt.head.right', 'Direita (esteira/SAM à esquerda)') },
+      { value: 'left', label: t('opt.head.left', 'Esquerda (esteira/SAM à direita)') },
     ];
   }
   if (key === 'classId') {
@@ -954,7 +955,7 @@ function selectedLine(result) {
   const width = physicalWidthM(quote.widthSam, line, samOn);
   const area = Math.round(width * quote.totalLengthM * 10000) / 10000;
   const volume = Math.round(area * quote.heightM * 10000) / 10000;
-  const headSide = line === 'compact' && !samOn && result.headSide === 'left' ? 'left' : 'right';
+  const headSide = result.headSide === 'left' ? 'left' : 'right';
   return { line, name, width, area, volume, samOn, headSide, base: quote.widthCompact };
 }
 
@@ -2413,7 +2414,7 @@ function createViewer(canvas) {
     );
 
 
-    const shell = box(x0, x1, 0, H, 0, L, {
+    let shell = box(x0, x1, 0, H, 0, L, {
       fill: COLORS.anthracite,
       stroke: '#0c0e10',
       skip: ['bottom'],
@@ -2438,11 +2439,12 @@ function createViewer(canvas) {
       const chutes = samChuteFaces(x0, samLayout(d, model), 1);
       internals.push(...chutes.map((face) => ({ ...face, outside: true })));
     }
-    // Cabeça à esquerda (só GO.compact sem SAM): espelha o interior; as portas de vidro continuam à direita.
-    if (internals.length && model.headSide === 'left') internals = mirrorFaces(internals);
+
     // Fora do vidro (calhas do SAM e a caixa nelas) desenha por cima da carcaça.
     const outside = internals.filter((face) => face.outside);
     internals = internals.filter((face) => !face.outside);
+    // Cabeça à esquerda (qualquer tipo): espelha o robô inteiro — carcaça, portas, interior, SAM e calhas.
+    if (model.headSide === 'left') return { shell: mirrorFaces(shell), internals: mirrorFaces(internals), outside: mirrorFaces(outside) };
     return { shell, internals, outside };
   }
 
