@@ -1868,7 +1868,8 @@ const SAM_BAND = { y0: 0.98, y1: 1.68, trayY0: 1.12, trayY1: 1.3, holderY0: 1.42
 function samLayout(d, model) {
   const d0 = Math.max(0.5, (d.L - d.Lt) + 0.25);
   const d1 = Math.max(d0 + 1, d.L - (model.cooling ? 1.0 : 0.35));
-  const count = Math.max(3, Math.round((d1 - d0) / SAM_BAND.pitch));
+  // No máximo 4 saídas, sempre; 3 só quando o comprimento não comporta 4.
+  const count = d1 - d0 >= 4 * (SAM_BAND.trayW + 0.13) ? 4 : 3;
   const step = (d1 - d0) / count;
   const trays = Array.from({ length: count }, (_, index) => d0 + step * (index + 0.5));
   const nearest = (dd) => trays[Math.min(count - 1, Math.max(0, Math.floor((dd - d0) / step)))];
@@ -2713,17 +2714,18 @@ function createViewer(canvas) {
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    /* Esteira preta fosca no alto, na lateral oposta ao trilho verde, presa ao quadro junto ao trilho e correndo para a saída da frente. */
-    const beltX0 = x0 + 0.08;
-    const beltX1 = x0 + 0.31;
-    const beltTop = railY0 - 0.02;
+    /* Esteira interna sempre colada na parede longa oposta à cabeça (com ou sem SAM).
+       Sem SAM corre no alto até a saída da frente; com SAM fica logo acima da faixa do SAM e alimenta as saídas. */
+    const beltX0 = shellX0 + 0.03;
+    const beltX1 = beltX0 + 0.23;
+    const beltTop = sam ? SAM_BAND.y1 + 0.11 : railY0 - 0.02;
     const beltBottom = beltTop - 0.07;
     const beltLines = [];
     const beltShift = (time * 0.42) % 0.3;
     for (let dd = L - 0.16 - beltShift; dd > 0.16; dd -= 0.3) {
       beltLines.push([P(beltX0 + 0.01, beltTop + 0.002, dd), P(beltX1 - 0.01, beltTop + 0.002, dd)]);
     }
-    if (!samOn) faces.push(
+    faces.push(
       ...box(beltX0, beltX1, beltBottom, beltTop, 0.12, L - 0.1, {
         fill: '#1a1d20',
         alpha: 0.96 * mix,
@@ -2731,9 +2733,10 @@ function createViewer(canvas) {
         faces: { top: { lines: beltLines, lineColor: '#4a5158', lineAlpha: 0.7 * mix } },
       }),
     );
-    for (const hanger of samOn ? [] : [0.4, L * 0.5, L - 0.4]) {
+    // Consoles de parede (não mais pendurais no teto).
+    for (const bracket of [0.4, L * 0.5, L - 0.4]) {
       faces.push(
-        ...box(beltX0, beltX0 + 0.035, beltTop, railY0, hanger, hanger + 0.035, {
+        ...box(shellX0 + 0.005, beltX1 - 0.02, beltBottom - 0.06, beltBottom, bracket, bracket + 0.035, {
           fill: '#8e989e',
           alpha: 0.92 * mix,
           stroke: '#5c656b',
@@ -2794,7 +2797,7 @@ function createViewer(canvas) {
           ? xUnload
           : xPark + (xAisle - xPark) * pose.reach;
       let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
-      if (pose.boxMode === 'dump') gy += ((sam ? SAM_BAND.trayY1 + 0.08 : beltTop - 0.08) - gy) * pose.boxU;
+      if (pose.boxMode === 'dump') gy += (beltTop - 0.08 - gy) * pose.boxU;
       const carX0 = gx + 0.02;
       const carY1 = railY1 + 0.03;
       const dCenter = pose.dCenter;
@@ -2900,18 +2903,21 @@ function createViewer(canvas) {
       } else if (pose.boxMode === 'tray') {
         boxX = gx - 0.02;
         boxY = gy + 0.02;
-      } else if (pose.boxMode === 'dump' && sam) {
-        // Com SAM, a caixa vai até a saída lateral mais próxima e escorrega pela bandeja para fora.
-        const td = sam.nearest(dCenter);
-        boxX = gx + (trayIn - 0.06 - gx) * pose.boxU;
-        boxY = gy + 0.02 + (SAM_BAND.trayY1 + 0.01 - (gy + 0.02)) * pose.boxU;
-        boxD = dCenter + (td - dCenter) * pose.boxU;
       } else if (pose.boxMode === 'belt' && sam) {
+        // Com SAM: a esteira de parede leva a caixa até a saída mais próxima, que a solta na bandeja inclinada.
         const td = sam.nearest(dCenter);
         const u = pose.boxU;
-        boxX = trayIn - 0.06 + (trayOut + 0.08 - (trayIn - 0.06)) * u;
-        boxY = SAM_BAND.trayY1 + 0.01 + (SAM_BAND.trayY0 + 0.05 - (SAM_BAND.trayY1 + 0.01)) * u;
-        boxD = td;
+        const beltCenter = (beltX0 + beltX1) / 2;
+        if (u < 0.55) {
+          boxX = beltCenter;
+          boxY = beltTop;
+          boxD = dCenter + (td - dCenter) * (u / 0.55);
+        } else {
+          const v = (u - 0.55) / 0.45;
+          boxD = td;
+          boxX = beltCenter + (trayOut + 0.08 - beltCenter) * v;
+          boxY = beltTop + (SAM_BAND.trayY0 + 0.05 - beltTop) * Math.min(1, v * 1.4);
+        }
       } else if (pose.boxMode === 'dump') {
         const beltCenter = (beltX0 + beltX1) / 2;
         boxX = gx + (beltCenter - gx) * pose.boxU;

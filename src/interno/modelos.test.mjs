@@ -984,6 +984,8 @@ describe('página de modelos isolada', () => {
     assert.match(page, /05\/11\/2026/);
     assert.match(page, /SAM \(saídas laterais, representativo\)/);
     assert.match(page, /Schnellauslagerungsmodul/);
+    assert.match(page, /no máximo 4 saídas/);
+    assert.match(page, /esteira interna fica sempre colada na parede/);
     assert.match(app, /key: 'modelLine'/);
     assert.match(app, /gcalc\.modelos\.interno\.v3/);
     assert.match(calc, /modelLine: 'compact'/);
