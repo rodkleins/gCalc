@@ -2436,8 +2436,7 @@ function createViewer(canvas) {
     // Calhas externas do SAM: no modo normal entram na carcaça; nos raios-X vão com o interior (ordenadas junto da caixa animada).
     if (model.samOn) {
       const chutes = samChuteFaces(x0, samLayout(d, model), 1);
-      if (internals.length) internals.push(...chutes.map((face) => ({ ...face, outside: true })));
-      else shell.push(...chutes);
+      internals.push(...chutes.map((face) => ({ ...face, outside: true })));
     }
     // Cabeça à esquerda (só GO.compact sem SAM): espelha o interior; as portas de vidro continuam à direita.
     if (internals.length && model.headSide === 'left') internals = mirrorFaces(internals);
@@ -3307,6 +3306,7 @@ function createViewer(canvas) {
       if (outside.length) drawSorted(outside, false);
     } else {
       drawSorted(shell, true);
+      if (outside.length) drawSorted(outside, false);
     }
     if (model.cooling) drawCoolingBadge();
     if (view.human && !humanFirst) drawHuman();
