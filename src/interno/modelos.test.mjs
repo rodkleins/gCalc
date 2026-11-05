@@ -1002,6 +1002,16 @@ describe('página de modelos isolada', () => {
     assert.match(fsEn, /'viewer\.fullscreen': 'Fullscreen'/);
     assert.match(fsLoc, /'viewer\.fullscreen': 'Vollbild'/);
     assert.match(fsLoc, /'viewer\.fullscreen': 'Pantalla completa'/);
+    assert.match(appSrc, /const FS_PANEL_KEYS = \['modelLine', 'samOn', 'headSide', 'widthSam', 'heightM', 'classId', 'coolingModule'\]/);
+    assert.match(appSrc, /target\.dispatchEvent\(new Event\('change'\)\)/);
+    assert.match(appSrc, /viewer\?\.setModel\(result\);\n  syncFsPanel\(\);/);
+    assert.match(appSrc, /const stage = document\.querySelector\('#viewer-card \.viewer-stage'\)/);
+    assert.match(appSrc, /FS_PANEL_STORE = 'gcalc\.modelos\.fsPanel'/);
+    const fsCss = readFileSync(new URL('../../public/interno/modelos/styles.css', import.meta.url), 'utf8');
+    assert.match(fsCss, /\.fs-panel \{ display: none; \}\n@media \(min-width: 1024px\) and \(hover: hover\) and \(pointer: fine\) \{\n  \.viewer-card\.is-fullscreen \.fs-panel \{/);
+    assert.match(fsEn, /'viewer\.panel': 'Robot options'/);
+    assert.match(fsLoc, /'viewer\.panel': 'Roboteroptionen'/);
+    assert.match(fsLoc, /'viewer\.panel': 'Opciones del robot'/);
     assert.match(app, /key: 'modelLine'/);
     assert.match(app, /gcalc\.modelos\.interno\.v3/);
     assert.match(calc, /modelLine: 'compact'/);

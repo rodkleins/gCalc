@@ -1714,6 +1714,7 @@ function render(result) {
   renderDock(result);
   syncPresets(result);
   viewer?.setModel(result);
+  syncFsPanel();
   const stamp = document.getElementById('print-date');
   if (stamp) {
     const when = new Date().toLocaleString(uiLocale(), { dateStyle: 'long', timeStyle: 'short' });
@@ -3457,6 +3458,103 @@ function initFullscreen() {
   });
 }
 
+/* Painel flutuante da tela cheia (desktop): espelha os controles da barra lateral. Cada controle do painel
+ * escreve no controle da barra e dispara o mesmo 'change', então estado, 3D, resultados e persistência
+ * seguem um único caminho. O painel só lê o estado em syncFsPanel(), chamado a cada render. */
+const FS_PANEL_KEYS = ['modelLine', 'samOn', 'headSide', 'widthSam', 'heightM', 'classId', 'coolingModule'];
+const FS_PANEL_STORE = 'gcalc.modelos.fsPanel';
+function fsPanelCollapsed() {
+  try {
+    return localStorage.getItem(FS_PANEL_STORE) === 'collapsed';
+  } catch {
+    return false;
+  }
+}
+function setFsPanelCollapsed(on) {
+  const panel = document.getElementById('fs-panel');
+  if (!panel) return;
+  panel.classList.toggle('is-collapsed', on);
+  const toggle = panel.querySelector('.fs-panel-toggle');
+  const key = on ? 'viewer.panelExpand' : 'viewer.panelCollapse';
+  const label = on ? t(key, 'Expandir opções') : t(key, 'Minimizar opções');
+  toggle.setAttribute('aria-expanded', on ? 'false' : 'true');
+  toggle.title = label;
+  toggle.setAttribute('aria-label', label);
+  toggle.textContent = on ? '+' : '−';
+  try {
+    localStorage.setItem(FS_PANEL_STORE, on ? 'collapsed' : 'expanded');
+  } catch {
+    /* sem storage: só não lembra */
+  }
+}
+function initFsPanel() {
+  const stage = document.querySelector('#viewer-card .viewer-stage');
+  if (!stage || document.getElementById('fs-panel')) return;
+  const panel = el('div', 'fs-panel');
+  panel.id = 'fs-panel';
+  panel.setAttribute('role', 'group');
+  const head = el('div', 'fs-panel-head');
+  const title = el('span', 'fs-panel-title');
+  const toggle = el('button', 'fs-panel-toggle');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-controls', 'fs-panel-body');
+  toggle.addEventListener('click', () => setFsPanelCollapsed(!panel.classList.contains('is-collapsed')));
+  head.append(title, toggle);
+  const body = el('div', 'fs-panel-body');
+  body.id = 'fs-panel-body';
+  for (const key of FS_PANEL_KEYS) {
+    const row = el('label', 'fs-row');
+    row.dataset.key = key;
+    const name = el('span', 'fs-row-label');
+    const isCheck = key === 'samOn' || key === 'coolingModule';
+    const input = el(isCheck ? 'input' : 'select');
+    if (isCheck) input.type = 'checkbox';
+    input.id = `fs-${key}`;
+    input.addEventListener('change', () => {
+      const source = controls.get(key);
+      const target = source?.check || source?.select;
+      if (!target) return;
+      if (isCheck) target.checked = input.checked;
+      else target.value = input.value;
+      target.dispatchEvent(new Event('change'));
+    });
+    if (isCheck) row.append(input, name);
+    else row.append(name, input);
+    body.append(row);
+  }
+  panel.append(head, body);
+  // O painel é seu próprio alvo: arrastar fora dele continua girando o modelo no canvas.
+  stage.append(panel);
+  setFsPanelCollapsed(fsPanelCollapsed());
+  syncFsPanel();
+}
+function syncFsPanel() {
+  const panel = document.getElementById('fs-panel');
+  if (!panel) return;
+  panel.setAttribute('aria-label', t('viewer.panel', 'Opções do robô'));
+  panel.querySelector('.fs-panel-title').textContent = t('viewer.panel', 'Opções do robô');
+  setFsPanelCollapsed(panel.classList.contains('is-collapsed'));
+  for (const row of panel.querySelectorAll('.fs-row')) {
+    const key = row.dataset.key;
+    const source = controls.get(key);
+    const input = row.querySelector('input,select');
+    if (!source) {
+      row.hidden = true;
+      continue;
+    }
+    row.hidden = Boolean(source.wrap?.hidden);
+    row.querySelector('.fs-row-label').textContent = source.check ? fieldCheck(source.field) : fieldLabel(source.field);
+    if (source.check) {
+      input.checked = source.check.checked;
+      input.disabled = source.check.disabled;
+    } else {
+      input.innerHTML = source.select.innerHTML;
+      input.value = source.select.value;
+      input.disabled = source.select.disabled;
+    }
+  }
+}
+
 function setXray(on) {
   view.xray = on;
   document.getElementById('xray').setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -3559,6 +3657,7 @@ function bindChrome() {
   });
   document.getElementById('xray').addEventListener('click', () => setXray(!view.xray));
   initFullscreen();
+  initFsPanel();
   document.getElementById('human').addEventListener('click', () => {
     view.human = !view.human;
     syncViewButtons();
