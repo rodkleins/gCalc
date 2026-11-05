@@ -401,14 +401,17 @@ export function classOf(classId) {
 /**
  * Classe recomendada ao crescer altura ou largura mantendo o comprimento: a maior classe cuja célula da
  * tabela em (altura, largura) tem comprimento <= maxLengthM. Só valores da tabela; células "–" ficam de fora.
+ * extraLengthM soma o que não está na tabela (2º braço, +0,68 m), para comparar comprimento total com total.
  */
-export function recommendClass(heightM, widthSam, maxLengthM) {
+export function recommendClass(heightM, widthSam, maxLengthM, extraLengthM = 0) {
   let best = null;
   for (const cls of CLASSES) {
     const config = getConfig(heightM, widthSam, cls.id);
-    if (config && config.lengthM <= maxLengthM + 1e-9) best = config;
+    if (config && config.lengthM + extraLengthM <= maxLengthM + 1e-9) best = config;
   }
-  return best ? { classId: best.classId, capacityPacks: best.capacityPacks, lengthM: best.lengthM, priceEur: best.priceEur } : null;
+  return best
+    ? { classId: best.classId, capacityPacks: best.capacityPacks, lengthM: best.lengthM, totalLengthM: Math.round((best.lengthM + extraLengthM) * 100) / 100, priceEur: best.priceEur }
+    : null;
 }
 
 /** Índice da classe na ordem S → 4XL (−1 se não existe). */

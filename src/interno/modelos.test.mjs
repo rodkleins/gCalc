@@ -1078,10 +1078,10 @@ describe('página de modelos isolada', () => {
     assert.doesNotMatch(app, /const hd = 0\.25;/);
     assert.doesNotMatch(app, /aisles = \(hasExt \? \[0\.25, 0\.75\] : \[0\.5\]\)/);
     assert.doesNotMatch(app, /box\(x0 \+ 0\.08, x1 - 0\.08, top - 0\.08, top/);
-    assert.match(app, /project\(P\(-d\.Wc \/ 2 \+ 0\.25, d\.H - fh \/ 2, d\.L - 0\.35\)\)/);
-    assert.match(app, /if \(cam\.pitch > 1\.05\) dimension\(P\(d\.Wc \/ 2 \+ 0\.48, 0, 0\), P\(d\.Wc \/ 2 \+ 0\.48, 0, d\.L\), model\.labels\.L/);
-    assert.match(app, /else dimension\(P\(xs - 0\.55, 0, 0\), P\(xs - 0\.55, 0, d\.L\), model\.labels\.L/);
-    assert.match(app, /project\(P\(xs - 0\.55, 0, dims\.L \/ 2\)\)/);
+    assert.match(app, /project\(P\(mx\(-d\.Wc \/ 2 \+ 0\.25\), d\.H - fh \/ 2, d\.L - 0\.35\)\)/);
+    assert.match(app, /if \(cam\.pitch > 1\.05\) dimension\(P\(mx\(d\.Wc \/ 2 \+ 0\.48\), 0, 0\), P\(mx\(d\.Wc \/ 2 \+ 0\.48\), 0, d\.L\), model\.labels\.L/);
+    assert.match(app, /else dimension\(P\(mx\(xs - 0\.55\), 0, 0\), P\(mx\(xs - 0\.55\), 0, d\.L\), model\.labels\.L/);
+    assert.match(app, /project\(P\(mx\(xs - 0\.55\), 0, dims\.L \/ 2\)\)/);
   });
 
   it('não é referenciada pelas calculadoras existentes', () => {
@@ -1114,7 +1114,7 @@ describe('classe recomendada no mesmo comprimento', () => {
   it('2,95 m, L em 1,89 (6,55 m) → largura 3,20 recomenda 4XL com 39.000 pacotes', () => {
     assert.equal(getConfig(2.95, 1.89, 'L').lengthM, 6.55);
     const rec = recommendClass(2.95, 3.2, 6.55);
-    assert.deepEqual(rec, { classId: '4XL', capacityPacks: 39000, lengthM: 6.26, priceEur: 129000 });
+    assert.deepEqual(rec, { classId: '4XL', capacityPacks: 39000, lengthM: 6.26, totalLengthM: 6.26, priceEur: 129000 });
     assert.ok(classRank(rec.classId) > classRank('L'));
   });
   it('mais altura: 2,20 → 2,80 m em 3,20 com 5,34 m recomenda XL', () => {
@@ -1179,5 +1179,50 @@ describe('aviso compacto depois de dispensar', () => {
     const loc = readFileSync(new URL('../../public/interno/modelos/i18n.locales.js', import.meta.url), 'utf8');
     assert.match(en, /'rec\.badge': '⚠ Class \{cur\} does not match/);
     assert.equal((loc.match(/'rec\.badge'/g) || []).length, 2);
+  });
+});
+
+describe('lacunas finais: presets/matriz, 2º braço, espelhamento, SAM e Safari', () => {
+  const src = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../../public/interno/modelos/styles.css', import.meta.url), 'utf8');
+  it('2º braço: compara comprimento total com total (+0,68 m nas candidatas)', () => {
+    // 2,95 m, L em 1,89 com braço: 6,55 + 0,68 = 7,23 m. Em 3,20 com braço: 4XL 6,26 + 0,68 = 6,94 cabe.
+    const rec = recommendClass(2.95, 3.2, 7.23, 0.68);
+    assert.equal(rec.classId, '4XL');
+    assert.equal(rec.totalLengthM, 6.94);
+    // Sem braço na referência (6,55) e com braço agora: 4XL 6,94 e 3XL 6,60 não cabem; XXL 5,34 + 0,68 = 6,02 cabe.
+    assert.equal(recommendClass(2.95, 3.2, 6.55, 0.68).classId, 'XXL');
+    assert.equal(recommendClass(2.95, 3.2, 6.55).classId, '4XL');
+    assert.match(src, /lengthM: round2\(config\.lengthM \+ armExtraM\(\)\)/);
+    assert.match(src, /recommendClass\(state\.heightM, state\.widthSam, ref, extra\)/);
+  });
+  it('preset, célula da matriz e cartões da sala também guardam a referência do aviso', () => {
+    assert.match(src, /function applyConfig\(config\) \{\n  noteDimsChange\(config\.heightM, config\.widthSam\);/);
+    assert.match(src, /if \(!preset\) return;\n      noteDimsChange\(preset\.heightM, preset\.widthSam\);/);
+    assert.match(src, /button\.addEventListener\('click', \(\) => applyConfig\(config\)\)/);
+  });
+  it('espelhado: câmera, cotas, faixa do piso, pessoa e selo seguem o lado da cabeça', () => {
+    assert.match(src, /camTarget\.yaw = preset\.yaw \* mirrorSign\(\);/);
+    assert.match(src, /if \(nextSide !== lastHeadSide\) \{\n      camTarget\.yaw = -camTarget\.yaw;/);
+    assert.match(src, /const base = P\(mx\(d\.Wc \/ 2 \+ 0\.95\), 0, -0\.55\);/);
+    assert.match(src, /dimension\(P\(mx\(d\.Wc \/ 2 \+ 0\.22\), 0, -0\.08\)/);
+    assert.match(src, /dimension\(P\(mx\(xs - 0\.55\), 0, 0\)/);
+    assert.match(src, /quadFloor\(mx\(bandX0\), mx\(bandX1\)/);
+    assert.match(src, /outline\(quadFloor\(mx\(x0\), mx\(x0 \+ extraW\)/);
+    assert.match(src, /project\(P\(mx\(-d\.Wc \/ 2 \+ 0\.25\)/);
+  });
+  it('SAM: saídas e calhas são estimativas nomeadas', () => {
+    assert.match(src, /const SAM_EXITS_ESTIMATE = \{\n  maxExits: 4,/);
+    assert.match(src, /const SAM_CHUTE_ESTIMATE = \{ out: 0\.28, yIn: 1\.16, yOut: 1\.06, wall: 0\.06, lip: 0\.07 \};/);
+    assert.match(src, /ESTIMATIVA \(sem dado da Gollmann ainda; aguardando Michael Lindemeyer\)/);
+  });
+  it('Safari: prefixos webkit, erro de tela cheia, sobreposição por CSS e addListener', () => {
+    assert.match(src, /document\.addEventListener\('webkitfullscreenerror', onError\)/);
+    assert.match(src, /else window\.setTimeout\(\(\) => \{ if \(!fullscreenElement\(\)\) fallback\(\); \}, 600\);/);
+    assert.match(src, /document\.fullscreenElement \|\| document\.webkitFullscreenElement/);
+    assert.match(src, /else paramsQuery\.addListener\(onParamsQuery\);/);
+    assert.match(css, /height: -webkit-fill-available;/);
+    assert.match(css, /-webkit-backdrop-filter: blur/);
+    assert.match(css, /\.fs-panel \{ touch-action: manipulation;/);
   });
 });

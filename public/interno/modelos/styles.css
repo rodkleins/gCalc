@@ -1104,11 +1104,18 @@ dialog.modal {
 }
 .viewer-card.is-fs-fallback {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 10000;
   width: 100vw;
   height: 100vh;
+  height: -webkit-fill-available;
   height: 100dvh;
+  padding: max(0.7rem, env(safe-area-inset-top)) max(0.85rem, env(safe-area-inset-right)) max(0.85rem, env(safe-area-inset-bottom)) max(0.85rem, env(safe-area-inset-left));
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 html.viewer-fs-lock, html.viewer-fs-lock body { overflow: hidden; }
 .viewer-card.is-fullscreen .viewer-stage { flex: 1 1 auto; min-height: 0; }
@@ -1146,6 +1153,8 @@ html.viewer-fs-lock, html.viewer-fs-lock body { overflow: hidden; }
   background: rgba(255, 255, 255, 0.85); cursor: pointer; font-size: 1rem; line-height: 1;
 }
 .fs-panel-body { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
+.fs-panel { touch-action: manipulation; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.fs-panel-toggle, .fs-panel select, .fs-panel input, .class-rec button, .class-rec-badge { touch-action: manipulation; }
 .fs-row { display: grid; gap: 0.2rem; }
 .fs-row[hidden] { display: none; }
 .fs-row:has(input[type='checkbox']) { grid-template-columns: auto 1fr; align-items: center; gap: 0.45rem; }

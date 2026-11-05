@@ -1197,7 +1197,14 @@ function renderDims(result) {
   note.textContent = t('dims.capacityNote', 'A classe define a capacidade; altura e largura mudam comprimento e preço (Gollmann, slide 2).');
 }
 
+/** Preset, célula da matriz ou cartão da sala: se altura ou largura mudam, guarda a referência do aviso de classe. */
+function noteDimsChange(heightM, widthSam) {
+  const changes = Math.abs(heightM - state.heightM) > 1e-9 || Math.abs(widthSam - state.widthSam) > 1e-9;
+  if (changes && !recBase) captureRecBase();
+}
+
 function applyConfig(config) {
+  noteDimsChange(config.heightM, config.widthSam);
   state.heightM = config.heightM;
   state.widthSam = config.widthSam;
   state.classId = config.classId;
@@ -1722,9 +1729,16 @@ function renderModelChrome(result) {
 /* maior no mesmo comprimento que o robô tinha antes da mudança. Só avisa; o modo continua classe-first. */
 /* ------------------------------------------------------------------------------------------------ */
 let classRec = null;
+/** Comprimento que não está na tabela: o 2º braço soma +0,68 m. Referência e candidatas comparam total com total. */
+function armExtraM() {
+  return state.secondGripper ? OPTIONS.secondGripperLengthM : 0;
+}
+function round2(value) {
+  return Math.round(value * 100) / 100;
+}
 function captureRecBase() {
   const config = getConfig(state.heightM, state.widthSam, state.classId);
-  recBase = config ? { heightM: state.heightM, widthSam: state.widthSam, classId: state.classId, lengthM: config.lengthM } : null;
+  recBase = config ? { heightM: state.heightM, widthSam: state.widthSam, classId: state.classId, lengthM: round2(config.lengthM + armExtraM()) } : null;
   recDismissed = false;
 }
 function clearRec() {
@@ -1737,13 +1751,14 @@ function computeClassRec() {
   const currentConfig = getConfig(state.heightM, state.widthSam, state.classId);
   if (!currentConfig) return;
   const ref = recBase.lengthM;
-  const rec = recommendClass(state.heightM, state.widthSam, ref);
+  const extra = armExtraM();
+  const rec = recommendClass(state.heightM, state.widthSam, ref, extra);
   // Some só quando a classe atual é a recomendada para o comprimento de referência (ou aplicada).
   if (rec && rec.classId === state.classId) {
     clearRec();
     return;
   }
-  const base = { baseLengthM: ref, currentId: state.classId, currentLengthM: currentConfig.lengthM, dismissed: recDismissed };
+  const base = { baseLengthM: ref, currentId: state.classId, currentLengthM: round2(currentConfig.lengthM + extra), dismissed: recDismissed };
   if (rec) {
     classRec = { ...rec, ...base, mode: classRank(rec.classId) > classRank(state.classId) ? 'up' : 'down' };
     return;
@@ -2001,13 +2016,29 @@ function quadFloor(x0, x1, d0, d1, y = 0.002) {
 
 /** Gerador pseudoaleatório estável, para as caixas de remédio não piscarem a cada quadro. */
 /** Faixa do SAM na lateral (fotos de referência): bandejas a ~1,2 m atrás de vidro. */
+/** ESTIMATIVA (sem dado da Gollmann ainda): alturas da faixa do SAM, das bandejas e dos suportes, e largura da bandeja. */
 const SAM_BAND = { y0: 0.98, y1: 1.68, trayY0: 1.12, trayY1: 1.3, holderY0: 1.42, holderY1: 1.56, trayW: 0.32, pitch: 0.8 };
 
+/**
+ * ESTIMATIVA (sem dado da Gollmann ainda; aguardando Michael Lindemeyer): posição e espaçamento das saídas do
+ * SAM. A proposta só diz "SAM incl. 4 dispensing points" (slide 4). Ajuste aqui quando vier o desenho técnico.
+ */
+const SAM_EXITS_ESTIMATE = {
+  maxExits: 4,
+  minExits: 3,
+  startMinM: 0.5, // início mínimo da faixa de saídas, a partir da frente
+  startGapM: 0.25, // folga depois da carga manual/speed
+  endGapM: 0.35, // folga antes do fundo
+  endGapCoolingM: 1.0, // folga antes do fundo com módulo refrigerado
+  minSpanM: 1.0, // faixa mínima
+  trayGapM: 0.13, // vão mínimo entre bandejas
+};
 function samLayout(d, model) {
-  const d0 = Math.max(0.5, (d.L - d.Lt) + 0.25);
-  const d1 = Math.max(d0 + 1, d.L - (model.cooling ? 1.0 : 0.35));
+  const E = SAM_EXITS_ESTIMATE;
+  const d0 = Math.max(E.startMinM, (d.L - d.Lt) + E.startGapM);
+  const d1 = Math.max(d0 + E.minSpanM, d.L - (model.cooling ? E.endGapCoolingM : E.endGapM));
   // No máximo 4 saídas, sempre; 3 só quando o comprimento não comporta 4.
-  const count = d1 - d0 >= 4 * (SAM_BAND.trayW + 0.13) ? 4 : 3;
+  const count = d1 - d0 >= E.maxExits * (SAM_BAND.trayW + E.trayGapM) ? E.maxExits : E.minExits;
   const step = (d1 - d0) / count;
   const trays = Array.from({ length: count }, (_, index) => d0 + step * (index + 0.5));
   const nearest = (dd) => trays[Math.min(count - 1, Math.max(0, Math.floor((dd - d0) / step)))];
@@ -2015,8 +2046,13 @@ function samLayout(d, model) {
 }
 
 /** Espelha faces em x (cabeça de picking à esquerda). Decalques com texto trocam a ordem para não ficarem invertidos. */
-/* Calha externa do SAM: bandeja plástica cinza que sai pelo vidro, desce para fora e termina num batente. */
-const SAM_CHUTE = { out: 0.28, yIn: 1.16, yOut: 1.06, wall: 0.06, lip: 0.07 };
+/*
+ * Calha externa do SAM: bandeja plástica cinza que sai pelo vidro, desce para fora e termina num batente.
+ * ESTIMATIVA (sem medida da Gollmann ainda; aguardando Michael Lindemeyer): ~0,28 m para fora, entrada a 1,16 m
+ * e saída a 1,06 m do piso, paredes de 6 cm e batente de 7 cm. A largura da bandeja é SAM_BAND.trayW (0,32 m).
+ */
+const SAM_CHUTE_ESTIMATE = { out: 0.28, yIn: 1.16, yOut: 1.06, wall: 0.06, lip: 0.07 };
+const SAM_CHUTE = SAM_CHUTE_ESTIMATE;
 function samChuteFloorY(xg, x) {
   const t = Math.min(1, Math.max(0, (xg - x) / SAM_CHUTE.out));
   return SAM_CHUTE.yIn + (SAM_CHUTE.yOut - SAM_CHUTE.yIn) * t;
@@ -2145,6 +2181,7 @@ function createViewer(canvas) {
     return moving;
   }
 
+  let lastHeadSide = 'right';
   function setModel(result) {
     const { quote } = result;
     const picked = selectedLine(result);
@@ -2165,6 +2202,12 @@ function createViewer(canvas) {
       : result.room.checks.some((item) => item.status === 'tight')
         ? 'tight'
         : 'ok';
+    // Lado da cabeça mudou: espelha a câmera junto, para a vista continuar a mesma do robô espelhado.
+    const nextSide = picked.headSide === 'left' ? 'left' : 'right';
+    if (nextSide !== lastHeadSide) {
+      camTarget.yaw = -camTarget.yaw;
+      lastHeadSide = nextSide;
+    }
     model = {
       line: picked.line,
       name: picked.name,
@@ -2203,10 +2246,18 @@ function createViewer(canvas) {
     wake();
   }
 
+  /** −1 com a cabeça à esquerda: o robô inteiro é espelhado em x, então câmera, cotas e pessoa também. */
+  function mirrorSign() {
+    return model?.headSide === 'left' ? -1 : 1;
+  }
+  function mx(x) {
+    return mirrorSign() * x;
+  }
+
   function setCamera(name) {
     const preset = CAMERA_PRESETS[name];
     if (!preset) return;
-    camTarget.yaw = preset.yaw;
+    camTarget.yaw = preset.yaw * mirrorSign();
     camTarget.pitch = preset.pitch;
     camTarget.zoom = preset.zoom;
     if (preset.xray && !view.xray) setXray(true);
@@ -3197,7 +3248,7 @@ function createViewer(canvas) {
       ctx.setLineDash([]);
     };
     const extraW = Math.max(0, d.Wc - (d.Wb || d.Wc));
-    if (extraW > 0.01 && model.line === 'direct') outline(quadFloor(x0, x0 + extraW, 0, d.L, 0.005), shade(COLORS.direct, 1, 0.9), [7, 5], 1.4);
+    if (extraW > 0.01 && model.line === 'direct') outline(quadFloor(mx(x0), mx(x0 + extraW), 0, d.L, 0.005), shade(COLORS.direct, 1, 0.9), [7, 5], 1.4);
     outline(quadFloor(x0, x1, 0, d.L, 0.006), shade(COLORS.anthracite, 1, 0.9), [], 1.2);
 
     const bandX0 = xs - 0.3;
@@ -3211,14 +3262,15 @@ function createViewer(canvas) {
       ];
     if (model.gripper2 && d.L - d.Lt > 0.01) segments.push({ from: d.Lt, to: d.L, color: COLORS.grip, label: t('seg.arm', '+0,68 m 2º braço') });
     for (const segment of segments) {
-      paintPoly(quadFloor(bandX0, bandX1, segment.from + 0.005, segment.to - 0.005, 0.007), segment.color, 0.92, null);
+      paintPoly(quadFloor(mx(bandX0), mx(bandX1), segment.from + 0.005, segment.to - 0.005, 0.007), segment.color, 0.92, null);
     }
-    return segments.map((segment) => ({ ...segment, anchor: P(bandX0, 0, (segment.from + segment.to) / 2) }));
+    return segments.map((segment) => ({ ...segment, anchor: P(mx(bandX0), 0, (segment.from + segment.to) / 2) }));
   }
 
   function drawHuman() {
     const d = dims;
-    const base = P(d.Wc / 2 + 0.95, 0, -0.55);
+    const base = P(mx(d.Wc / 2 + 0.95), 0, -0.55);
+    const sx = mirrorSign();
     const pb = project(base);
     const pt = project([base[0], 1.7, base[2]]);
     if (pb.z < 0.15 || pt.z < 0.15) return;
@@ -3252,7 +3304,7 @@ function createViewer(canvas) {
     ctx.fill();
     ctx.strokeStyle = 'rgba(26,36,33,0.55)';
     ctx.lineWidth = 1;
-    const tx = pb.x + 0.3 * scale;
+    const tx = pb.x + sx * 0.3 * scale;
     ctx.beginPath();
     ctx.moveTo(tx, pb.y);
     ctx.lineTo(tx, pt.y);
@@ -3261,7 +3313,7 @@ function createViewer(canvas) {
     ctx.moveTo(tx - 4, pt.y);
     ctx.lineTo(tx + 4, pt.y);
     ctx.stroke();
-    tag(tx + 6, (pb.y + pt.y) / 2, t('human.meters', '1,70 m'), '#37444c', 'left');
+    tag(tx + sx * 6, (pb.y + pt.y) / 2, t('human.meters', '1,70 m'), '#37444c', sx > 0 ? 'left' : 'right');
     ctx.restore();
   }
 
@@ -3317,14 +3369,21 @@ function createViewer(canvas) {
     let pill = null;
     if (cam.pitch <= 1.05) {
       const xs = -dims.Wc / 2;
-      const center = project(P(xs - 0.55, 0, dims.L / 2));
+      const center = project(P(mx(xs - 0.55), 0, dims.L / 2));
       if (center.z > 0.15) pill = { x: center.x, y: center.y, w: tagWidth(model.labels.L, true) };
     }
-    const hitsPill = (x, y, w) => pill && x > pill.x - pill.w / 2 - 6 && x - w < pill.x + pill.w / 2 + 6 && Math.abs(y - pill.y) < 24;
+    const sx = mirrorSign();
+    // Rótulo alinhado pela ponta mais próxima do robô: à direita no normal, à esquerda espelhado.
+    const span = (x, w) => (sx > 0 ? [x - w, x] : [x, x + w]);
+    const hitsPill = (x, y, w) => {
+      if (!pill) return false;
+      const [a, b] = span(x, w);
+      return b > pill.x - pill.w / 2 - 6 && a < pill.x + pill.w / 2 + 6 && Math.abs(y - pill.y) < 24;
+    };
     let lastY = -Infinity;
     for (const item of items) {
       let y = Math.max(item.p.y, lastY + 22);
-      const x = Math.max(8, item.p.x - 26);
+      const x = sx > 0 ? Math.max(8, item.p.x - 26) : Math.min(width - 8, item.p.x + 26);
       const w = tagWidth(item.label);
       if (hitsPill(x, y, w)) {
         y = Math.max(item.p.y <= pill.y ? pill.y - 24 : pill.y + 24, lastY + 22);
@@ -3337,7 +3396,7 @@ function createViewer(canvas) {
       ctx.moveTo(item.p.x, item.p.y);
       ctx.lineTo(x, y);
       ctx.stroke();
-      tag(x, y, item.label, shade(item.color, 0.7), 'right');
+      tag(x, y, item.label, shade(item.color, 0.7), sx > 0 ? 'right' : 'left');
     }
   }
 
@@ -3377,7 +3436,7 @@ function createViewer(canvas) {
     const d = dims;
     const fh = Math.min(0.42, Math.max(0.3, d.H * 0.12));
     /* Selo no fundo, sobre o módulo refrigerado: na planta fica no alto, longe da cota frontal. */
-    const anchor = project(P(-d.Wc / 2 + 0.25, d.H - fh / 2, d.L - 0.35));
+    const anchor = project(P(mx(-d.Wc / 2 + 0.25), d.H - fh / 2, d.L - 0.35));
     if (anchor.z < 0.15) return;
     const radius = 13;
     ctx.save();
@@ -3432,8 +3491,8 @@ function createViewer(canvas) {
     const d = dims;
     const segments = drawFloor();
     const { shell, internals, outside } = buildRobot();
-    const humanPoint = project(P(d.Wc / 2 + 0.95, 0.85, -0.55));
-    const corner = project(P(d.Wc / 2, 0.85, 0));
+    const humanPoint = project(P(mx(d.Wc / 2 + 0.95), 0.85, -0.55));
+    const corner = project(P(mx(d.Wc / 2), 0.85, 0));
     const humanFirst = humanPoint.z > corner.z;
     if (view.human && humanFirst) drawHuman();
     if (internals.length) {
@@ -3451,11 +3510,11 @@ function createViewer(canvas) {
     if (view.human && !humanFirst) drawHuman();
     if (model.room) drawRoom();
     const xs = -d.Wc / 2;
-    dimension(P(d.Wc / 2 + 0.22, 0, -0.08), P(d.Wc / 2 + 0.22, d.H, -0.08), model.labels.H, '#0b3d34');
+    dimension(P(mx(d.Wc / 2 + 0.22), 0, -0.08), P(mx(d.Wc / 2 + 0.22), d.H, -0.08), model.labels.H, '#0b3d34');
     dimension(P(-d.Wc / 2, 0, -0.45), P(d.Wc / 2, 0, -0.45), model.labels.physical, '#0b3d34');
     /* Comprimento total: à direita na planta; em perspectiva, à esquerda em primeiro plano, sem cruzar o corpo do robô. */
-    if (cam.pitch > 1.05) dimension(P(d.Wc / 2 + 0.48, 0, 0), P(d.Wc / 2 + 0.48, 0, d.L), model.labels.L, '#0b3d34');
-    else dimension(P(xs - 0.55, 0, 0), P(xs - 0.55, 0, d.L), model.labels.L, '#0b3d34');
+    if (cam.pitch > 1.05) dimension(P(mx(d.Wc / 2 + 0.48), 0, 0), P(mx(d.Wc / 2 + 0.48), 0, d.L), model.labels.L, '#0b3d34');
+    else dimension(P(mx(xs - 0.55), 0, 0), P(mx(xs - 0.55), 0, d.L), model.labels.L, '#0b3d34');
     drawSegmentLabels(segments);
     drawHud();
   }
@@ -3562,20 +3621,24 @@ function toggleFullscreen() {
   const card = document.getElementById('viewer-card');
   if (isViewerFullscreen()) {
     if (card.classList.contains('is-fs-fallback')) card.classList.remove('is-fs-fallback');
-    else if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.exitFullscreen) Promise.resolve(document.exitFullscreen()).catch(() => {});
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     syncFullscreenButton();
     return;
   }
   const request = card.requestFullscreen || card.webkitRequestFullscreen;
   const fallback = () => {
+    if (fullscreenElement() === card || card.classList.contains('is-fs-fallback')) return;
     card.classList.add('is-fs-fallback');
     syncFullscreenButton();
   };
+  // iPhone (Safari) não tem tela cheia de elemento: cai direto na tela cheia por CSS (sobreposição fixa).
   if (!request) return fallback();
   try {
     const result = request.call(card);
     if (result && typeof result.catch === 'function') result.catch(fallback);
+    // Safari antigo devolve undefined e pode recusar em silêncio: se não entrou, usa a sobreposição.
+    else window.setTimeout(() => { if (!fullscreenElement()) fallback(); }, 600);
   } catch {
     fallback();
   }
@@ -3586,6 +3649,15 @@ function initFullscreen() {
   button.addEventListener('click', toggleFullscreen);
   document.addEventListener('fullscreenchange', syncFullscreenButton);
   document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+  const onError = () => {
+    const card = document.getElementById('viewer-card');
+    if (!card.classList.contains('is-fs-fallback')) {
+      card.classList.add('is-fs-fallback');
+      syncFullscreenButton();
+    }
+  };
+  document.addEventListener('fullscreenerror', onError);
+  document.addEventListener('webkitfullscreenerror', onError);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && document.getElementById('viewer-card').classList.contains('is-fs-fallback')) {
       document.getElementById('viewer-card').classList.remove('is-fs-fallback');
@@ -3776,6 +3848,7 @@ function bindChrome() {
     button.addEventListener('click', () => {
       const preset = PRESETS.find((item) => item.id === button.dataset.preset);
       if (!preset) return;
+      noteDimsChange(preset.heightM, preset.widthSam);
       Object.assign(state, {
         heightM: preset.heightM,
         widthSam: preset.widthSam,
@@ -3822,9 +3895,10 @@ function bindChrome() {
   });
   document.getElementById('close-params').addEventListener('click', closeParams);
   document.getElementById('params-backdrop').addEventListener('click', closeParams);
-  paramsQuery.addEventListener('change', () => {
-    syncParams(paramsWide() ? storedParamsOpen() : false);
-  });
+  const onParamsQuery = () => syncParams(paramsWide() ? storedParamsOpen() : false);
+  // Safari < 14 só tem addListener em MediaQueryList.
+  if (paramsQuery.addEventListener) paramsQuery.addEventListener('change', onParamsQuery);
+  else paramsQuery.addListener(onParamsQuery);
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (modal.open) {
