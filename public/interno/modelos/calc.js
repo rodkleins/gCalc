@@ -146,7 +146,7 @@ export const WIDTHS = [
  */
 export const SAM_PROTRUSION_M = 0.2;
 export const DIRECT_WALKWAY_M = 0.4;
-export const SAM_MODULE = { footprintM: 0.6, heightM: 1.2 };
+export const SAM_MODULE = { exitHeightM: 1.2, pitchM: 0.8, minExits: 3 }; // saídas laterais (Schnellauslagerungsmodul)
 
 /** Largura final pelo tipo e pelo SAM. O preço não muda: continua a célula da classe. */
 export function physicalWidthM(widthSam, modelLine = 'compact', samOn = false) {

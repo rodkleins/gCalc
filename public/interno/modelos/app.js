@@ -25,7 +25,6 @@ import {
   maxHeightOf,
   parseBr,
   physicalWidthM,
-  SAM_MODULE,
   widthsAt,
   configLabel as configLabelLocale,
 } from './calc.js';
@@ -1863,6 +1862,19 @@ function quadFloor(x0, x1, d0, d1, y = 0.002) {
 }
 
 /** Gerador pseudoaleatório estável, para as caixas de remédio não piscarem a cada quadro. */
+/** Faixa do SAM na lateral (fotos de referência): bandejas a ~1,2 m atrás de vidro. */
+const SAM_BAND = { y0: 0.98, y1: 1.68, trayY0: 1.12, trayY1: 1.3, holderY0: 1.42, holderY1: 1.56, trayW: 0.32, pitch: 0.8 };
+
+function samLayout(d, model) {
+  const d0 = Math.max(0.5, (d.L - d.Lt) + 0.25);
+  const d1 = Math.max(d0 + 1, d.L - (model.cooling ? 1.0 : 0.35));
+  const count = Math.max(3, Math.round((d1 - d0) / SAM_BAND.pitch));
+  const step = (d1 - d0) / count;
+  const trays = Array.from({ length: count }, (_, index) => d0 + step * (index + 0.5));
+  const nearest = (dd) => trays[Math.min(count - 1, Math.max(0, Math.floor((dd - d0) / step)))];
+  return { d0, d1, trays, nearest };
+}
+
 /** Espelha faces em x (cabeça de picking à esquerda). Decalques com texto trocam a ordem para não ficarem invertidos. */
 function mirrorFaces(faces) {
   const m = (p) => [-p[0], p[1], p[2]];
@@ -2231,22 +2243,23 @@ function createViewer(canvas) {
           decals.push({ pts: quadX(x + 0.006, 0.95, 1.2, doorD0 + doorW - 0.08, doorD0 + doorW - 0.05), fill: '#d3d9dc', alpha: 1 });
         }
       }
-      if (x < 0 && model.line === 'compact' && model.samOn) {
-        decals.push({
-          pts: quadX(x - 0.002, 0.06, SAM_MODULE.heightM, 0.06, 0.06 + SAM_MODULE.footprintM),
-          fill: COLORS.sam,
-          alpha: 0.9,
-          stroke: '#0b3d34',
-          strokeAlpha: 0.9,
-          lineWidth: 1.4,
-        });
-        decals.push({
-          pts: quadX(x - 0.004, SAM_MODULE.heightM - 0.3, SAM_MODULE.heightM - 0.06, 0.08 + SAM_MODULE.footprintM, 0.04),
-          fill: null,
-          w: 120,
-          h: 48,
-          draw: lettering('SAM', '#ffffff', 30),
-        });
+      if (x < 0 && model.samOn) {
+        /* SAM (Schnellauslagerungsmodul): saídas laterais a ~1,2 m, atrás de vidro, numa faixa horizontal. */
+        const sam = samLayout(d, model);
+        const xo = x - 0.003;
+        decals.push(
+          { pts: quadX(xo, SAM_BAND.y0, SAM_BAND.y1, sam.d0 - 0.12, sam.d1 + 0.12), fill: COLORS.door, alpha: 0.55 + 0.2 * mix, stroke: '#5f8793', strokeAlpha: 0.9, lineWidth: 1.4 },
+          { pts: quadX(xo - 0.001, SAM_BAND.y1 - 0.05, SAM_BAND.y1 - 0.02, sam.d0 - 0.1, sam.d1 + 0.1), fill: '#c9d0d4', alpha: 1 },
+        );
+        for (const td of sam.trays) {
+          decals.push(
+            { pts: quadX(xo - 0.002, SAM_BAND.trayY0, SAM_BAND.trayY1, td - SAM_BAND.trayW / 2, td + SAM_BAND.trayW / 2), fill: '#24282b', alpha: 1, stroke: '#0d0f10' },
+            { pts: quadX(xo - 0.003, SAM_BAND.trayY0, SAM_BAND.trayY0 + 0.035, td - SAM_BAND.trayW / 2, td + SAM_BAND.trayW / 2), fill: '#f4f6f7', alpha: 1 },
+            { pts: quadX(xo - 0.002, SAM_BAND.holderY0, SAM_BAND.holderY1, td - 0.07, td + 0.07), fill: '#f4f6f7', alpha: 1, stroke: '#9aa3a8' },
+          );
+        }
+        const labelD = sam.d0 + 0.02;
+        decals.push({ pts: quadX(xo - 0.004, SAM_BAND.y1 + 0.04, SAM_BAND.y1 + 0.2, labelD + 0.4, labelD), fill: null, w: 125, h: 50, draw: lettering('SAM', '#14181b', 30) });
       }
       if (x < 0) {
         decals.push({
@@ -2408,24 +2421,17 @@ function createViewer(canvas) {
     const faces = [];
     const samOn = Boolean(model.samOn);
     const hasExt = model.gripper2 && L - Lt > 0.01;
-    const samFoot = SAM_MODULE.footprintM;
-    // GO.compact + SAM: o SAM ocupa a quina da frente, oposta às portas; os compactadores começam depois dele.
-    const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04 + (samOn && model.line === 'compact' ? 0.4 : 0);
+    const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04;
     const rackTop = H - fh - 0.06;
     /* Estantes rolantes transversais: cruzam a largura e abrem um vão. O mastro entra nesse vão; a esteira fica no alto, junto ao trilho. */
     const shelfX0 = x0 + 0.08;
     const shelfX1 = x1 - 0.34;
     const dCool0 = Math.max(dStart + 0.6, L - 0.92);
     const dCool1 = L - 0.06;
-    const dEndRaw = model.cooling ? dCool0 - 0.04 : L - 0.06;
-    // GO.direct + SAM: o SAM fica na área caminhável, no fim do corredor (antes do refrigerado).
-    const samDirect = samOn && model.line === 'direct';
-    const samD1 = samDirect ? dEndRaw : 0.06 + samFoot;
-    const samD0 = samD1 - samFoot;
-    const dEnd = samDirect ? Math.max(dStart + 1, samD0 - 0.04) : dEndRaw;
-    const samX0 = shellX0 + 0.03;
-    const samX1 = samX0 + samFoot;
-    const samTop = SAM_MODULE.heightM;
+    const dEnd = model.cooling ? dCool0 - 0.04 : L - 0.06;
+    const sam = samOn ? samLayout(d, model) : null;
+    const trayOut = shellX0 + 0.03;
+    const trayIn = shellX0 + Math.max(0.2, Math.min(0.36, extra + 0.07));
     if (extra > 0.01 && model.line === 'direct') {
       /* Área caminhável do GO.direct, entre a porta da frente e o fundo. */
       faces.push({
@@ -2439,19 +2445,21 @@ function createViewer(canvas) {
         bias: 5,
       });
     }
-    if (samOn) {
+    if (sam) {
+      /* Bandejas inclinadas do SAM: escuras, lábio branco e suporte branco acima, numa barra horizontal. */
       faces.push(
-        ...box(samX0, samX1, 0, samTop, samD0, samD1, {
-          fill: COLORS.sam,
-          alpha: 0.9 * mix,
-          stroke: '#0b3d34',
-          strokeAlpha: 0.9 * mix,
-          faces: {
-            top: { decals: [{ pts: [P(samX0 + 0.08, samTop + 0.002, samD1 - 0.08), P(samX1 - 0.08, samTop + 0.002, samD1 - 0.08), P(samX1 - 0.08, samTop + 0.002, samD0 + 0.08), P(samX0 + 0.08, samTop + 0.002, samD0 + 0.08)], fill: '#0b3d34', alpha: 0.85 * mix }] },
-            right: { decals: [{ pts: quadX(samX1 + 0.002, samTop - 0.32, samTop - 0.06, samD0 + 0.04, samD1 - 0.04), fill: null, w: 120, h: 48, draw: lettering('SAM', '#ffffff', 30) }] },
-          },
-        }),
+        ...box(trayOut, trayIn, SAM_BAND.y1 - 0.05, SAM_BAND.y1 - 0.02, sam.d0 - 0.1, sam.d1 + 0.1, { fill: '#c9d0d4', alpha: mix, stroke: '#8d979c', strokeAlpha: 0.6 * mix }),
       );
+      for (const td of sam.trays) {
+        const t0 = td - SAM_BAND.trayW / 2;
+        const t1 = td + SAM_BAND.trayW / 2;
+        const top = [P(trayIn, SAM_BAND.trayY1, t0), P(trayIn, SAM_BAND.trayY1, t1), P(trayOut, SAM_BAND.trayY0, t1), P(trayOut, SAM_BAND.trayY0, t0)];
+        const slope = SAM_BAND.trayY1 - SAM_BAND.trayY0;
+        const run = trayIn - trayOut;
+        faces.push({ name: 'top', n: [slope, run, 0].map((v) => v / Math.hypot(slope, run)), pts: top, fill: '#2a2f33', alpha: mix, stroke: '#0d0f10', strokeAlpha: mix, bias: -0.02 });
+        faces.push(...box(trayOut - 0.005, trayOut + 0.02, SAM_BAND.trayY0, SAM_BAND.trayY0 + 0.04, t0, t1, { fill: '#f4f6f7', alpha: mix, stroke: '#9aa3a8' }));
+        faces.push(...box(trayOut + 0.02, trayOut + 0.12, SAM_BAND.holderY0, SAM_BAND.holderY1, td - 0.07, td + 0.07, { fill: '#f4f6f7', alpha: mix, stroke: '#9aa3a8' }));
+      }
     }
     const aisleW = 0.62;
     const gap = 0.045;
@@ -2786,7 +2794,7 @@ function createViewer(canvas) {
           ? xUnload
           : xPark + (xAisle - xPark) * pose.reach;
       let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
-      if (pose.boxMode === 'dump') gy += ((samOn ? samTop + 0.1 : beltTop - 0.08) - gy) * pose.boxU;
+      if (pose.boxMode === 'dump') gy += ((sam ? SAM_BAND.trayY1 + 0.08 : beltTop - 0.08) - gy) * pose.boxU;
       const carX0 = gx + 0.02;
       const carY1 = railY1 + 0.03;
       const dCenter = pose.dCenter;
@@ -2892,14 +2900,18 @@ function createViewer(canvas) {
       } else if (pose.boxMode === 'tray') {
         boxX = gx - 0.02;
         boxY = gy + 0.02;
-      } else if (pose.boxMode === 'dump' && samOn) {
-        boxX = gx + ((samX0 + samX1) / 2 - gx) * pose.boxU;
-        boxY = gy + 0.02 + (samTop + 0.02 - (gy + 0.02)) * pose.boxU;
-      } else if (pose.boxMode === 'belt' && samOn) {
-        // Com SAM, a caixa desce no SAM em vez da esteira.
-        boxX = (samX0 + samX1) / 2;
-        boxD = dCenter + ((samD0 + samD1) / 2 - dCenter) * pose.boxU;
-        boxY = samTop + 0.02;
+      } else if (pose.boxMode === 'dump' && sam) {
+        // Com SAM, a caixa vai até a saída lateral mais próxima e escorrega pela bandeja para fora.
+        const td = sam.nearest(dCenter);
+        boxX = gx + (trayIn - 0.06 - gx) * pose.boxU;
+        boxY = gy + 0.02 + (SAM_BAND.trayY1 + 0.01 - (gy + 0.02)) * pose.boxU;
+        boxD = dCenter + (td - dCenter) * pose.boxU;
+      } else if (pose.boxMode === 'belt' && sam) {
+        const td = sam.nearest(dCenter);
+        const u = pose.boxU;
+        boxX = trayIn - 0.06 + (trayOut + 0.08 - (trayIn - 0.06)) * u;
+        boxY = SAM_BAND.trayY1 + 0.01 + (SAM_BAND.trayY0 + 0.05 - (SAM_BAND.trayY1 + 0.01)) * u;
+        boxD = td;
       } else if (pose.boxMode === 'dump') {
         const beltCenter = (beltX0 + beltX1) / 2;
         boxX = gx + (beltCenter - gx) * pose.boxU;
@@ -3206,7 +3218,8 @@ function createViewer(canvas) {
     ctx.font = '700 14px Outfit, "Segoe UI", sans-serif';
     ctx.fillStyle = '#1a2421';
     ctx.textBaseline = 'top';
-    ctx.fillText(t('hud.title', `${model.name} · Robô ${model.classId}`, { model: model.name, cls: model.classId }), 14, 12);
+    const hudName = `${model.name}${model.samOn ? ' + SAM' : ''}`;
+    ctx.fillText(t('hud.title', `${hudName} · Robô ${model.classId}`, { model: hudName, cls: model.classId }), 14, 12);
     ctx.font = '500 12px Outfit, "Segoe UI", sans-serif';
     ctx.fillStyle = '#5c675f';
     ctx.fillText(`${formatFlex(model.capacity)} ${t('hud.packs', 'pacotes')} · ${t(`hud.theme.${view.theme}`, THEMES[view.theme].label)}${xrayMix > 0.5 ? ` · ${t('hud.xray', 'raios-X')}` : ''}`, 14, 31);

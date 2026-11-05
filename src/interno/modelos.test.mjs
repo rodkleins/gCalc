@@ -982,7 +982,8 @@ describe('página de modelos isolada', () => {
     assert.match(page, /id="model-class-line"/);
     assert.match(page, /2,80 → 2,60 \/ 2,80 \/ 3,00/);
     assert.match(page, /05\/11\/2026/);
-    assert.match(page, /SAM \(representativo\)/);
+    assert.match(page, /SAM \(saídas laterais, representativo\)/);
+    assert.match(page, /Schnellauslagerungsmodul/);
     assert.match(app, /key: 'modelLine'/);
     assert.match(app, /gcalc\.modelos\.interno\.v3/);
     assert.match(calc, /modelLine: 'compact'/);
