@@ -122,29 +122,48 @@ export function formatPacks(value, locale = 'pt-BR') {
 export const HEIGHTS = [2.2, 2.35, 2.5, 2.65, 2.8, 2.95, 3.1, 3.25, 3.4, 3.55];
 
 /**
- * As 7 larguras das tabelas. A chave é a classe (GO.compact com o SAM), que é a coluna dos slides e do preço.
- * A largura física muda com a linha: GO.compact = classe − 0,20 m, salvo a leitura da tabela; GO.direct é a
- * outra linha (na classe 1,89 m o direct é 2,20 m, não 2,09 m). O slide 3 fala em 8 larguras, mas as tabelas
+ * As 7 larguras das tabelas. A chave é a classe (rótulo = GO.compact com SAM), que é a coluna dos slides e do
+ * preço. compact = raster dos compactadores; sam = compact + 0,20; direct = compact + 0,40, salvo 1,69 → 2,20 e
+ * 3,00 → 3,55 (Gollmann, 05/11/2026). O slide 3 fala em 8 larguras, mas as tabelas
  * trazem 7: valem as tabelas.
  */
 export const WIDTHS = [
   { key: '1.89', sam: 1.89, compact: 1.69, direct: 2.2 },
   { key: '2.40', sam: 2.4, compact: 2.2, direct: 2.6 },
   { key: '2.80', sam: 2.8, compact: 2.6, direct: 3.0 },
-  { key: '3.20', sam: 3.2, compact: 3.0, direct: 3.4 },
+  { key: '3.20', sam: 3.2, compact: 3.0, direct: 3.55 },
   { key: '3.75', sam: 3.75, compact: 3.55, direct: 3.95 },
   { key: '4.15', sam: 4.15, compact: 3.95, direct: 4.35 },
   { key: '4.55', sam: 4.55, compact: 4.35, direct: 4.75 },
 ];
 
-/** Linha do corpo. O preço não muda: continua a célula da classe (coluna com SAM). */
-export function physicalWidthM(widthSam, modelLine = 'compact') {
+/**
+ * Regra da Gollmann (Michael Lindemeyer, e-mail de 05/11/2026): capacidade e preço dependem só dos compactadores
+ * (a classe). Tipo e SAM mudam apenas a largura, nunca o preço. Base = largura do raster (coluna compact).
+ * - GO.compact sem SAM: base. Com SAM: base + 0,20 m (SAM do lado oposto às portas de vidro).
+ * - GO.direct: base + 0,40 m de área caminhável, salvo 1,69 → 2,20 m (+0,51) e 3,00 → 3,55 m (+0,55).
+ *   O SAM do GO.direct fica na área caminhável e não muda a largura.
+ */
+export const SAM_PROTRUSION_M = 0.2;
+export const DIRECT_WALKWAY_M = 0.4;
+export const SAM_MODULE = { footprintM: 0.6, heightM: 1.2 };
+
+/** Largura final pelo tipo e pelo SAM. O preço não muda: continua a célula da classe. */
+export function physicalWidthM(widthSam, modelLine = 'compact', samOn = false) {
   const row = WIDTHS.find((width) => Math.abs(width.sam - Number(widthSam)) < 1e-9);
   if (!row) return Number(widthSam);
-  return modelLine === 'direct' ? row.direct : row.compact;
+  if (modelLine === 'direct') return row.direct;
+  return samOn ? row.sam : row.compact;
 }
 
-export const SAM_PROTRUSION_M = 0.2;
+/** Largura do raster dos compactadores (GO.compact sem SAM), igual em todos os tipos. */
+export function baseWidthM(widthSam) {
+  return physicalWidthM(widthSam, 'compact', false);
+}
+
+export function finalWidthM(widthSam, modelLine = 'compact', samOn = true) {
+  return physicalWidthM(widthSam, modelLine, samOn);
+}
 
 /** Slide 4 (capacidade e "a partir de") e slide 8 (serviços de transporte e instalação). */
 export const CLASSES = [
@@ -421,9 +440,10 @@ export const PRESETS = [
   },
 ];
 
-export const WIDTH_REFS = ['sam', 'compact', 'direct'];
+export const WIDTH_REFS = ['final', 'sam', 'compact', 'direct'];
 
 export const WIDTH_REF_LABELS = {
+  final: 'largura final (tipo + SAM)',
   sam: 'GO.compact c/ SAM',
   compact: 'GO.compact',
   direct: 'GO.direct',
@@ -453,6 +473,8 @@ export const DEFAULTS = {
   widthSam: 3.2,
   classId: 'L',
   modelLine: 'compact',
+  samOn: true,
+  headSide: 'right',
   secondGripper: false,
   coolingModule: false,
   conveyorEur: 0,
@@ -462,7 +484,7 @@ export const DEFAULTS = {
   roomFilterOn: false,
   roomHeightM: 3,
   roomWidthM: 3.5,
-  roomWidthRef: 'sam',
+  roomWidthRef: 'final',
   roomLengthM: 5,
   minCapacity: 20000,
   fxRate: 6.2,
@@ -523,6 +545,9 @@ export function sanitize(raw = {}) {
   );
   input.classId = classOf(raw.classId) ? raw.classId : DEFAULTS.classId;
   input.modelLine = raw.modelLine === 'direct' ? 'direct' : 'compact';
+  input.samOn = typeof raw.samOn === 'boolean' ? raw.samOn : DEFAULTS.samOn;
+  // Lado da cabeça: escolha só no GO.compact sem SAM. Com SAM a cabeça fica do lado das portas (direita).
+  input.headSide = input.modelLine === 'compact' && !input.samOn && raw.headSide === 'left' ? 'left' : 'right';
   for (const key of ['secondGripper', 'coolingModule', 'includeServices', 'roomFilterOn', 'exTarifario', 'convenioIcms5291', 'creditPisCofins', 'creditIcms']) {
     if (typeof raw[key] === 'boolean') input[key] = raw[key];
   }
@@ -876,10 +901,11 @@ export function ncmTaxReference(brazil) {
   return lines;
 }
 
-function widthFor(config, ref) {
+function widthFor(config, ref, input = DEFAULTS) {
   if (ref === 'compact') return config.widthCompact;
   if (ref === 'direct') return config.widthDirect;
-  return config.widthSam;
+  if (ref === 'sam') return config.widthSam;
+  return physicalWidthM(config.widthSam, input.modelLine, input.samOn);
 }
 
 /** Folga abaixo da qual a medida aparece como apertada (âmbar). */
@@ -900,7 +926,7 @@ export function fitsRoom(config, raw = {}) {
   };
   const checks = [
     check('height', config.heightM, input.roomHeightM),
-    check('width', widthFor(config, input.roomWidthRef), input.roomWidthM),
+    check('width', widthFor(config, input.roomWidthRef, input), input.roomWidthM),
     check('length', lengthM, input.roomLengthM),
   ];
   const capacityOk = input.minCapacity == null || config.capacityPacks >= input.minCapacity;
@@ -1304,8 +1330,8 @@ function explainPt(result) {
       title: 'Modelo e dimensões',
       lines: [
         changedText,
-        `Largura c/ SAM ${formatMeters(quote.widthSam)} = GO.compact ${formatMeters(quote.widthCompact)} + SAM ${formatMeters(SAM_PROTRUSION_M)}. GO.direct de referência: ${formatMeters(quote.widthDirect)}.`,
-        `Linha selecionada: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'}, largura física ${formatMeters(physicalWidthM(quote.widthSam, result.modelLine))}. O preço permanece o da classe ${formatMeters(quote.widthSam)} (coluna com SAM). A área e o volume exibidos usam a largura física.`,
+        `Classe ${formatMeters(quote.widthSam)}: compactadores no raster de ${formatMeters(quote.widthCompact)}. GO.compact ${formatMeters(quote.widthCompact)} sem SAM, ${formatMeters(quote.widthSam)} com SAM (+${formatMeters(SAM_PROTRUSION_M)}); GO.direct ${formatMeters(quote.widthDirect)} com ou sem SAM (área caminhável).`,
+        `Linha selecionada: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'} ${result.samOn ? 'com SAM' : 'sem SAM'}, largura final ${formatMeters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. O preço permanece o da classe ${formatMeters(quote.widthSam)}: tipo e SAM mudam só a largura (Gollmann, 05/11/2026). A área e o volume exibidos usam a largura final.`,
         `Comprimento da tabela ${formatMeters(quote.tableLengthM)} = núcleo de armazenagem ${formatMeters(quote.coreLengthM)} + ${formatMeters(LENGTH_INCLUDED.manualLoadingM)} da carga manual + ${formatMeters(LENGTH_INCLUDED.speedOptionM)} da opção speed.${quote.secondGripper ? ` Com o 2º braço: + ${formatMeters(OPTIONS.secondGripperLengthM)} = ${formatMeters(quote.totalLengthM)}.` : ''}`,
         `Área = ${formatMeters(quote.widthSam)} × ${formatMeters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2)} m². Volume = área × ${formatMeters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2)} m³. Capacidade garantida: ${formatPacks(quote.capacityPacks)} (classe ${cls.id}, aprox. ${formatPacks(cls.approxPacks)}).`,
       ],
@@ -1374,7 +1400,7 @@ function explainEn(result) {
   const { quote, brazil, selection, volume, room, space } = result;
   const cls = classOf(quote.classId);
   const range = classPriceRange(quote.classId);
-  const widthName = { sam: 'GO.compact w/ SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
+  const widthName = { final: 'final width (type + SAM)', sam: 'GO.compact w/ SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
   const dims = { height: 'Ceiling height', width: 'Width', length: 'Length' };
   const changedText = selection.changed.length
     ? `The requested combination (${meters(selection.requested.heightM)} × ${meters(selection.requested.widthSam)} · Robot ${selection.requested.classId}) is not in the table. The calculation uses the nearest valid cell: ${cfg(selection.config)}.`
@@ -1406,8 +1432,8 @@ function explainEn(result) {
       title: 'Model and dimensions',
       lines: [
         changedText,
-        `Width w/ SAM ${meters(quote.widthSam)} = GO.compact ${meters(quote.widthCompact)} + SAM ${meters(SAM_PROTRUSION_M)}. GO.direct reference: ${meters(quote.widthDirect)}.`,
-        `Selected line: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'}, physical width ${meters(physicalWidthM(quote.widthSam, result.modelLine))}. The price stays on class ${meters(quote.widthSam)} (column including SAM). The displayed area and volume use the physical width.`,
+        `Class ${meters(quote.widthSam)}: compactors on the ${meters(quote.widthCompact)} raster. GO.compact ${meters(quote.widthCompact)} without SAM, ${meters(quote.widthSam)} with SAM (+${meters(SAM_PROTRUSION_M)}); GO.direct ${meters(quote.widthDirect)} with or without SAM (walkable area).`,
+        `Selected line: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'} ${result.samOn ? 'with SAM' : 'without SAM'}, final width ${meters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. The price stays on class ${meters(quote.widthSam)}: type and SAM change only the width (Gollmann, 05/11/2026). The displayed area and volume use the final width.`,
         `Table length ${meters(quote.tableLengthM)} = storage core ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} manual loading + ${meters(LENGTH_INCLUDED.speedOptionM)} speed option.${quote.secondGripper ? ` With the 2nd arm: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Area = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volume = area × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Guaranteed capacity: ${packs(quote.capacityPacks)} (class ${cls.id}, approx. ${packs(cls.approxPacks)}).`,
       ],
@@ -1476,7 +1502,7 @@ function explainDe(result) {
   const { quote, brazil, selection, volume, room, space } = result;
   const cls = classOf(quote.classId);
   const range = classPriceRange(quote.classId);
-  const widthName = { sam: 'GO.compact mit SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
+  const widthName = { final: 'finale Breite (Typ + SAM)', sam: 'GO.compact mit SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
   const dims = { height: 'Raumhöhe', width: 'Breite', length: 'Länge' };
   const line = result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact';
   const changedText = selection.changed.length
@@ -1509,8 +1535,8 @@ function explainDe(result) {
       title: 'Modell und Maße',
       lines: [
         changedText,
-        `Breite mit SAM ${meters(quote.widthSam)} = GO.compact ${meters(quote.widthCompact)} + SAM ${meters(SAM_PROTRUSION_M)}. GO.direct als Referenz: ${meters(quote.widthDirect)}.`,
-        `Gewählte Linie: ${line}, physische Breite ${meters(physicalWidthM(quote.widthSam, result.modelLine))}. Der Preis bleibt bei der Klasse ${meters(quote.widthSam)} (Spalte inklusive SAM). Angezeigte Fläche und Volumen nutzen die physische Breite.`,
+        `Klasse ${meters(quote.widthSam)}: Kompaktoren im Raster ${meters(quote.widthCompact)}. GO.compact ${meters(quote.widthCompact)} ohne SAM, ${meters(quote.widthSam)} mit SAM (+${meters(SAM_PROTRUSION_M)}); GO.direct ${meters(quote.widthDirect)} mit oder ohne SAM (begehbarer Bereich).`,
+        `Gewählte Linie: ${line} ${result.samOn ? 'mit SAM' : 'ohne SAM'}, finale Breite ${meters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. Der Preis bleibt bei der Klasse ${meters(quote.widthSam)}: Typ und SAM ändern nur die Breite (Gollmann, 05.11.2026). Angezeigte Fläche und Volumen nutzen die finale Breite.`,
         `Tabellenlänge ${meters(quote.tableLengthM)} = Lagerkern ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} Handbeladung + ${meters(LENGTH_INCLUDED.speedOptionM)} Speed-Option.${quote.secondGripper ? ` Mit dem 2. Greifer: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Fläche = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volumen = Fläche × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Garantierte Kapazität: ${packs(quote.capacityPacks)} (Klasse ${cls.id}, ca. ${packs(cls.approxPacks)}).`,
       ],
@@ -1579,7 +1605,7 @@ function explainEs(result) {
   const { quote, brazil, selection, volume, room, space } = result;
   const cls = classOf(quote.classId);
   const range = classPriceRange(quote.classId);
-  const widthName = { sam: 'GO.compact con SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
+  const widthName = { final: 'anchura final (tipo + SAM)', sam: 'GO.compact con SAM', compact: 'GO.compact', direct: 'GO.direct' }[result.roomWidthRef];
   const dims = { height: 'Altura libre', width: 'Anchura', length: 'Longitud' };
   const line = result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact';
   const changedText = selection.changed.length
@@ -1612,8 +1638,8 @@ function explainEs(result) {
       title: 'Modelo y medidas',
       lines: [
         changedText,
-        `Anchura con SAM ${meters(quote.widthSam)} = GO.compact ${meters(quote.widthCompact)} + SAM ${meters(SAM_PROTRUSION_M)}. GO.direct de referencia: ${meters(quote.widthDirect)}.`,
-        `Línea elegida: ${line}, anchura física ${meters(physicalWidthM(quote.widthSam, result.modelLine))}. El precio se queda en la clase ${meters(quote.widthSam)} (columna con SAM). La superficie y el volumen mostrados usan la anchura física.`,
+        `Clase ${meters(quote.widthSam)}: compactadores en el ráster de ${meters(quote.widthCompact)}. GO.compact ${meters(quote.widthCompact)} sin SAM, ${meters(quote.widthSam)} con SAM (+${meters(SAM_PROTRUSION_M)}); GO.direct ${meters(quote.widthDirect)} con o sin SAM (zona transitable).`,
+        `Línea elegida: ${line} ${result.samOn ? 'con SAM' : 'sin SAM'}, anchura final ${meters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. El precio se queda en la clase ${meters(quote.widthSam)}: tipo y SAM solo cambian la anchura (Gollmann, 05/11/2026). La superficie y el volumen mostrados usan la anchura final.`,
         `Longitud de tabla ${meters(quote.tableLengthM)} = núcleo de almacén ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} de carga manual + ${meters(LENGTH_INCLUDED.speedOptionM)} de la opción speed.${quote.secondGripper ? ` Con el 2.º brazo: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Superficie = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volumen = superficie × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Capacidad garantizada: ${packs(quote.capacityPacks)} (clase ${cls.id}, aprox. ${packs(cls.approxPacks)}).`,
       ],

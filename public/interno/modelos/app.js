@@ -8,7 +8,6 @@ import {
   NCM_INFO,
   OPTIONS,
   PRESETS,
-  SAM_PROTRUSION_M,
   WIDTHS,
   WIDTH_REF_LABELS,
   bonusLedger,
@@ -26,6 +25,7 @@ import {
   maxHeightOf,
   parseBr,
   physicalWidthM,
+  SAM_MODULE,
   widthsAt,
   configLabel as configLabelLocale,
 } from './calc.js';
@@ -141,27 +141,43 @@ const SECTIONS = [
     intro: 'A altura sai do pé-direito, a largura do espaço e a classe da capacidade. Comprimento, capacidade garantida e preço vêm da tabela.',
     fields: [
       {
+        key: 'modelLine',
+        label: 'Tipo',
+        kind: 'select',
+        wide: true,
+        tooltip: 'GO.compact: entrada lateral com portas de vidro de correr. GO.direct: entrada frontal com porta de vidro de abrir e área caminhável (+0,40 m; 1,69 → 2,20 m e 3,00 → 3,55 m). Tipo e SAM mudam só a largura, nunca o preço (Gollmann, 05/11/2026).',
+      },
+      {
+        key: 'samOn',
+        label: 'SAM',
+        kind: 'check',
+        checkLabel: 'Com SAM',
+        wide: true,
+        tooltip: 'GO.compact com SAM: +0,20 m de largura, SAM do lado oposto às portas de vidro e cabeça de picking do lado das portas. GO.direct: o SAM fica na área caminhável e não muda a largura; sem SAM há uma esteira interna. O preço não muda.',
+      },
+      {
+        key: 'headSide',
+        label: 'Lado da cabeça de picking',
+        kind: 'select',
+        wide: true,
+        showIf: (s) => s.modelLine === 'compact' && !s.samOn,
+        tooltip: 'Só no GO.compact sem SAM: a cabeça de picking corre à esquerda ou à direita; a esteira interna fica do lado oposto, acima dos compactadores.',
+      },
+      {
+        key: 'widthSam',
+        label: 'Classe (largura final)',
+        kind: 'select',
+        keep: 'width',
+        wide: true,
+        tooltip: 'A classe é o raster dos compactadores e define capacidade e preço. Ao lado, a largura final do tipo escolhido. 3,75 m vai até 2,95 m de altura, 4,15 m até 2,65 m e 4,55 m até 2,50 m.',
+      },
+      {
         key: 'heightM',
         label: 'Altura do robô',
         kind: 'select',
         keep: 'height',
         wide: true,
         tooltip: '10 alturas, de 2,20 m a 3,55 m, uma tabela por altura (slides 14 a 23). Acima de 2,95 m somem as larguras maiores.',
-      },
-      {
-        key: 'widthSam',
-        label: 'Largura (c/ SAM · GO.compact · GO.direct)',
-        kind: 'select',
-        keep: 'width',
-        wide: true,
-        tooltip: 'A coluna da tabela é o GO.compact com o SAM, que soma 0,20 m. 3,75 m vai até 2,95 m de altura, 4,15 m até 2,65 m e 4,55 m até 2,50 m.',
-      },
-      {
-        key: 'modelLine',
-        label: 'Modelo',
-        kind: 'select',
-        wide: true,
-        tooltip: 'GO.compact é o padrão: a largura física é a do corpo, sem o SAM. GO.direct usa a largura física da outra linha. O preço continua o da classe (coluna com SAM). Exemplo: Classe 2,80 m · GO.direct 3,00 m.',
       },
       {
         key: 'classId',
@@ -274,15 +290,7 @@ const SECTIONS = [
         min: 0.5,
         max: 30,
         lockedBy: 'roomFilterOn',
-        tooltip: 'Comparada com a largura escolhida na referência abaixo.',
-      },
-      {
-        key: 'roomWidthRef',
-        label: 'Referência de largura',
-        kind: 'select',
-        lockedBy: 'roomFilterOn',
-        wide: true,
-        tooltip: 'Com SAM é a coluna da tabela. GO.compact é 0,20 m mais estreito. GO.direct é a referência mais larga, de folga.',
+        tooltip: 'Comparada com a largura final do tipo escolhido no primeiro bloco (GO.compact, + SAM ou GO.direct).',
       },
       {
         key: 'roomLengthM',
@@ -460,6 +468,8 @@ function loadState() {
         next[key] = value;
       }
     }
+    // A referência de largura saiu da tela: a sala sempre compara com a largura final do tipo + SAM.
+    next.roomWidthRef = 'final';
     state = next;
     if (parsed.view && typeof parsed.view === 'object') {
       if (['azul', 'verde', 'magenta'].includes(parsed.view.theme)) view.theme = parsed.view.theme;
@@ -580,7 +590,7 @@ function selectOptions(key) {
       const off = state.heightM > max + 1e-9;
       return {
         value: width.key,
-        label: `${formatMeters(width.sam)} ${t('opt.withSam', 'c/ SAM')} · GO.compact ${formatFixed(width.compact, 2)} · GO.direct ${formatFixed(width.direct, 2)}${off ? ` (${t('opt.upTo', 'até')} ${formatMeters(max)})` : ''}`,
+        label: `${t('opt.class', 'Classe')} ${formatMeters(width.sam)} · ${state.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'} ${formatMeters(physicalWidthM(width.sam, state.modelLine, state.samOn))}${off ? ` (${t('opt.upTo', 'até')} ${formatMeters(max)})` : ''}`,
       };
     });
   }
@@ -588,6 +598,12 @@ function selectOptions(key) {
     return [
       { value: 'compact', label: t('model.compact', 'GO.compact') },
       { value: 'direct', label: t('model.direct', 'GO.direct') },
+    ];
+  }
+  if (key === 'headSide') {
+    return [
+      { value: 'right', label: t('opt.head.right', 'Direita (esteira à esquerda)') },
+      { value: 'left', label: t('opt.head.left', 'Esquerda (esteira à direita)') },
     ];
   }
   if (key === 'classId') {
@@ -851,6 +867,7 @@ function lockControl(key, off) {
 
 function syncLocks() {
   for (const [key, control] of controls) {
+    if (control.field.showIf) control.wrap.hidden = !control.field.showIf(state);
     if (control.field.lockedBy) lockControl(key, !state[control.field.lockedBy]);
     // lockedByNot: trava quando a chave está ligada (a alíquota do II só vale sem Ex-Tarifário).
     if (control.field.lockedByNot) lockControl(key, Boolean(state[control.field.lockedByNot]));
@@ -934,16 +951,19 @@ function selectedLine(result) {
   const quote = result.quote;
   const line = result.modelLine === 'direct' ? 'direct' : 'compact';
   const name = line === 'direct' ? 'GO.direct' : 'GO.compact';
-  const width = physicalWidthM(quote.widthSam, line);
+  const samOn = result.samOn !== false;
+  const width = physicalWidthM(quote.widthSam, line, samOn);
   const area = Math.round(width * quote.totalLengthM * 10000) / 10000;
   const volume = Math.round(area * quote.heightM * 10000) / 10000;
-  return { line, name, width, area, volume };
+  const headSide = line === 'compact' && !samOn && result.headSide === 'left' ? 'left' : 'right';
+  return { line, name, width, area, volume, samOn, headSide, base: quote.widthCompact };
 }
 
 function classLine(result, model = selectedLine(result)) {
-  return t('model.classLine', `Classe ${formatMeters(result.quote.widthSam)} · ${model.name} ${formatMeters(model.width)}`, {
+  const name = `${model.name}${model.samOn ? ` + SAM` : ''}`;
+  return t('model.classLine', `Classe ${formatMeters(result.quote.widthSam)} · ${name} ${formatMeters(model.width)}`, {
     cls: formatMeters(result.quote.widthSam),
-    model: model.name,
+    model: name,
     width: formatMeters(model.width),
   });
 }
@@ -1065,10 +1085,11 @@ function renderHero(result) {
   });
   const note = document.getElementById('model-note');
   note.textContent = `${classLine(result, model)} · ${configLabel(quote.config)}`;
-  note.title = t('note.title', `${model.name} ${formatMeters(model.width)}. GO.compact ${formatMeters(quote.widthCompact)} sem o SAM, GO.direct ${formatMeters(quote.widthDirect)} de referência. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área do modelo ${m2(model.area)}. Área da classe ${m2(quote.footprintM2)}.`, {
+  note.title = t('note.title', `${model.name} ${formatMeters(model.width)} (largura final). GO.compact ${formatMeters(quote.widthCompact)} sem SAM, ${formatMeters(quote.widthSam)} com SAM; GO.direct ${formatMeters(quote.widthDirect)}. Comprimento da tabela ${formatMeters(quote.tableLengthM)}${quote.secondGripper ? `, ${formatMeters(quote.totalLengthM)} com o 2º braço` : ''}. Área do modelo ${m2(model.area)}. Área da classe ${m2(quote.footprintM2)}.`, {
     model: model.name,
     width: formatMeters(model.width),
     compact: formatMeters(quote.widthCompact),
+    sam: formatMeters(quote.widthSam),
     direct: formatMeters(quote.widthDirect),
     table: formatMeters(quote.tableLengthM),
     arm: quote.secondGripper ? t('note.arm', `, ${formatMeters(quote.totalLengthM)} com o 2º braço`, { length: formatMeters(quote.totalLengthM) }) : '',
@@ -1140,8 +1161,8 @@ function renderDims(result) {
   };
   const pills = [
     [t('pill.height', 'Altura'), formatMeters(quote.heightM), status('height')],
-    [t('pill.width', 'Largura c/ SAM'), formatMeters(quote.widthSam), result.roomWidthRef === 'sam' ? status('width') : ''],
-    [model.name, formatMeters(model.width), result.roomWidthRef === model.line ? status('width') : ''],
+    [t('pill.class', 'Classe'), formatMeters(quote.widthSam), ''],
+    [`${t('pill.width', 'Largura final')} · ${model.name}${model.samOn ? ' + SAM' : ''}`, formatMeters(model.width), result.roomWidthRef === 'final' ? status('width') : ''],
     [t('pill.length', 'Comprimento total'), formatMeters(quote.totalLengthM), status('length')],
     [t('pill.area', 'Área do modelo'), m2(model.area), ''],
     [t('pill.volume', 'Volume do modelo'), `${formatFixed(model.volume, 2)} m³`, ''],
@@ -1198,7 +1219,7 @@ function renderSpace(result) {
     fit: fitText,
   });
   if (!space.count) {
-    host.append(el('p', 'banner', t('space.none', 'Nenhuma configuração cabe. Afrouxe uma medida, troque a referência de largura ou baixe a capacidade mínima.')));
+    host.append(el('p', 'banner', t('space.none', 'Nenhuma configuração cabe. Afrouxe uma medida, troque o tipo ou o SAM, ou baixe a capacidade mínima.')));
     return;
   }
   const cards = [
@@ -1447,14 +1468,14 @@ function renderMatrix(result) {
   const available = widthsAt(matrixHeight).map((width) => width.key);
   const head = document.createElement('thead');
   const hr = document.createElement('tr');
-  const corner = el('th', null, t('matrix.corner', 'Classe / largura c/ SAM'));
+  const corner = el('th', null, t('matrix.corner', 'Robô / classe e largura final'));
   corner.scope = 'col';
   hr.append(corner);
   for (const width of WIDTHS) {
     const th = el('th', null);
     th.scope = 'col';
     th.append(el('strong', null, formatMeters(width.sam)), document.createElement('br'));
-    th.append(el('span', null, `GO.compact ${formatFixed(width.compact, 2)} · GO.direct ${formatFixed(width.direct, 2)}`));
+    th.append(el('span', null, `GO.compact ${formatFixed(width.compact, 2)} · +SAM ${formatFixed(width.sam, 2)} · GO.direct ${formatFixed(width.direct, 2)}`));
     if (!available.includes(width.key)) th.classList.add('is-off');
     hr.append(th);
   }
@@ -1484,7 +1505,7 @@ function renderMatrix(result) {
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
       button.setAttribute(
         'aria-label',
-        t('matrix.cell', `Robô ${cls.id}, ${formatMeters(width.sam)} c/ SAM, altura ${formatMeters(matrixHeight)}: ${formatEUR(config.priceEur)}, ${formatMeters(config.lengthM)}, ${formatPacks(config.capacityPacks)}${result.roomFilterOn ? (fit ? ', cabe na sala' : ', não cabe na sala') : ''}`, {
+        t('matrix.cell', `Robô ${cls.id}, classe ${formatMeters(width.sam)}, altura ${formatMeters(matrixHeight)}: ${formatEUR(config.priceEur)}, ${formatMeters(config.lengthM)}, ${formatPacks(config.capacityPacks)}${result.roomFilterOn ? (fit ? ', cabe na sala' : ', não cabe na sala') : ''}`, {
           cls: cls.id,
           width: formatMeters(width.sam),
           height: formatMeters(matrixHeight),
@@ -1670,9 +1691,7 @@ function renderModelChrome(result) {
   if (legendBody) legendBody.textContent = model.name;
   const legendOther = document.querySelector('[data-i18n="legend.direct"]');
   if (legendOther) {
-    legendOther.textContent = model.line === 'direct'
-      ? t('legend.otherCompact', 'GO.compact (referência)')
-      : t('legend.direct', 'GO.direct (folga)');
+    legendOther.textContent = t('legend.direct', 'Área caminhável (GO.direct)');
   }
   const colorGroup = document.querySelector('.swatches');
   if (colorGroup) colorGroup.setAttribute('aria-label', t('viewer.colorModel', `Cor do ${model.name}`, { model: model.name }));
@@ -1720,8 +1739,10 @@ function commit(keep = null) {
   if (previousHeight !== result.quote.heightM) matrixHeight = result.quote.heightM;
   if (state.modelLine !== result.modelLine) {
     state.modelLine = result.modelLine;
-    fillControls();
   }
+  // Largura final no rótulo da classe e visibilidade do lado da cabeça acompanham tipo e SAM.
+  fillControls();
+  syncLocks();
   // A alíquota de ICMS digitada decide o convênio: o botão do convênio acompanha o que entrou na conta.
   state.convenioIcms5291 = result.brazil.convenioIcms5291;
   render(result);
@@ -1756,6 +1777,9 @@ const COLORS = {
   speed: '#4f9d69',
   direct: '#8a8f93',
   cool: '#3d9be0',
+  door: '#bfe3ee',
+  sam: '#12806b',
+  walk: '#cfe8d8',
   ok: '#0f5c4c',
   tight: '#d68910',
   over: '#c0392b',
@@ -1839,6 +1863,22 @@ function quadFloor(x0, x1, d0, d1, y = 0.002) {
 }
 
 /** Gerador pseudoaleatório estável, para as caixas de remédio não piscarem a cada quadro. */
+/** Espelha faces em x (cabeça de picking à esquerda). Decalques com texto trocam a ordem para não ficarem invertidos. */
+function mirrorFaces(faces) {
+  const m = (p) => [-p[0], p[1], p[2]];
+  return faces.map((face) => ({
+    ...face,
+    n: face.n ? [-face.n[0], face.n[1], face.n[2]] : face.n,
+    pts: face.pts.map(m),
+    decals: face.decals?.map((decal) => {
+      const pts = decal.pts.map(m);
+      return { ...decal, pts: decal.draw ? [pts[1], pts[0], pts[3], pts[2]] : pts };
+    }),
+    lines: face.lines?.map((seg) => seg.map(m)),
+    children: face.children ? mirrorFaces(face.children) : face.children,
+  }));
+}
+
 function seeded(seed) {
   let value = seed % 2147483647;
   if (value <= 0) value += 2147483646;
@@ -1928,12 +1968,11 @@ function createViewer(canvas) {
     const next = {
       H: quote.heightM,
       Wc: picked.width,
-      Wd: picked.line === 'direct' ? quote.widthCompact : quote.widthDirect,
-      sam: picked.line === 'direct' ? 0 : SAM_PROTRUSION_M,
+      Wb: picked.base,
       Lt: quote.tableLengthM,
       L: quote.totalLengthM,
       roomH: result.roomHeightM ?? quote.heightM + 0.4,
-      roomW: result.roomWidthM ?? Math.max(quote.widthSam, picked.width) + 0.6,
+      roomW: result.roomWidthM ?? picked.width + 0.6,
       roomL: result.roomLengthM ?? quote.totalLengthM + 0.8,
     };
     dimsTarget = next;
@@ -1946,6 +1985,8 @@ function createViewer(canvas) {
     model = {
       line: picked.line,
       name: picked.name,
+      samOn: picked.samOn,
+      headSide: picked.headSide,
       classId: quote.classId,
       capacity: quote.capacityPacks,
       gripper2: quote.secondGripper,
@@ -2017,10 +2058,8 @@ function createViewer(canvas) {
   /* Câmera: órbita em torno do centro do robô; a distância cobre o robô, a pessoa e a sala. */
   function computeBasis() {
     const d = dims;
-    const xLeft = -d.Wc / 2 - (d.sam || 0);
-    const target = [(xLeft + d.Wc / 2) / 2, d.H * 0.42, -d.L / 2];
-    // A distância usa a maior das duas linhas, para a troca de modelo não afastar a câmera.
-    const envelope = Math.max(d.Wc + (d.sam || 0), d.Wd);
+    const target = [0, d.H * 0.42, -d.L / 2];
+    const envelope = d.Wc;
     let radius = 0.5 * Math.hypot(envelope + 1.6, d.H, d.L + 1.2);
     if (model?.room) radius = Math.max(radius, 0.5 * Math.hypot(d.roomW, d.roomH, d.roomL) + 0.2);
     const fit = Math.min(width, height * 1.25);
@@ -2181,6 +2220,34 @@ function createViewer(canvas) {
       if (hasExt) {
         decals.push({ pts: quadX(x, 0.06, yb, extStart, L - cw), fill: COLORS.grip, alpha: 0.22 + 0.1 * mix, stroke: COLORS.grip, strokeAlpha: 0.9, lineWidth: 1.6 });
       }
+      if (x > 0 && model.line === 'compact') {
+        /* GO.compact: entrada lateral com duas portas de vidro de correr. */
+        const doorD0 = Math.max(cw + 0.12, 0.45);
+        const doorW = Math.min(0.9, (L - cw - 0.15 - doorD0) / 1.9);
+        if (doorW > 0.3) {
+          const door = { fill: COLORS.door, alpha: 0.5 + 0.2 * mix, stroke: '#5f8793', strokeAlpha: 0.95, lineWidth: 1.6 };
+          decals.push({ pts: quadX(x + 0.002, 0.04, yb - 0.06, doorD0, doorD0 + doorW), ...door });
+          decals.push({ pts: quadX(x + 0.004, 0.04, yb - 0.06, doorD0 + doorW * 0.9, doorD0 + doorW * 1.9), ...door });
+          decals.push({ pts: quadX(x + 0.006, 0.95, 1.2, doorD0 + doorW - 0.08, doorD0 + doorW - 0.05), fill: '#d3d9dc', alpha: 1 });
+        }
+      }
+      if (x < 0 && model.line === 'compact' && model.samOn) {
+        decals.push({
+          pts: quadX(x - 0.002, 0.06, SAM_MODULE.heightM, 0.06, 0.06 + SAM_MODULE.footprintM),
+          fill: COLORS.sam,
+          alpha: 0.9,
+          stroke: '#0b3d34',
+          strokeAlpha: 0.9,
+          lineWidth: 1.4,
+        });
+        decals.push({
+          pts: quadX(x - 0.004, SAM_MODULE.heightM - 0.3, SAM_MODULE.heightM - 0.06, 0.08 + SAM_MODULE.footprintM, 0.04),
+          fill: null,
+          w: 120,
+          h: 48,
+          draw: lettering('SAM', '#ffffff', 30),
+        });
+      }
       if (x < 0) {
         decals.push({
           pts: quadX(x, yb + fh * 0.2, yb + fh * 0.8, 0.12 + Math.min(fh * 2.4, L * 0.5), 0.12),
@@ -2203,14 +2270,17 @@ function createViewer(canvas) {
     };
 
     /* Frente: baia antracite, colunas coloridas, janelas com prateleiras, nicho das caixas e logo. */
-    const bayX0 = x0 + cw;
+    /* Faixa extra do lado oposto à cabeça: área caminhável do GO.direct ou faixa do SAM no GO.compact. */
+    const extra = Math.max(0, Wc - (d.Wb || Wc));
+    const fx0 = x0 + extra;
+    const bayX0 = fx0 + cw;
     const bayX1 = x1 - cw;
     const bayW = bayX1 - bayX0;
     const logoW = Math.min(fh * 2.4, bayW * 0.6);
     const letterW = Math.min(fh * 1.9, Wc * 0.4);
     const frontDecals = [
       { pts: quadZ(0, x0, x1, yb, H), fill: theme, alpha: frontAlpha },
-      { pts: quadZ(0, x0, bayX0, 0, yb), fill: theme, alpha: frontAlpha },
+      { pts: quadZ(0, extra > 0.01 ? fx0 : x0, bayX0, 0, yb), fill: theme, alpha: frontAlpha },
       { pts: quadZ(0, bayX1, x1, 0, yb), fill: theme, alpha: frontAlpha },
       { pts: quadZ(0, x0 + cw * 0.3, x0 + cw * 0.3 + 0.03, 1.35, 1.38), fill: '#e2312d', alpha: 1 },
       {
@@ -2228,6 +2298,19 @@ function createViewer(canvas) {
         draw: lettering(model.name || 'GO.compact', 'rgba(255,255,255,0.95)'),
       },
     ];
+    if (extra > 0.01 && model.line === 'direct') {
+      /* GO.direct: porta de vidro de abrir na frente, sobre a área caminhável. */
+      const doorX0 = x0 + 0.05;
+      const doorX1 = fx0 - 0.03;
+      frontDecals.push(
+        { pts: quadZ(0, x0, doorX0, 0, yb), fill: theme, alpha: frontAlpha },
+        { pts: quadZ(0, doorX1, fx0, 0, yb), fill: theme, alpha: frontAlpha },
+        { pts: quadZ(-0.001, doorX0, doorX1, 0.02, yb - 0.03), fill: COLORS.door, alpha: 0.55, stroke: '#5f8793', strokeAlpha: 0.95, lineWidth: 1.6 },
+        { pts: quadZ(-0.003, doorX1 - 0.07, doorX1 - 0.045, 0.92, 1.18), fill: '#d3d9dc', alpha: 1, stroke: '#6d767c' },
+      );
+    } else if (extra > 0.01) {
+      frontDecals.push({ pts: quadZ(0, x0, fx0, 0, yb), fill: theme, alpha: frontAlpha });
+    }
     const winCount = Math.max(2, Math.min(4, Math.round(bayW / 0.6)));
     const winW = Math.min(0.32, (bayW * 0.62) / winCount - 0.06);
     const winY0 = 0.86;
@@ -2283,16 +2366,6 @@ function createViewer(canvas) {
       }),
     );
 
-    const sam = d.sam || 0;
-    const samChildren = sam > 0.01
-      ? box(x0 - sam, x0, 0.92, 1.3, 0.06, 0.62, {
-          fill: COLORS.chute,
-          stroke: '#000000',
-          faces: {
-            left: { decals: [{ pts: quadX(x0 - sam - 0.001, 0.98, 1.22, 0.14, 0.54), fill: '#2f363b', alpha: 1 }] },
-          },
-        })
-      : [];
 
     const shell = box(x0, x1, 0, H, 0, L, {
       fill: COLORS.anthracite,
@@ -2300,7 +2373,7 @@ function createViewer(canvas) {
       skip: ['bottom'],
       faces: {
         front: { fill: COLORS.anthracite, alpha: frontAlpha, decals: frontDecals, lines: shelfLines, lineColor: COLORS.shelf, lineAlpha: 0.9, children: frontChildren },
-        left: { fill: sideFill, alpha: sideAlpha, decals: sideDecals(x0), lines: seams(x0), lineColor: '#5a636a', lineAlpha: 0.7, children: samChildren },
+        left: { fill: sideFill, alpha: sideAlpha, decals: sideDecals(x0), lines: seams(x0), lineColor: '#5a636a', lineAlpha: 0.7 },
         right: { fill: sideFill, alpha: sideAlpha, decals: sideDecals(x1), lines: seams(x1), lineColor: '#5a636a', lineAlpha: 0.7 },
         back: {
           fill: sideFill,
@@ -2313,7 +2386,10 @@ function createViewer(canvas) {
         top: { fill: mixHex(theme, '#e8f4f6', mix * 0.6), alpha: topAlpha, stroke: '#0c0e10' },
       },
     });
-    return { shell, internals: mix > 0.02 ? buildInternals(fh) : [] };
+    let internals = mix > 0.02 ? buildInternals(fh) : [];
+    // Cabeça à esquerda (só GO.compact sem SAM): espelha o interior; as portas de vidro continuam à direita.
+    if (internals.length && model.headSide === 'left') internals = mirrorFaces(internals);
+    return { shell, internals };
   }
 
   /* Interior para os raios-X: estantes que deslizam em d, o mastro entra no vão e a esteira corre no alto. */
@@ -2324,18 +2400,59 @@ function createViewer(canvas) {
     const Wc = d.Wc;
     const Lt = d.Lt;
     const L = d.L;
-    const x0 = -Wc / 2;
+    const shellX0 = -Wc / 2;
+    const extra = Math.max(0, Wc - (d.Wb || Wc));
+    // Compactadores idênticos em todos os tipos: o interior usa o raster base; a faixa extra fica à esquerda.
+    const x0 = shellX0 + extra;
     const x1 = Wc / 2;
     const faces = [];
+    const samOn = Boolean(model.samOn);
     const hasExt = model.gripper2 && L - Lt > 0.01;
-    const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04;
+    const samFoot = SAM_MODULE.footprintM;
+    // GO.compact + SAM: o SAM ocupa a quina da frente, oposta às portas; os compactadores começam depois dele.
+    const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04 + (samOn && model.line === 'compact' ? 0.4 : 0);
     const rackTop = H - fh - 0.06;
     /* Estantes rolantes transversais: cruzam a largura e abrem um vão. O mastro entra nesse vão; a esteira fica no alto, junto ao trilho. */
     const shelfX0 = x0 + 0.08;
     const shelfX1 = x1 - 0.34;
     const dCool0 = Math.max(dStart + 0.6, L - 0.92);
     const dCool1 = L - 0.06;
-    const dEnd = model.cooling ? dCool0 - 0.04 : L - 0.06;
+    const dEndRaw = model.cooling ? dCool0 - 0.04 : L - 0.06;
+    // GO.direct + SAM: o SAM fica na área caminhável, no fim do corredor (antes do refrigerado).
+    const samDirect = samOn && model.line === 'direct';
+    const samD1 = samDirect ? dEndRaw : 0.06 + samFoot;
+    const samD0 = samD1 - samFoot;
+    const dEnd = samDirect ? Math.max(dStart + 1, samD0 - 0.04) : dEndRaw;
+    const samX0 = shellX0 + 0.03;
+    const samX1 = samX0 + samFoot;
+    const samTop = SAM_MODULE.heightM;
+    if (extra > 0.01 && model.line === 'direct') {
+      /* Área caminhável do GO.direct, entre a porta da frente e o fundo. */
+      faces.push({
+        name: 'bottom',
+        n: [0, 1, 0],
+        pts: quadFloor(shellX0 + 0.02, x0 - 0.01, 0.02, L - 0.02, 0.01),
+        fill: COLORS.walk,
+        alpha: 0.55 * mix,
+        stroke: COLORS.walk,
+        strokeAlpha: 0.9 * mix,
+        bias: 5,
+      });
+    }
+    if (samOn) {
+      faces.push(
+        ...box(samX0, samX1, 0, samTop, samD0, samD1, {
+          fill: COLORS.sam,
+          alpha: 0.9 * mix,
+          stroke: '#0b3d34',
+          strokeAlpha: 0.9 * mix,
+          faces: {
+            top: { decals: [{ pts: [P(samX0 + 0.08, samTop + 0.002, samD1 - 0.08), P(samX1 - 0.08, samTop + 0.002, samD1 - 0.08), P(samX1 - 0.08, samTop + 0.002, samD0 + 0.08), P(samX0 + 0.08, samTop + 0.002, samD0 + 0.08)], fill: '#0b3d34', alpha: 0.85 * mix }] },
+            right: { decals: [{ pts: quadX(samX1 + 0.002, samTop - 0.32, samTop - 0.06, samD0 + 0.04, samD1 - 0.04), fill: null, w: 120, h: 48, draw: lettering('SAM', '#ffffff', 30) }] },
+          },
+        }),
+      );
+    }
     const aisleW = 0.62;
     const gap = 0.045;
     const rowDepth = 0.32;
@@ -2598,7 +2715,7 @@ function createViewer(canvas) {
     for (let dd = L - 0.16 - beltShift; dd > 0.16; dd -= 0.3) {
       beltLines.push([P(beltX0 + 0.01, beltTop + 0.002, dd), P(beltX1 - 0.01, beltTop + 0.002, dd)]);
     }
-    faces.push(
+    if (!samOn) faces.push(
       ...box(beltX0, beltX1, beltBottom, beltTop, 0.12, L - 0.1, {
         fill: '#1a1d20',
         alpha: 0.96 * mix,
@@ -2606,7 +2723,7 @@ function createViewer(canvas) {
         faces: { top: { lines: beltLines, lineColor: '#4a5158', lineAlpha: 0.7 * mix } },
       }),
     );
-    for (const hanger of [0.4, L * 0.5, L - 0.4]) {
+    for (const hanger of samOn ? [] : [0.4, L * 0.5, L - 0.4]) {
       faces.push(
         ...box(beltX0, beltX0 + 0.035, beltTop, railY0, hanger, hanger + 0.035, {
           fill: '#8e989e',
@@ -2669,7 +2786,7 @@ function createViewer(canvas) {
           ? xUnload
           : xPark + (xAisle - xPark) * pose.reach;
       let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
-      if (pose.boxMode === 'dump') gy += (beltTop - 0.08 - gy) * pose.boxU;
+      if (pose.boxMode === 'dump') gy += ((samOn ? samTop + 0.1 : beltTop - 0.08) - gy) * pose.boxU;
       const carX0 = gx + 0.02;
       const carY1 = railY1 + 0.03;
       const dCenter = pose.dCenter;
@@ -2775,6 +2892,14 @@ function createViewer(canvas) {
       } else if (pose.boxMode === 'tray') {
         boxX = gx - 0.02;
         boxY = gy + 0.02;
+      } else if (pose.boxMode === 'dump' && samOn) {
+        boxX = gx + ((samX0 + samX1) / 2 - gx) * pose.boxU;
+        boxY = gy + 0.02 + (samTop + 0.02 - (gy + 0.02)) * pose.boxU;
+      } else if (pose.boxMode === 'belt' && samOn) {
+        // Com SAM, a caixa desce no SAM em vez da esteira.
+        boxX = (samX0 + samX1) / 2;
+        boxD = dCenter + ((samD0 + samD1) / 2 - dCenter) * pose.boxU;
+        boxY = samTop + 0.02;
       } else if (pose.boxMode === 'dump') {
         const beltCenter = (beltX0 + beltX1) / 2;
         boxX = gx + (beltCenter - gx) * pose.boxU;
@@ -2828,13 +2953,13 @@ function createViewer(canvas) {
     const theme = THEMES[view.theme].color;
     const x0 = -d.Wc / 2;
     const x1 = d.Wc / 2;
-    const xs = x0 - (d.sam || 0);
-    let gx0 = Math.floor(Math.min(-d.Wd / 2, xs) - 1.6);
-    let gx1 = Math.ceil(Math.max(d.Wd / 2, x1) + 1.6);
+    const xs = x0;
+    let gx0 = Math.floor(xs - 1.6);
+    let gx1 = Math.ceil(x1 + 1.6);
     let gd0 = -2;
     let gd1 = Math.ceil(d.L + 1.5);
     if (model.room) {
-      const cx = model.room.ref === 'sam' ? (xs + x1) / 2 : 0;
+      const cx = 0;
       gx0 = Math.min(gx0, Math.floor(cx - d.roomW / 2 - 0.5));
       gx1 = Math.max(gx1, Math.ceil(cx + d.roomW / 2 + 0.5));
       gd0 = Math.min(gd0, Math.floor(d.L / 2 - d.roomL / 2 - 0.5));
@@ -2845,7 +2970,7 @@ function createViewer(canvas) {
     for (let dd = gd0; dd <= gd1; dd += 1) line3(P(gx0, 0, dd), P(gx1, 0, dd), '#1a2421', 0.13);
 
     if (model.room) {
-      const cx = model.room.ref === 'sam' ? (xs + x1) / 2 : 0;
+      const cx = 0;
       paintPoly(
         quadFloor(cx - d.roomW / 2, cx + d.roomW / 2, d.L / 2 - d.roomL / 2, d.L / 2 + d.roomL / 2, 0.001),
         COLORS[model.room.status],
@@ -2864,8 +2989,8 @@ function createViewer(canvas) {
       ctx.stroke();
       ctx.setLineDash([]);
     };
-    outline(quadFloor(-d.Wd / 2, d.Wd / 2, -0.02, d.L + 0.02, 0.004), shade(COLORS.direct, 1, 0.9), [7, 5], 1.4);
-    outline(quadFloor(xs, x1, 0, d.L, 0.005), shade(theme, 0.9, 0.95), [4, 4], 1.6);
+    const extraW = Math.max(0, d.Wc - (d.Wb || d.Wc));
+    if (extraW > 0.01 && model.line === 'direct') outline(quadFloor(x0, x0 + extraW, 0, d.L, 0.005), shade(COLORS.direct, 1, 0.9), [7, 5], 1.4);
     outline(quadFloor(x0, x1, 0, d.L, 0.006), shade(COLORS.anthracite, 1, 0.9), [], 1.2);
 
     const bandX0 = xs - 0.3;
@@ -2984,7 +3109,7 @@ function createViewer(canvas) {
     /* Em perspectiva a cota total fica à esquerda, junto aos trechos: os rótulos desviam da pílula dela. */
     let pill = null;
     if (cam.pitch <= 1.05) {
-      const xs = -dims.Wc / 2 - SAM_PROTRUSION_M;
+      const xs = -dims.Wc / 2;
       const center = project(P(xs - 0.55, 0, dims.L / 2));
       if (center.z > 0.15) pill = { x: center.x, y: center.y, w: tagWidth(model.labels.L, true) };
     }
@@ -3012,8 +3137,7 @@ function createViewer(canvas) {
   function drawRoom() {
     const d = dims;
     const room = model.room;
-    const xs = -d.Wc / 2 - (d.sam || 0);
-    const cx = room.ref === 'sam' ? (xs + d.Wc / 2) / 2 : 0;
+    const cx = 0;
     const a = cx - d.roomW / 2;
     const b = cx + d.roomW / 2;
     const f = d.L / 2 - d.roomL / 2;
@@ -3116,7 +3240,7 @@ function createViewer(canvas) {
     if (model.cooling) drawCoolingBadge();
     if (view.human && !humanFirst) drawHuman();
     if (model.room) drawRoom();
-    const xs = -d.Wc / 2 - SAM_PROTRUSION_M;
+    const xs = -d.Wc / 2;
     dimension(P(d.Wc / 2 + 0.22, 0, -0.08), P(d.Wc / 2 + 0.22, d.H, -0.08), model.labels.H, '#0b3d34');
     dimension(P(-d.Wc / 2, 0, -0.45), P(d.Wc / 2, 0, -0.45), model.labels.physical, '#0b3d34');
     /* Comprimento total: à direita na planta; em perspectiva, à esquerda em primeiro plano, sem cruzar o corpo do robô. */

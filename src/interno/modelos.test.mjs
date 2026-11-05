@@ -69,7 +69,7 @@ describe('tabelas da proposta (slides 4, 8 e 14 a 23)', () => {
         [1.89, 1.69, 2.2],
         [2.4, 2.2, 2.6],
         [2.8, 2.6, 3.0],
-        [3.2, 3.0, 3.4],
+        [3.2, 3.0, 3.55],
         [3.75, 3.55, 3.95],
         [4.15, 3.95, 4.35],
         [4.55, 4.35, 4.75],
@@ -903,10 +903,10 @@ describe('página de modelos isolada', () => {
     }
     assert.match(I18N.de.title, /Kommissionierautomat/);
     assert.match(I18N.de['model.classLine'], /Klasse/);
-    assert.match(I18N.de['field.modelLine.label'], /Modell/);
+    assert.match(I18N.de['field.modelLine.label'], /Typ/);
     assert.match(I18N.es.title, /Modelos Gollmann/);
     assert.match(I18N.es['model.classLine'], /Clase/);
-    assert.match(I18N.es['field.modelLine.label'], /Modelo/);
+    assert.match(I18N.es['field.modelLine.label'], /Tipo/);
     for (const dict of [I18N.de, I18N.es]) {
       const blob = Object.values(dict).join('\n');
       assert.match(blob, /Ex-Tarifário/);
@@ -950,7 +950,7 @@ describe('página de modelos isolada', () => {
         [1.89, 1.69, 2.2],
         [2.4, 2.2, 2.6],
         [2.8, 2.6, 3],
-        [3.2, 3, 3.4],
+        [3.2, 3, 3.55],
         [3.75, 3.55, 3.95],
         [4.15, 3.95, 4.35],
         [4.55, 4.35, 4.75],
@@ -966,7 +966,7 @@ describe('página de modelos isolada', () => {
     assert.equal(direct.quote.volumeM3, 37.76);
     assert.equal(physicalWidthM(3.2, 'compact'), 3);
     assert.equal(physicalWidthM(2.8, 'direct'), 3);
-    assert.equal(Math.round(physicalWidthM(3.2, 'direct') * direct.quote.totalLengthM * 10000) / 10000, 13.6);
+    assert.equal(Math.round(physicalWidthM(3.2, 'direct') * direct.quote.totalLengthM * 10000) / 10000, 14.2);
     const narrow = explain(evaluate({ widthSam: 2.8, classId: 'S', modelLine: 'direct' }))
       .map((block) => block.lines.join('\n'))
       .join('\n');
@@ -978,14 +978,36 @@ describe('página de modelos isolada', () => {
       .map((block) => block.lines.join('\n'))
       .join('\n');
     assert.match(en, /Selected line: GO\.direct/);
-    assert.match(en, /physical width 3\.40 m/);
+    assert.match(en, /final width 3\.55 m/);
     assert.match(page, /id="model-class-line"/);
-    assert.match(page, /Classe 2,80 m · GO\.direct 3,00 m/);
+    assert.match(page, /2,80 → 2,60 \/ 2,80 \/ 3,00/);
+    assert.match(page, /05\/11\/2026/);
+    assert.match(page, /SAM \(representativo\)/);
     assert.match(app, /key: 'modelLine'/);
     assert.match(app, /gcalc\.modelos\.interno\.v3/);
     assert.match(calc, /modelLine: 'compact'/);
     assert.match(readFileSync(join(root, dir, 'i18n.js'), 'utf8'), /field\.modelLine\.label/);
     assert.match(readFileSync(join(root, dir, 'i18n.js'), 'utf8'), /Class \{cls\}/);
+  });
+
+  it('largura final por tipo e SAM (Gollmann 05/11/2026) sem mudar o preço', () => {
+    // GO.direct: +0,40 m, exceto 1,69→2,20 e 3,00→3,55; SAM não muda a largura.
+    assert.equal(physicalWidthM(1.89, 'direct', false), 2.2);
+    assert.equal(physicalWidthM(3.2, 'direct', false), 3.55);
+    for (const width of WIDTHS) {
+      assert.equal(physicalWidthM(width.sam, 'direct', true), physicalWidthM(width.sam, 'direct', false));
+      close(physicalWidthM(width.sam, 'compact', true) - physicalWidthM(width.sam, 'compact', false), 0.2);
+    }
+    const base = evaluate({ modelLine: 'compact', samOn: false });
+    for (const input of [{ modelLine: 'compact', samOn: true }, { modelLine: 'direct', samOn: true }, { modelLine: 'direct', samOn: false }]) {
+      const other = evaluate(input);
+      assert.equal(other.quote.tablePriceEur, base.quote.tablePriceEur);
+      assert.equal(other.totalGrossBrl, base.totalGrossBrl);
+      assert.equal(other.quote.capacityPacks, base.quote.capacityPacks);
+    }
+    assert.equal(sanitize({ modelLine: 'compact', samOn: false, headSide: 'left' }).headSide, 'left');
+    assert.equal(sanitize({ modelLine: 'compact', samOn: true, headSide: 'left' }).headSide, 'right');
+    assert.equal(sanitize({ modelLine: 'direct', samOn: false, headSide: 'left' }).headSide, 'right');
   });
 
   it('desenha estantes transversais, guia verde longitudinal e refrigerado no fundo', () => {
