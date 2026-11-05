@@ -1036,8 +1036,8 @@ describe('página de modelos isolada', () => {
     assert.match(app, /box\(x1 - 0\.22, x1 - 0\.06, railY0, railY1, 0\.1, L - 0\.08/);
     assert.match(app, /fill: '#3f8f3a'/);
     assert.match(app, /const dCool0 = Math\.max\(dStart \+ 0\.6, L - 0\.92\);/);
-    assert.match(app, /rack\(dCool0, dCool0 \+ coolDepth, COLORS\.cool/);
-    assert.match(app, /rack\(dCool1 - coolDepth, dCool1, COLORS\.cool/);
+    assert.match(app, /rack\(dCool0 \+ 0\.04, dCool1 - 0\.04, COLORS\.cool/);
+    assert.equal((app.match(/rack\(dCool/g) || []).length, 1);
     assert.match(app, /box\(Math\.min\(headX1, carX0\), Math\.max\(headX1, carX0\), gy - 0\.03, gy \+ 0\.02/);
     assert.doesNotMatch(app, /const hd = 0\.25;/);
     assert.doesNotMatch(app, /aisles = \(hasExt \? \[0\.25, 0\.75\] : \[0\.5\]\)/);
