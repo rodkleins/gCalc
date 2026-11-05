@@ -3378,7 +3378,9 @@ function createViewer(canvas) {
   });
 
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe(canvas);
-  else window.addEventListener('resize', resize);
+  window.addEventListener('resize', resize);
+  document.addEventListener('fullscreenchange', resize);
+  document.addEventListener('webkitfullscreenchange', resize);
   if ('IntersectionObserver' in window) {
     new IntersectionObserver((entries) => {
       visible = entries.some((entry) => entry.isIntersecting);
@@ -3393,6 +3395,66 @@ function createViewer(canvas) {
   });
   resize();
   return { setModel, setCamera, wake };
+}
+
+/* Tela cheia do 3D: Fullscreen API no cartão do visualizador (webkit no Safari/iPad); sem API, sobreposição fixa na janela. */
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+function isViewerFullscreen() {
+  const card = document.getElementById('viewer-card');
+  return fullscreenElement() === card || card.classList.contains('is-fs-fallback');
+}
+function syncFullscreenButton() {
+  const card = document.getElementById('viewer-card');
+  const button = document.getElementById('fullscreen');
+  if (!card || !button) return;
+  const on = isViewerFullscreen();
+  card.classList.toggle('is-fullscreen', on);
+  document.documentElement.classList.toggle('viewer-fs-lock', card.classList.contains('is-fs-fallback'));
+  const key = on ? 'viewer.fullscreenExit' : 'viewer.fullscreen';
+  const label = on ? t(key, 'Sair da tela cheia') : t(key, 'Tela cheia');
+  button.setAttribute('aria-pressed', on ? 'true' : 'false');
+  button.setAttribute('data-i18n-title', key);
+  button.setAttribute('data-i18n-aria', key);
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  window.dispatchEvent(new Event('resize'));
+}
+function toggleFullscreen() {
+  const card = document.getElementById('viewer-card');
+  if (isViewerFullscreen()) {
+    if (card.classList.contains('is-fs-fallback')) card.classList.remove('is-fs-fallback');
+    else if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    syncFullscreenButton();
+    return;
+  }
+  const request = card.requestFullscreen || card.webkitRequestFullscreen;
+  const fallback = () => {
+    card.classList.add('is-fs-fallback');
+    syncFullscreenButton();
+  };
+  if (!request) return fallback();
+  try {
+    const result = request.call(card);
+    if (result && typeof result.catch === 'function') result.catch(fallback);
+  } catch {
+    fallback();
+  }
+}
+function initFullscreen() {
+  const button = document.getElementById('fullscreen');
+  if (!button) return;
+  button.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', syncFullscreenButton);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.getElementById('viewer-card').classList.contains('is-fs-fallback')) {
+      document.getElementById('viewer-card').classList.remove('is-fs-fallback');
+      syncFullscreenButton();
+    }
+  });
 }
 
 function setXray(on) {
@@ -3496,6 +3558,7 @@ function bindChrome() {
     button.addEventListener('click', () => viewer?.setCamera(button.dataset.camera));
   });
   document.getElementById('xray').addEventListener('click', () => setXray(!view.xray));
+  initFullscreen();
   document.getElementById('human').addEventListener('click', () => {
     view.human = !view.human;
     syncViewButtons();

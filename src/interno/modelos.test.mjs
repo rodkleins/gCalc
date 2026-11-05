@@ -993,6 +993,15 @@ describe('página de modelos isolada', () => {
     assert.match(appSrc, /parsed\.headSideAll !== true && \(next\.samOn \|\| next\.modelLine === 'direct'\)\) next\.headSide = 'right'/);
     assert.match(appSrc, /headSideAll: true, view/);
     assert.doesNotMatch(appSrc, /key: 'headSide',[\s\S]{0,120}showIf/);
+    assert.match(page, /id="fullscreen"[^>]*data-i18n-title="viewer\.fullscreen"/);
+    assert.match(appSrc, /card\.requestFullscreen \|\| card\.webkitRequestFullscreen/);
+    assert.match(appSrc, /card\.classList\.add\('is-fs-fallback'\)/);
+    assert.match(appSrc, /document\.addEventListener\('fullscreenchange', resize\)/);
+    const fsEn = readFileSync(new URL('../../public/interno/modelos/i18n.js', import.meta.url), 'utf8');
+    const fsLoc = readFileSync(new URL('../../public/interno/modelos/i18n.locales.js', import.meta.url), 'utf8');
+    assert.match(fsEn, /'viewer\.fullscreen': 'Fullscreen'/);
+    assert.match(fsLoc, /'viewer\.fullscreen': 'Vollbild'/);
+    assert.match(fsLoc, /'viewer\.fullscreen': 'Pantalla completa'/);
     assert.match(app, /key: 'modelLine'/);
     assert.match(app, /gcalc\.modelos\.interno\.v3/);
     assert.match(calc, /modelLine: 'compact'/);

@@ -35,6 +35,8 @@ export const I18N = {
     'viewer.display': 'Display',
     'viewer.xray': 'Interior view / X-ray',
     'viewer.human': 'Person, 1.70 m',
+    'viewer.fullscreen': 'Fullscreen',
+    'viewer.fullscreenExit': 'Exit fullscreen',
     'viewer.color': 'GO.compact color',
     'viewer.colorModel': 'Color of the {model}',
     'viewer.zoom': 'Zoom',
