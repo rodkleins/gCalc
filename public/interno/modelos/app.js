@@ -1721,43 +1721,71 @@ function captureRecBase() {
 function computeClassRec() {
   classRec = null;
   if (!recBase) return;
-  const grew = state.heightM > recBase.heightM + 1e-9 || state.widthSam > recBase.widthSam + 1e-9;
-  if (state.classId !== recBase.classId || !grew) {
+  if (state.classId !== recBase.classId) {
     recBase = null;
     return;
   }
-  const rec = recommendClass(state.heightM, state.widthSam, recBase.lengthM);
-  if (rec && classRank(rec.classId) > classRank(state.classId)) classRec = { ...rec, baseLengthM: recBase.lengthM };
+  const currentConfig = getConfig(state.heightM, state.widthSam, state.classId);
+  if (!currentConfig) return;
+  const ref = recBase.lengthM;
+  const rec = recommendClass(state.heightM, state.widthSam, ref);
+  if (rec && rec.classId === state.classId) {
+    // Mesma classe no mesmo comprimento (inclusive ao voltar às medidas de antes): sem aviso.
+    recBase = null;
+    return;
+  }
+  const base = { baseLengthM: ref, currentId: state.classId, currentLengthM: currentConfig.lengthM };
+  if (rec) {
+    classRec = { ...rec, ...base, mode: classRank(rec.classId) > classRank(state.classId) ? 'up' : 'down' };
+    return;
+  }
+  // Nenhuma classe cabe no comprimento de antes: a menor desta altura/largura é a opção.
+  const smallestId = classesAt(state.heightM, state.widthSam)[0];
+  const smallest = smallestId ? getConfig(state.heightM, state.widthSam, smallestId) : null;
+  if (!smallest) return;
+  if (smallestId === state.classId) {
+    classRec = { ...base, mode: 'smallest' };
+    return;
+  }
+  classRec = { classId: smallestId, capacityPacks: smallest.capacityPacks, lengthM: smallest.lengthM, priceEur: smallest.priceEur, ...base, mode: 'down' };
+}
+function classRecText(rec) {
+  const ref = formatMeters(rec.baseLengthM);
+  const now = formatMeters(rec.currentLengthM);
+  const cur = rec.currentId;
+  if (rec.mode === 'smallest') {
+    return t('rec.smallest', `Com esta altura/largura, nenhuma classe cabe nos ${ref} anteriores. A classe ${cur} já é a menor opção e o robô passa a ter ${now} de comprimento.`, { ref, cur, now });
+  }
+  const packs = formatPacks(rec.capacityPacks);
+  if (rec.mode === 'down') {
+    return t('rec.down', `Com esta altura/largura, a classe ${cur} passa a ter ${now} de comprimento (maior que os ${ref} anteriores). No mesmo comprimento cabe a classe ${rec.classId} (${packs}). Recomendamos mudar para ${rec.classId}.`, { cur, now, ref, cls: rec.classId, packs });
+  }
+  return t('rec.text', `Com esta altura/largura, no mesmo comprimento (${ref}) cabe a classe ${rec.classId} (${packs}). Recomendamos mudar para ${rec.classId}.`, { length: ref, cls: rec.classId, packs });
 }
 function classRecBox() {
   const rec = classRec;
-  const box = el('div', 'class-rec');
+  const box = el('div', `class-rec is-${rec.mode}`);
   box.setAttribute('role', 'status');
-  const length = formatMeters(rec.baseLengthM);
-  const packs = formatPacks(rec.capacityPacks);
-  box.append(
-    el(
-      'p',
-      null,
-      t('rec.text', `Com esta altura/largura, no mesmo comprimento (${length}) cabe a classe ${rec.classId} (${packs}). Recomendamos mudar para ${rec.classId}.`, { length, cls: rec.classId, packs }),
-    ),
-  );
+  box.append(el('p', null, classRecText(rec)));
   const actions = el('div', 'class-rec-actions');
-  const apply = el('button', 'class-rec-apply', t('rec.apply', 'Aplicar classe recomendada'));
-  apply.type = 'button';
-  apply.addEventListener('click', () => {
-    const select = controls.get('classId')?.select;
-    if (!select) return;
-    select.value = rec.classId;
-    select.dispatchEvent(new Event('change'));
-  });
+  if (rec.mode !== 'smallest') {
+    const apply = el('button', 'class-rec-apply', t('rec.apply', 'Aplicar classe recomendada'));
+    apply.type = 'button';
+    apply.addEventListener('click', () => {
+      const select = controls.get('classId')?.select;
+      if (!select) return;
+      select.value = rec.classId;
+      select.dispatchEvent(new Event('change'));
+    });
+    actions.append(apply);
+  }
   const dismiss = el('button', 'class-rec-dismiss', t('rec.dismiss', 'Dispensar'));
   dismiss.type = 'button';
   dismiss.addEventListener('click', () => {
     recBase = null;
     if (current) render(current);
   });
-  actions.append(apply, dismiss);
+  actions.append(dismiss);
   box.append(actions);
   return box;
 }

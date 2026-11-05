@@ -40,6 +40,8 @@ export const I18N = {
     'viewer.panel': 'Robot options',
     'rec.text': 'With this height/width, the same length ({length}) fits class {cls} ({packs}). We recommend switching to {cls}.',
     'rec.apply': 'Apply recommended class',
+    'rec.down': 'With this height/width, class {cur} becomes {now} long (more than the previous {ref}). Within the same length, class {cls} fits ({packs}). We recommend switching to {cls}.',
+    'rec.smallest': 'With this height/width, no class fits the previous {ref}. Class {cur} is already the smallest option and the robot grows to {now} long.',
     'rec.dismiss': 'Dismiss',
     'dims.capacityNote': 'The class sets the capacity; height and width change length and price (Gollmann, slide 2).',
     'viewer.panelCollapse': 'Minimize options',

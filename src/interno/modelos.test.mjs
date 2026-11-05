@@ -1131,3 +1131,37 @@ describe('classe recomendada no mesmo comprimento', () => {
     assert.equal(recommendClass(2.95, 1.89, 1.0), null);
   });
 });
+
+describe('classe recomendada ao diminuir altura ou largura', () => {
+  it('2,95 m, L em 3,20 (4,00 m) → largura 2,80: L cresce para 4,37 m e cabe M (15.000) em 4,00 m', () => {
+    assert.equal(getConfig(2.95, 3.2, 'L').lengthM, 4.0);
+    assert.equal(getConfig(2.95, 2.8, 'L').lengthM, 4.37);
+    const rec = recommendClass(2.95, 2.8, 4.0);
+    assert.equal(rec.classId, 'M');
+    assert.equal(rec.capacityPacks, 15000);
+    assert.ok(classRank(rec.classId) < classRank('L'));
+  });
+  it('menos altura: 3,55 → 2,95 m em 3,20 com L (3,37 m) recomenda M', () => {
+    assert.equal(getConfig(3.55, 3.2, 'L').lengthM, 3.37);
+    assert.equal(recommendClass(2.95, 3.2, 3.37).classId, 'M');
+    assert.equal(recommendClass(2.95, 3.2, 3.36).classId, 'S');
+  });
+  it('nenhuma classe cabe: S em 3,75 (2,45 m) → largura 1,89 não tem recomendação', () => {
+    assert.equal(getConfig(2.95, 3.75, 'S').lengthM, 2.45);
+    assert.equal(recommendClass(2.95, 1.89, 2.45), null);
+    assert.deepEqual(classesAt(2.95, 1.89)[0], 'S');
+  });
+  it('a página trata os modos up, down e smallest em 4 idiomas', () => {
+    const src = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+    assert.match(src, /mode: classRank\(rec\.classId\) > classRank\(state\.classId\) \? 'up' : 'down'/);
+    assert.match(src, /classRec = \{ \.\.\.base, mode: 'smallest' \}/);
+    assert.match(src, /if \(rec && rec\.classId === state\.classId\) \{/);
+    assert.doesNotMatch(src, /const grew = /);
+    const en = readFileSync(new URL('../../public/interno/modelos/i18n.js', import.meta.url), 'utf8');
+    const loc = readFileSync(new URL('../../public/interno/modelos/i18n.locales.js', import.meta.url), 'utf8');
+    assert.match(en, /'rec\.down': 'With this height\/width, class \{cur\} becomes \{now\} long/);
+    assert.match(en, /'rec\.smallest'/);
+    assert.equal((loc.match(/'rec\.down'/g) || []).length, 2);
+    assert.equal((loc.match(/'rec\.smallest'/g) || []).length, 2);
+  });
+});
