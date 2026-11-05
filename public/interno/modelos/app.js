@@ -1877,6 +1877,38 @@ function samLayout(d, model) {
 }
 
 /** Espelha faces em x (cabeça de picking à esquerda). Decalques com texto trocam a ordem para não ficarem invertidos. */
+/* Calha externa do SAM: bandeja plástica cinza que sai pelo vidro, desce para fora e termina num batente. */
+const SAM_CHUTE = { out: 0.28, yIn: 1.16, yOut: 1.06, wall: 0.06, lip: 0.07 };
+function samChuteFloorY(xg, x) {
+  const t = Math.min(1, Math.max(0, (xg - x) / SAM_CHUTE.out));
+  return SAM_CHUTE.yIn + (SAM_CHUTE.yOut - SAM_CHUTE.yIn) * t;
+}
+function samChuteFaces(xg, sam, alpha) {
+  const faces = [];
+  const xo = xg - SAM_CHUTE.out;
+  const { yIn, yOut, wall, lip } = SAM_CHUTE;
+  const st = { fill: '#9aa1a6', alpha, stroke: '#5d6468', strokeAlpha: alpha };
+  const ny = SAM_CHUTE.out;
+  const nx = yIn - yOut;
+  const nl = Math.hypot(nx, ny);
+  for (const td of sam.trays) {
+    const t0 = td - SAM_BAND.trayW / 2;
+    const t1 = td + SAM_BAND.trayW / 2;
+    faces.push({ name: 'top', n: [-nx / nl, ny / nl, 0], pts: [P(xg, yIn, t0), P(xg, yIn, t1), P(xo, yOut, t1), P(xo, yOut, t0)], ...st, fill: '#b4babe', bias: -0.03 });
+    faces.push({ name: 'bottom', n: [nx / nl, -ny / nl, 0], pts: [P(xg, yIn - 0.02, t0), P(xo, yOut - 0.02, t0), P(xo, yOut - 0.02, t1), P(xg, yIn - 0.02, t1)], ...st, fill: '#7d8489' });
+    for (const [dd, sgn] of [[t0, -1], [t1, 1]]) {
+      const pts = [P(xg, yIn - 0.02, dd), P(xg, yIn + wall, dd), P(xo, yOut + wall, dd), P(xo, yOut - 0.02, dd)];
+      faces.push({ name: 'wall', n: [0, 0, sgn], pts, ...st, fill: '#8f969b' });
+      faces.push({ name: 'wall', n: [0, 0, -sgn], pts: [...pts].reverse(), ...st, fill: '#a7adb1' });
+    }
+    faces.push(...box(xo - 0.015, xo, yOut - 0.02, yOut + lip, t0, t1, { fill: '#8a9196', alpha, stroke: '#5d6468', strokeAlpha: alpha }));
+    faces.push(...box(xg - 0.035, xg - 0.004, SAM_BAND.holderY0 - 0.06, SAM_BAND.holderY1, td - 0.09, td + 0.09, { fill: '#f4f6f7', alpha, stroke: '#9aa3a8', strokeAlpha: alpha }));
+    faces.push(...box(xg - 0.035, xg - 0.004, SAM_BAND.trayY1 + 0.02, SAM_BAND.holderY0 - 0.06, td - 0.09, td - 0.07, { fill: '#f4f6f7', alpha, stroke: '#9aa3a8', strokeAlpha: alpha }));
+    faces.push(...box(xg - 0.035, xg - 0.004, SAM_BAND.trayY1 + 0.02, SAM_BAND.holderY0 - 0.06, td + 0.07, td + 0.09, { fill: '#f4f6f7', alpha, stroke: '#9aa3a8', strokeAlpha: alpha }));
+  }
+  return faces;
+}
+
 function mirrorFaces(faces) {
   const m = (p) => [-p[0], p[1], p[2]];
   return faces.map((face) => ({
@@ -2401,9 +2433,18 @@ function createViewer(canvas) {
       },
     });
     let internals = mix > 0.02 ? buildInternals(fh) : [];
+    // Calhas externas do SAM: no modo normal entram na carcaça; nos raios-X vão com o interior (ordenadas junto da caixa animada).
+    if (model.samOn) {
+      const chutes = samChuteFaces(x0, samLayout(d, model), 1);
+      if (internals.length) internals.push(...chutes.map((face) => ({ ...face, outside: true })));
+      else shell.push(...chutes);
+    }
     // Cabeça à esquerda (só GO.compact sem SAM): espelha o interior; as portas de vidro continuam à direita.
     if (internals.length && model.headSide === 'left') internals = mirrorFaces(internals);
-    return { shell, internals };
+    // Fora do vidro (calhas do SAM e a caixa nelas) desenha por cima da carcaça.
+    const outside = internals.filter((face) => face.outside);
+    internals = internals.filter((face) => !face.outside);
+    return { shell, internals, outside };
   }
 
   /* Interior para os raios-X: estantes que deslizam em d, o mastro entra no vão e a esteira corre no alto. */
@@ -2675,11 +2716,10 @@ function createViewer(canvas) {
       }
     }
 
-    /* Módulo refrigerado: sempre a última seção, no fundo do robô, com duas fileiras transversais numa câmara azul. */
+    /* Módulo refrigerado: sempre a última seção, no fundo do robô, com uma única estante numa câmara azul. */
     if (model.cooling) {
-      const coolDepth = (dCool1 - dCool0 - gap) / 2;
-      rack(dCool0, dCool0 + coolDepth, COLORS.cool, COLORS.cool, 0.62 * mix, null, null);
-      rack(dCool1 - coolDepth, dCool1, COLORS.cool, COLORS.cool, 0.62 * mix, null, null);
+      // Um único módulo refrigerado (uma estante), sempre no fim do robô.
+      rack(dCool0 + 0.04, dCool1 - 0.04, COLORS.cool, COLORS.cool, 0.62 * mix, null, null);
       faces.push(
         ...box(shelfX0 - 0.03, shelfX1 + 0.03, 0.08, rackTop + 0.04, dCool0 - 0.02, dCool1 + 0.02, {
           fill: COLORS.cool,
@@ -2913,10 +2953,21 @@ function createViewer(canvas) {
           boxY = beltTop;
           boxD = dCenter + (td - dCenter) * (u / 0.55);
         } else {
+          // Cai da esteira até a abertura, atravessa o vidro, desce a calha externa e para no batente.
           const v = (u - 0.55) / 0.45;
           boxD = td;
-          boxX = beltCenter + (trayOut + 0.08 - beltCenter) * v;
-          boxY = beltTop + (SAM_BAND.trayY0 + 0.05 - beltTop) * Math.min(1, v * 1.4);
+          const xIn = shellX0 + 0.06;
+          const xStop = shellX0 - SAM_CHUTE.out + 0.015 + 0.065;
+          if (v < 0.3) {
+            const w = v / 0.3;
+            boxX = beltCenter + (xIn - beltCenter) * w;
+            boxY = beltTop + (samChuteFloorY(shellX0, xIn) + 0.01 - beltTop) * w;
+          } else {
+            const w = Math.min(1, (v - 0.3) / 0.4);
+            const e = 1 - (1 - w) * (1 - w);
+            boxX = xIn + (xStop - xIn) * e;
+            boxY = samChuteFloorY(shellX0, boxX) + 0.005;
+          }
         }
       } else if (pose.boxMode === 'dump') {
         const beltCenter = (beltX0 + beltX1) / 2;
@@ -2942,7 +2993,7 @@ function createViewer(canvas) {
               },
             }),
             -24,
-          ),
+          ).map((face) => (boxX + bw / 2 < shellX0 - 0.005 ? { ...face, outside: true } : face)),
         );
       }
       dragChain(dCenter, carX0);
@@ -3242,7 +3293,7 @@ function createViewer(canvas) {
     basis = computeBasis();
     const d = dims;
     const segments = drawFloor();
-    const { shell, internals } = buildRobot();
+    const { shell, internals, outside } = buildRobot();
     const humanPoint = project(P(d.Wc / 2 + 0.95, 0.85, -0.55));
     const corner = project(P(d.Wc / 2, 0.85, 0));
     const humanFirst = humanPoint.z > corner.z;
@@ -3253,6 +3304,7 @@ function createViewer(canvas) {
       drawSorted(back, false);
       drawSorted(internals, false);
       drawSorted(front, false);
+      if (outside.length) drawSorted(outside, false);
     } else {
       drawSorted(shell, true);
     }
