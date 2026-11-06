@@ -166,7 +166,7 @@ const SECTIONS = [
         label: 'Lado da cabeça de picking',
         kind: 'select',
         wide: true,
-        tooltip: 'Em todos os tipos: a cabeça de picking corre à esquerda ou à direita e o 3D espelha por inteiro. A esteira interna e o SAM (saídas e calhas externas) ficam sempre na parede oposta; no GO.compact as portas de vidro de correr ficam do lado da cabeça.',
+        tooltip: 'Em todos os tipos: a cabeça de picking corre à esquerda ou à direita e o 3D espelha por inteiro. A esteira superior (saída externa da loja) e o SAM (saídas laterais com calhas) ficam na parede oposta à cabeça — são caminhos distintos; no GO.compact as portas de vidro de correr ficam do lado da cabeça.',
       },
       {
         key: 'widthSam',
@@ -614,8 +614,8 @@ function selectOptions(key) {
   }
   if (key === 'headSide') {
     return [
-      { value: 'right', label: t('opt.head.right', 'Direita (esteira/SAM à esquerda)') },
-      { value: 'left', label: t('opt.head.left', 'Esquerda (esteira/SAM à direita)') },
+      { value: 'right', label: t('opt.head.right', 'Direita (esteira e SAM à esquerda)') },
+      { value: 'left', label: t('opt.head.left', 'Esquerda (esteira e SAM à direita)') },
     ];
   }
   if (key === 'classId') {
@@ -2053,8 +2053,6 @@ function samLayout(d, model) {
  */
 const SAM_CHUTE_ESTIMATE = { out: 0.28, yIn: 1.16, yOut: 1.06, wall: 0.06, lip: 0.07 };
 const SAM_CHUTE = SAM_CHUTE_ESTIMATE;
-/** ESTIMATIVA: calha vertical simples da esteira (no trilho) até cada saída do SAM; meia profundidade em m. */
-const SAM_DROP = { half: 0.12 };
 function samChuteFloorY(xg, x) {
   const t = Math.min(1, Math.max(0, (xg - x) / SAM_CHUTE.out));
   return SAM_CHUTE.yIn + (SAM_CHUTE.yOut - SAM_CHUTE.yIn) * t;
@@ -2711,8 +2709,9 @@ function createViewer(canvas) {
        0,22–0,26 o vão fica aberto, com o mastro ainda na lateral.
        0,26–0,44 o mastro inteiro entra no corredor, acende o feixe de laser e abre as pás.
        0,44–0,62 as pás recuam e puxam a caixa.
-       0,62–0,80 o mastro recua até a esteira preta.
-       0,80–1 solta a caixa na esteira do alto, que a leva para a frente. */
+       0,62–0,80 o mastro recua com a caixa na bandeja.
+       0,80–1 duas saídas distintas: (A) esteira superior = saída externa da loja; (B) com SAM, em ciclos pares,
+       o braço entrega direto na bandeja/calha lateral do SAM (a esteira NÃO alimenta o SAM). */
     const gripperCycle = (phase, zone0, zone1) => {
       const shifted = time + phase;
       const slot = Math.floor(shifted / CYCLE);
@@ -2784,7 +2783,13 @@ function createViewer(canvas) {
         reach = 1 - u;
         paddle = 0.3 * (1 - u);
         boxMode = 'tray';
+      } else if (sam && slot % 2 === 0) {
+        // Ciclos pares com SAM: entrega lateral (não usa a esteira superior).
+        reach = 0;
+        boxMode = 'sam';
+        boxU = (local - 0.8) / 0.2;
       } else if (local < 0.9) {
+        // Saída externa da loja: solta na esteira superior.
         reach = 0;
         boxMode = 'dump';
         boxU = smoothstep((local - 0.8) / 0.1);
@@ -2945,9 +2950,8 @@ function createViewer(canvas) {
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, 0.1, 0.18, railStyle));
     faces.push(...box(x0 + 0.06, x1 - 0.06, railY0, railY1, L - 0.16, L - 0.08, railStyle));
 
-    /* Esteira interna sempre colada na parede longa oposta à cabeça (com ou sem SAM), SEMPRE na altura do trilho
-       do braço (acompanha a altura do robô). Com SAM, as saídas ficam na altura de coleta delas (SAM_BAND) e cada
-       uma recebe uma calha vertical simples que desce da esteira até a bandeja (simplificação visual). */
+    /* Esteira superior = saída externa da loja (NÃO alimenta o SAM). Sempre colada na parede oposta à cabeça,
+       na altura do trilho do braço. O SAM é um caminho lateral separado: o braço entrega direto na bandeja/calha. */
     const beltX0 = shellX0 + 0.03;
     const beltX1 = beltX0 + 0.23;
     const beltTop = railY0 - 0.02;
@@ -2965,24 +2969,6 @@ function createViewer(canvas) {
         faces: { top: { lines: beltLines, lineColor: '#4a5158', lineAlpha: 0.7 * mix } },
       }),
     );
-    // Calhas de descida da esteira até cada saída do SAM: duto vertical cinza, da face de baixo da esteira até
-    // o alto da faixa do SAM. Simplificação: o desenho real da descida ainda não veio da Gollmann.
-    if (sam) {
-      const dropTop = beltBottom;
-      const dropBottom = SAM_BAND.y1 - 0.02;
-      if (dropTop - dropBottom > 0.05) {
-        for (const td of sam.trays) {
-          faces.push(
-            ...box(beltX0 + 0.04, beltX1 - 0.04, dropBottom, dropTop, td - SAM_DROP.half, td + SAM_DROP.half, {
-              fill: '#9aa1a6',
-              alpha: 0.55 * mix,
-              stroke: '#5d6468',
-              strokeAlpha: 0.8 * mix,
-            }),
-          );
-        }
-      }
-    }
     // Consoles de parede (não mais pendurais no teto).
     for (const bracket of [0.4, L * 0.5, L - 0.4]) {
       faces.push(
@@ -3045,9 +3031,12 @@ function createViewer(canvas) {
         ? xAisle + (xUnload - xAisle) * (1 - pose.reach)
         : pose.boxMode === 'dump' || pose.boxMode === 'belt'
           ? xUnload
-          : xPark + (xAisle - xPark) * pose.reach;
+          : pose.boxMode === 'sam'
+            ? xUnload + (shellX0 + 0.28 - xUnload) * Math.min(1, pose.boxU / 0.4)
+            : xPark + (xAisle - xPark) * pose.reach;
       let gy = 0.42 + (rackTop - 0.95) * pose.yNorm;
       if (pose.boxMode === 'dump') gy += (beltTop - 0.08 - gy) * pose.boxU;
+      if (pose.boxMode === 'sam') gy += (SAM_BAND.trayY1 - gy) * Math.min(1, pose.boxU / 0.4);
       const carX0 = gx + 0.02;
       const carY1 = railY1 + 0.03;
       const dCenter = pose.dCenter;
@@ -3153,43 +3142,36 @@ function createViewer(canvas) {
       } else if (pose.boxMode === 'tray') {
         boxX = gx - 0.02;
         boxY = gy + 0.02;
-      } else if (pose.boxMode === 'belt' && sam) {
-        // Com SAM: a esteira de parede leva a caixa até a saída mais próxima, que a solta na bandeja inclinada.
+      } else if (pose.boxMode === 'sam' && sam) {
+        // Saída SAM: o braço entrega direto na bandeja lateral; a esteira superior NÃO participa.
         const td = sam.nearest(dCenter);
         const u = pose.boxU;
-        const beltCenter = (beltX0 + beltX1) / 2;
-        if (u < 0.55) {
-          boxX = beltCenter;
-          boxY = beltTop;
-          boxD = dCenter + (td - dCenter) * (u / 0.55);
-        } else {
-          // Cai da esteira até a abertura, atravessa o vidro, desce a calha externa e para no batente.
-          const v = (u - 0.55) / 0.45;
+        const trayY = SAM_BAND.trayY1 + 0.01;
+        const xIn = shellX0 + 0.06;
+        const xStop = shellX0 - SAM_CHUTE.out + 0.015 + 0.065;
+        if (u < 0.4) {
+          boxX = gx - 0.02;
+          boxY = gy + 0.02;
+          boxD = dCenter + (td - dCenter) * (u / 0.4);
+        } else if (u < 0.55) {
+          const w = (u - 0.4) / 0.15;
           boxD = td;
-          const xIn = shellX0 + 0.06;
-          const xStop = shellX0 - SAM_CHUTE.out + 0.015 + 0.065;
-          const pickY = samChuteFloorY(shellX0, xIn) + 0.01;
-          if (v < 0.18) {
-            // Desce pela calha vertical, da esteira (altura do trilho) até a altura de coleta do SAM.
-            const w = smoothstep(v / 0.18);
-            boxX = beltCenter;
-            boxY = beltTop + (pickY - beltTop) * w;
-          } else if (v < 0.3) {
-            const w = (v - 0.18) / 0.12;
-            boxX = beltCenter + (xIn - beltCenter) * w;
-            boxY = pickY;
-          } else {
-            const w = Math.min(1, (v - 0.3) / 0.4);
-            const e = 1 - (1 - w) * (1 - w);
-            boxX = xIn + (xStop - xIn) * e;
-            boxY = samChuteFloorY(shellX0, boxX) + 0.005;
-          }
+          boxX = (gx - 0.02) + (xIn - (gx - 0.02)) * w;
+          boxY = (gy + 0.02) + (trayY - (gy + 0.02)) * w;
+        } else {
+          const w = Math.min(1, (u - 0.55) / 0.45);
+          const e = 1 - (1 - w) * (1 - w);
+          boxD = td;
+          boxX = xIn + (xStop - xIn) * e;
+          boxY = samChuteFloorY(shellX0, boxX) + 0.005;
         }
       } else if (pose.boxMode === 'dump') {
+        // Saída externa da loja: solta na esteira superior.
         const beltCenter = (beltX0 + beltX1) / 2;
         boxX = gx + (beltCenter - gx) * pose.boxU;
         boxY = gy + 0.02 + (beltTop - (gy + 0.02)) * pose.boxU;
       } else if (pose.boxMode === 'belt') {
+        // Esteira superior leva a caixa para a frente (saída da loja), nunca para o SAM.
         boxX = (beltX0 + beltX1) / 2 - 0.02;
         boxY = beltTop;
         boxD = dCenter - pose.boxU * Math.min(1.15, Math.max(0.2, dCenter - 0.35));

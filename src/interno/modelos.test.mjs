@@ -984,7 +984,8 @@ describe('página de modelos isolada', () => {
     assert.match(page, /id="model-class-line"/);
     assert.match(page, /2,80 → 2,60 \/ 2,80 \/ 3,00/);
     assert.match(page, /05\/11\/2026/);
-    assert.match(page, /SAM \(saídas laterais, representativo\)/);
+    assert.match(page, /SAM \(saídas laterais — braço entrega na bandeja\)/);
+    assert.match(page, /Esteira superior \(saída externa da loja\)/);
     assert.match(page, /Schnellauslagerungsmodul/);
     assert.match(page, /no máximo 4 saídas/);
     assert.match(page, /esteira interna fica sempre colada na parede/);
@@ -1062,7 +1063,7 @@ describe('página de modelos isolada', () => {
     assert.match(app, /const CYCLE = 8\.6;/);
     assert.match(app, /const gripperCycle = \(phase, zone0, zone1\)/);
     assert.match(app, /feixe de laser/);
-    assert.match(app, /esteira preta/);
+    assert.match(app, /saída externa da loja/);
     assert.match(app, /esteira porta-cabos/i);
     assert.match(app, /fill: '#e2312d'/);
     assert.match(app, /phase: CYCLE \/ 2/);
@@ -1234,13 +1235,35 @@ describe('esteira na altura do trilho e letras dos módulos', () => {
     assert.match(src, /const beltTop = railY0 - 0\.02;/);
     assert.doesNotMatch(src, /beltTop = sam \? SAM_BAND\.y1/);
   });
-  it('com SAM, calhas verticais descem da esteira até as saídas, que ficam na altura de coleta', () => {
-    assert.match(src, /const SAM_DROP = \{ half: 0\.12 \};/);
-    assert.match(src, /const dropBottom = SAM_BAND\.y1 - 0\.02;/);
-    assert.match(src, /for \(const td of sam\.trays\) \{\n          faces\.push\(\n            \.\.\.box\(beltX0 \+ 0\.04, beltX1 - 0\.04, dropBottom, dropTop/);
-    assert.match(src, /boxY = beltTop \+ \(pickY - beltTop\) \* w;/);
+  it('esteira superior é saída da loja; SAM é caminho lateral separado (sem calha esteira→SAM)', () => {
+    assert.doesNotMatch(src, /SAM_DROP/);
+    assert.doesNotMatch(src, /dropBottom = SAM_BAND\.y1/);
+    assert.doesNotMatch(src, /beltTop = sam \? SAM_BAND/);
+    assert.match(src, /Esteira superior = saída externa da loja \(NÃO alimenta o SAM\)/);
+    assert.match(src, /boxMode = 'sam'/);
+    assert.match(src, /pose\.boxMode === 'sam' && sam/);
+    assert.match(src, /Esteira superior leva a caixa para a frente \(saída da loja\), nunca para o SAM/);
   });
   it('letras dos módulos começam em A', () => {
     assert.match(src, /const RACK_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';/);
+  });
+});
+
+describe('esteira ≠ SAM (textos e legenda)', () => {
+  it('premissas e legenda em PT/EN/DE/ES separam esteira superior e SAM', () => {
+    const en = readFileSync(new URL('../../public/interno/modelos/i18n.js', import.meta.url), 'utf8');
+    const loc = readFileSync(new URL('../../public/interno/modelos/i18n.locales.js', import.meta.url), 'utf8');
+    const page = readFileSync(new URL('../../public/interno/modelos/index.html', import.meta.url), 'utf8');
+    assert.match(en, /it is the external store exit, not a SAM feeder/);
+    assert.match(loc, /es ist die externe Ladenausgabe, kein SAM-Zubringer/);
+    assert.match(loc, /es la salida externa de la tienda, no alimenta el SAM/);
+    assert.match(page, /ela é a saída externa da loja, não alimenta o SAM/);
+    assert.doesNotMatch(en, /with SAM it feeds the exits/);
+    assert.doesNotMatch(loc, /speist es die Ausgaben/);
+    assert.doesNotMatch(loc, /con SAM alimenta las salidas/);
+    assert.match(en, /'legend\.belt': 'Upper conveyor \(external store exit\)'/);
+    assert.match(loc, /'legend\.belt': 'Oberes Förderband \(externe Ladenausgabe\)'/);
+    assert.match(loc, /'legend\.belt': 'Cinta superior \(salida externa de la tienda\)'/);
+    assert.match(page, /data-i18n="legend\.belt"/);
   });
 });

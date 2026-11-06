@@ -812,6 +812,7 @@ body { padding-bottom: 5.6rem; }
 
 .swatch-body { background: #23272b; }
 .swatch-sam { background: #24282b; border: 2px solid #f4f6f7; box-shadow: 0 0 0 1px #9aa3a8; }
+.swatch-belt { background: #1a1d20; border: 2px solid #4a5158; }
 .swatch-direct { background: #cfe8d8; border: 2px dashed #8a8f93; }
 .swatch-manual { background: #7c8b93; }
 .swatch-speed { background: #4f9d69; }
