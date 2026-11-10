@@ -7,6 +7,8 @@ import {
   LENGTH_INCLUDED,
   NCM_INFO,
   OPTIONS,
+  secondGripperExtraLengthM,
+  speedLengthM,
   PRESETS,
   WIDTHS,
   WIDTH_REF_LABELS,
@@ -205,9 +207,9 @@ const SECTIONS = [
         key: 'secondGripper',
         label: '2º braço',
         kind: 'check',
-        checkLabel: '2º braço / gripper c/ 2º SAM (+€ 14.000 e +0,68 m)',
+        checkLabel: '2º braço / gripper c/ 2º SAM (+€ 14.000 e +0,58 m)',
         wide: true,
-        tooltip: 'Segundo gripper com segundo módulo de saída rápida. Exige +68 cm de comprimento: o filtro da sala já soma isso.',
+        tooltip: 'Segundo gripper com segundo módulo de saída rápida. Com ele, a speed passa de +0,17 m para +0,27 m e o módulo soma +0,58 m (no total +0,68 m sobre a tabela). O filtro da sala já inclui esse acréscimo.',
       },
       {
         key: 'coolingModule',
@@ -307,7 +309,7 @@ const SECTIONS = [
         min: 0.5,
         max: 30,
         lockedBy: 'roomFilterOn',
-        tooltip: 'Comprimento da tabela, já com carga manual e speed, mais 0,68 m se o 2º braço estiver marcado.',
+        tooltip: 'Comprimento da tabela, já com carga manual e speed (+0,17 m). Com o 2º braço a speed passa a +0,27 m e o módulo soma +0,58 m (no total +0,68 m sobre a tabela).',
       },
       {
         key: 'minCapacity',
@@ -654,6 +656,10 @@ function fieldTip(field) {
 }
 
 function fieldCheck(field) {
+  if (field.key === 'secondGripper') {
+    const m = formatMeters(OPTIONS.secondGripperLengthM);
+    return t('field.secondGripper.check', `2º braço / gripper c/ 2º SAM (+€ 14.000 e +${m})`, { m });
+  }
   return t(`field.${field.key}.check`, field.checkLabel || 'Ligado');
 }
 
@@ -698,9 +704,10 @@ function renderField(field) {
       state[field.key] = input.checked;
       commit();
     });
-    row.append(input, el('span', null, fieldCheck(field)));
+    const checkText = el('span', null, fieldCheck(field));
+    row.append(input, checkText);
     wrap.append(row);
-    controls.set(field.key, { field, check: input, wrap });
+    controls.set(field.key, { field, check: input, checkText, wrap });
     return wrap;
   }
 
@@ -848,6 +855,7 @@ function fillControls() {
   for (const [key, control] of controls) {
     const value = state[key];
     if (control.check) control.check.checked = Boolean(value);
+    if (control.checkText) control.checkText.textContent = fieldCheck(control.field);
     if (control.select) {
       const options = selectOptions(key);
       control.select.replaceChildren(
@@ -1174,7 +1182,6 @@ function renderDims(result) {
   };
   const pills = [
     [t('pill.height', 'Altura'), formatMeters(quote.heightM), status('height')],
-    [t('pill.class', 'Classe'), formatMeters(quote.widthSam), ''],
     [`${t('pill.width', 'Largura final')} · ${model.name}${model.samOn ? ' + SAM' : ''}`, formatMeters(model.width), result.roomWidthRef === 'final' ? status('width') : ''],
     [t('pill.length', 'Comprimento total'), formatMeters(quote.totalLengthM), status('length')],
     [t('pill.area', 'Área do modelo'), m2(model.area), ''],
@@ -1234,14 +1241,14 @@ function renderSpace(result) {
     ...(room.capacityOk ? [] : [t('space.capacity', `capacidade ${formatPacks(quote.capacityPacks)} abaixo do mínimo`, { packs: formatPacks(quote.capacityPacks) })]),
   ];
   const fitText = room.fits ? t('space.fits', 'O modelo atual cabe.') : t('space.miss', `O modelo atual não cabe: ${reasons.join(', ')}.`, { reasons: reasons.join(', ') });
-  summary.textContent = t('space.summary', `${formatFlex(space.count)} de ${formatFlex(space.total)} configurações cabem: pé-direito ${limit(result.roomHeightM)}, largura ${limit(result.roomWidthM)} (${WIDTH_REF_LABELS[result.roomWidthRef]}), comprimento ${limit(result.roomLengthM)}${result.secondGripper ? ' já com +0,68 m do 2º braço' : ''}, capacidade mínima ${result.minCapacity == null ? 'livre' : formatPacks(result.minCapacity)}. ${fitText}`, {
+  summary.textContent = t('space.summary', `${formatFlex(space.count)} de ${formatFlex(space.total)} configurações cabem: pé-direito ${limit(result.roomHeightM)}, largura ${limit(result.roomWidthM)} (${WIDTH_REF_LABELS[result.roomWidthRef]}), comprimento ${limit(result.roomLengthM)}${result.secondGripper ? t('space.arm', ` já com +${formatMeters(quote.extraLengthM)} do 2º braço`, { m: formatMeters(quote.extraLengthM) }) : ''}, capacidade mínima ${result.minCapacity == null ? 'livre' : formatPacks(result.minCapacity)}. ${fitText}`, {
     count: formatFlex(space.count),
     total: formatFlex(space.total),
     height: limit(result.roomHeightM),
     width: limit(result.roomWidthM),
     ref: t(`ref.${result.roomWidthRef}`, WIDTH_REF_LABELS[result.roomWidthRef]),
     length: limit(result.roomLengthM),
-    arm: result.secondGripper ? t('space.arm', ' já com +0,68 m do 2º braço') : '',
+    arm: result.secondGripper ? t('space.arm', ` já com +${formatMeters(quote.extraLengthM)} do 2º braço`, { m: formatMeters(quote.extraLengthM) }) : '',
     capacity: result.minCapacity == null ? t('free', 'livre') : formatPacks(result.minCapacity),
     fit: fitText,
   });
@@ -1720,6 +1727,12 @@ function renderModelChrome(result) {
   if (legendOther) {
     legendOther.textContent = t('legend.direct', 'Área caminhável (GO.direct)');
   }
+  const speedM = formatMeters(speedLengthM(result.quote.secondGripper));
+  const armM = formatMeters(OPTIONS.secondGripperLengthM);
+  const legendSpeed = document.querySelector('[data-i18n="legend.speed"]');
+  if (legendSpeed) legendSpeed.textContent = t('legend.speed', `+${speedM} speed`, { m: speedM });
+  const legendGrip = document.querySelector('[data-i18n="legend.grip"]');
+  if (legendGrip) legendGrip.textContent = t('legend.grip', `+${armM} 2º braço`, { m: armM });
   const colorGroup = document.querySelector('.swatches');
   if (colorGroup) colorGroup.setAttribute('aria-label', t('viewer.colorModel', `Cor do ${model.name}`, { model: model.name }));
 }
@@ -1729,9 +1742,9 @@ function renderModelChrome(result) {
 /* maior no mesmo comprimento que o robô tinha antes da mudança. Só avisa; o modo continua classe-first. */
 /* ------------------------------------------------------------------------------------------------ */
 let classRec = null;
-/** Comprimento que não está na tabela: o 2º braço soma +0,68 m. Referência e candidatas comparam total com total. */
+/** Comprimento que não está na tabela: com o 2º braço o acréscimo total continua +0,68 m (speed +0,10 m e módulo +0,58 m). */
 function armExtraM() {
-  return state.secondGripper ? OPTIONS.secondGripperLengthM : 0;
+  return state.secondGripper ? secondGripperExtraLengthM() : 0;
 }
 function round2(value) {
   return Math.round(value * 100) / 100;
@@ -2652,7 +2665,7 @@ function createViewer(canvas) {
     const faces = [];
     const samOn = Boolean(model.samOn);
     const hasExt = model.gripper2 && L - Lt > 0.01;
-    const dStart = LENGTH_INCLUDED.manualLoadingM + LENGTH_INCLUDED.speedOptionM + 0.04;
+    const dStart = LENGTH_INCLUDED.manualLoadingM + speedLengthM(model.gripper2) + 0.04;
     const rackTop = H - fh - 0.06;
     /* Estantes rolantes transversais: cruzam a largura e abrem um vão. O mastro entra nesse vão; a esteira fica no alto, junto ao trilho. */
     const shelfX0 = x0 + 0.08;
@@ -3263,13 +3276,17 @@ function createViewer(canvas) {
     const bandX0 = xs - 0.3;
     const bandX1 = xs - 0.12;
     const manualEnd = LENGTH_INCLUDED.manualLoadingM;
-    const speedEnd = manualEnd + LENGTH_INCLUDED.speedOptionM;
+    const speedLen = speedLengthM(model.gripper2);
+    const speedEnd = manualEnd + speedLen;
+    const coreEnd = speedEnd + (d.Lt - LENGTH_INCLUDED.manualLoadingM - LENGTH_INCLUDED.speedOptionM);
+    const speedLabel = t('seg.speed', `+${formatMeters(speedLen)} speed`, { m: formatMeters(speedLen) });
+    const armLabel = t('seg.arm', `+${formatMeters(OPTIONS.secondGripperLengthM)} 2º braço`, { m: formatMeters(OPTIONS.secondGripperLengthM) });
     const segments = [
       { from: 0, to: manualEnd, color: COLORS.manual, label: t('seg.manual', '+0,15 m carga manual') },
-      { from: manualEnd, to: speedEnd, color: COLORS.speed, label: t('seg.speed', '+0,17 m speed') },
-      { from: speedEnd, to: d.Lt, color: theme, label: t('seg.core', `núcleo ${model.labels.core}`, { length: model.labels.core }) },
+      { from: manualEnd, to: speedEnd, color: COLORS.speed, label: speedLabel },
+      { from: speedEnd, to: coreEnd, color: theme, label: t('seg.core', `núcleo ${model.labels.core}`, { length: model.labels.core }) },
       ];
-    if (model.gripper2 && d.L - d.Lt > 0.01) segments.push({ from: d.Lt, to: d.L, color: COLORS.grip, label: t('seg.arm', '+0,68 m 2º braço') });
+    if (model.gripper2 && d.L - coreEnd > 0.01) segments.push({ from: coreEnd, to: d.L, color: COLORS.grip, label: armLabel });
     for (const segment of segments) {
       paintPoly(quadFloor(mx(bandX0), mx(bandX1), segment.from + 0.005, segment.to - 0.005, 0.007), segment.color, 0.92, null);
     }

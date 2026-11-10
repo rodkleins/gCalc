@@ -190,14 +190,29 @@ export const PRICE_BUILD_UP = {
 export const LENGTH_INCLUDED = {
   manualLoadingM: 0.15,
   speedOptionM: 0.17,
+  /** Com o 2º braço a faixa speed passa de 0,17 m para 0,27 m (Gollmann / Michael, 11/2026). A speed não é opcional: já entra em toda célula da tabela. */
+  speedOptionWithSecondGripperM: 0.27,
 };
 
 /** Slide 5. A esteira é "sob consulta": o valor é digitado. */
 export const OPTIONS = {
   secondGripperEur: 14000,
-  secondGripperLengthM: 0.68,
+  /** Comprimento do módulo do 2º braço, quando marcado. Antes era 0,68 m; com a speed em 0,27 m o módulo fica 0,58 m. */
+  secondGripperLengthM: 0.58,
   coolingEur: 8000,
 };
+
+/** Comprimento da faixa speed: 0,17 m no padrão da tabela, 0,27 m com o 2º braço. */
+export function speedLengthM(secondGripper) {
+  return secondGripper ? LENGTH_INCLUDED.speedOptionWithSecondGripperM : LENGTH_INCLUDED.speedOptionM;
+}
+
+/** Acréscimo sobre o comprimento de tabela com o 2º braço: (0,27 − 0,17) + 0,58 = 0,68 m. O total não muda. */
+export function secondGripperExtraLengthM() {
+  return roundM(
+    LENGTH_INCLUDED.speedOptionWithSecondGripperM - LENGTH_INCLUDED.speedOptionM + OPTIONS.secondGripperLengthM,
+  );
+}
 
 /** Slide 10: faixa pela contagem acumulada dos 5 anos, todas as farmácias DPSP juntas. */
 export const VOLUME_TIERS = [
@@ -401,7 +416,7 @@ export function classOf(classId) {
 /**
  * Classe recomendada ao crescer altura ou largura mantendo o comprimento: a maior classe cuja célula da
  * tabela em (altura, largura) tem comprimento <= maxLengthM. Só valores da tabela; células "–" ficam de fora.
- * extraLengthM soma o que não está na tabela (2º braço, +0,68 m), para comparar comprimento total com total.
+ * extraLengthM soma o que não está na tabela (2º braço: +0,10 m de speed e +0,58 m do módulo, no total +0,68 m), para comparar comprimento total com total.
  */
 export function recommendClass(heightM, widthSam, maxLengthM, extraLengthM = 0) {
   let best = null;
@@ -665,10 +680,12 @@ export function quoteRobot(config, raw = {}) {
   const discountEur = roundMoney(orderEur * (discountPct / 100));
   const netOrderEur = roundMoney(orderEur - discountEur);
   const localServicesBrl = roundMoney(options.localServicesBrl);
-  const extraLengthM = options.secondGripper ? OPTIONS.secondGripperLengthM : 0;
+  const extraLengthM = options.secondGripper ? secondGripperExtraLengthM() : 0;
   const tableLengthM = config.lengthM;
   const totalLengthM = roundM(tableLengthM + extraLengthM);
   const coreLengthM = roundM(tableLengthM - LENGTH_INCLUDED.manualLoadingM - LENGTH_INCLUDED.speedOptionM);
+  const speedOptionLengthM = speedLengthM(options.secondGripper);
+  const secondGripperLengthM = options.secondGripper ? OPTIONS.secondGripperLengthM : 0;
   const footprintM2 = Math.round(config.widthSam * totalLengthM * 10000) / 10000;
   return {
     config,
@@ -703,6 +720,8 @@ export function quoteRobot(config, raw = {}) {
     localServicesEurApprox: roundMoney(localServicesBrl / options.fxRate),
     tableLengthM,
     coreLengthM,
+    speedOptionLengthM,
+    secondGripperLengthM,
     extraLengthM,
     totalLengthM,
     footprintM2,
@@ -938,7 +957,7 @@ export const TIGHT_MARGIN_M = 0.1;
  */
 export function fitsRoom(config, raw = {}) {
   const input = sanitize({ ...raw, heightM: config.heightM, widthSam: config.widthSam, classId: config.classId });
-  const lengthM = roundM(config.lengthM + (input.secondGripper ? OPTIONS.secondGripperLengthM : 0));
+  const lengthM = roundM(config.lengthM + (input.secondGripper ? secondGripperExtraLengthM() : 0));
   const check = (dim, need, limit) => {
     if (limit == null) return { dim, need, limit, marginM: null, ok: true, status: 'free' };
     const marginM = roundM(limit - need);
@@ -1326,7 +1345,7 @@ function explainPt(result) {
     : `A combinação ${configLabel(selection.config)} existe na tabela de ${formatMeters(quote.heightM)}.`;
   const roomLines = result.roomFilterOn
     ? [
-        `Sala: pé-direito ${result.roomHeightM == null ? 'livre' : formatMeters(result.roomHeightM)}, largura ${result.roomWidthM == null ? 'livre' : formatMeters(result.roomWidthM)} medida como ${WIDTH_REF_LABELS[result.roomWidthRef]}, comprimento ${result.roomLengthM == null ? 'livre' : formatMeters(result.roomLengthM)}${quote.secondGripper ? ' (já com +0,68 m do 2º braço)' : ''}, capacidade mínima ${result.minCapacity == null ? 'livre' : formatPacks(result.minCapacity)}.`,
+        `Sala: pé-direito ${result.roomHeightM == null ? 'livre' : formatMeters(result.roomHeightM)}, largura ${result.roomWidthM == null ? 'livre' : formatMeters(result.roomWidthM)} medida como ${WIDTH_REF_LABELS[result.roomWidthRef]}, comprimento ${result.roomLengthM == null ? 'livre' : formatMeters(result.roomLengthM)}${quote.secondGripper ? ` (já com +${formatMeters(quote.extraLengthM)} do 2º braço)` : ''}, capacidade mínima ${result.minCapacity == null ? 'livre' : formatPacks(result.minCapacity)}.`,
         `Cabem ${formatFlex(space.count)} de ${formatFlex(space.total)} configurações.${space.cheapest ? ` Mais barata: ${configLabel(space.cheapest.config)}, ${eur(space.cheapest.orderEur)}.` : ''}${space.smallest ? ` Menor área: ${configLabel(space.smallest.config)}, ${formatFixed(space.smallest.footprintM2, 2)} m².` : ''}${space.largest ? ` Maior capacidade: ${configLabel(space.largest.config)}, ${formatPacks(space.largest.capacityPacks)}.` : ''}`,
         ...room.checks.map((item) =>
           item.limit == null
@@ -1353,7 +1372,7 @@ function explainPt(result) {
         changedText,
         `Classe ${formatMeters(quote.widthSam)}: compactadores no raster de ${formatMeters(quote.widthCompact)}. GO.compact ${formatMeters(quote.widthCompact)} sem SAM, ${formatMeters(quote.widthSam)} com SAM (+${formatMeters(SAM_PROTRUSION_M)}); GO.direct ${formatMeters(quote.widthDirect)} com ou sem SAM (área caminhável).`,
         `Linha selecionada: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'} ${result.samOn ? 'com SAM' : 'sem SAM'}, largura final ${formatMeters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. O preço permanece o da classe ${formatMeters(quote.widthSam)}: tipo e SAM mudam só a largura (Gollmann, 05/11/2026). A área e o volume exibidos usam a largura final.`,
-        `Comprimento da tabela ${formatMeters(quote.tableLengthM)} = núcleo de armazenagem ${formatMeters(quote.coreLengthM)} + ${formatMeters(LENGTH_INCLUDED.manualLoadingM)} da carga manual + ${formatMeters(LENGTH_INCLUDED.speedOptionM)} da opção speed.${quote.secondGripper ? ` Com o 2º braço: + ${formatMeters(OPTIONS.secondGripperLengthM)} = ${formatMeters(quote.totalLengthM)}.` : ''}`,
+        `Comprimento da tabela ${formatMeters(quote.tableLengthM)} = núcleo de armazenagem ${formatMeters(quote.coreLengthM)} + ${formatMeters(LENGTH_INCLUDED.manualLoadingM)} da carga manual + ${formatMeters(LENGTH_INCLUDED.speedOptionM)} da opção speed.${quote.secondGripper ? ` Com o 2º braço: a opção speed passa a ${formatMeters(quote.speedOptionLengthM)} e o módulo do 2º braço soma ${formatMeters(quote.secondGripperLengthM)}, no total + ${formatMeters(quote.extraLengthM)} = ${formatMeters(quote.totalLengthM)}.` : ''}`,
         `Área = ${formatMeters(quote.widthSam)} × ${formatMeters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2)} m². Volume = área × ${formatMeters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2)} m³. Capacidade garantida: ${formatPacks(quote.capacityPacks)} (classe ${cls.id}, aprox. ${formatPacks(cls.approxPacks)}).`,
       ],
     },
@@ -1428,7 +1447,7 @@ function explainEn(result) {
     : `The combination ${cfg(selection.config)} exists in the ${meters(quote.heightM)} table.`;
   const roomLines = result.roomFilterOn
     ? [
-        `Room: ceiling ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, width ${result.roomWidthM == null ? any : meters(result.roomWidthM)} measured as ${widthName}, length ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ' (already including +0.68 m for the 2nd arm)' : ''}, minimum capacity ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
+        `Room: ceiling ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, width ${result.roomWidthM == null ? any : meters(result.roomWidthM)} measured as ${widthName}, length ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ` (already including +${meters(quote.extraLengthM)} for the 2nd arm)` : ''}, minimum capacity ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
         `${flex(space.count, 0)} of ${flex(space.total, 0)} configurations fit.${space.cheapest ? ` Cheapest: ${cfg(space.cheapest.config)}, ${eur(space.cheapest.orderEur)}.` : ''}${space.smallest ? ` Smallest footprint: ${cfg(space.smallest.config)}, ${formatFixed(space.smallest.footprintM2, 2, loc)} m².` : ''}${space.largest ? ` Highest capacity: ${cfg(space.largest.config)}, ${packs(space.largest.capacityPacks)}.` : ''}`,
         ...room.checks.map((item) =>
           item.limit == null
@@ -1455,7 +1474,7 @@ function explainEn(result) {
         changedText,
         `Class ${meters(quote.widthSam)}: compactors on the ${meters(quote.widthCompact)} raster. GO.compact ${meters(quote.widthCompact)} without SAM, ${meters(quote.widthSam)} with SAM (+${meters(SAM_PROTRUSION_M)}); GO.direct ${meters(quote.widthDirect)} with or without SAM (walkable area).`,
         `Selected line: ${result.modelLine === 'direct' ? 'GO.direct' : 'GO.compact'} ${result.samOn ? 'with SAM' : 'without SAM'}, final width ${meters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. The price stays on class ${meters(quote.widthSam)}: type and SAM change only the width (Gollmann, 05/11/2026). The displayed area and volume use the final width.`,
-        `Table length ${meters(quote.tableLengthM)} = storage core ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} manual loading + ${meters(LENGTH_INCLUDED.speedOptionM)} speed option.${quote.secondGripper ? ` With the 2nd arm: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
+        `Table length ${meters(quote.tableLengthM)} = storage core ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} manual loading + ${meters(LENGTH_INCLUDED.speedOptionM)} speed option.${quote.secondGripper ? ` With the 2nd arm: the speed option becomes ${meters(quote.speedOptionLengthM)} and the 2nd-arm module adds ${meters(quote.secondGripperLengthM)}, in total + ${meters(quote.extraLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Area = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volume = area × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Guaranteed capacity: ${packs(quote.capacityPacks)} (class ${cls.id}, approx. ${packs(cls.approxPacks)}).`,
       ],
     },
@@ -1531,7 +1550,7 @@ function explainDe(result) {
     : `Die Kombination ${cfg(selection.config)} steht in der Tabelle ${meters(quote.heightM)}.`;
   const roomLines = result.roomFilterOn
     ? [
-        `Raum: Höhe ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, Breite ${result.roomWidthM == null ? any : meters(result.roomWidthM)} gemessen als ${widthName}, Länge ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ' (bereits mit +0,68 m für den 2. Greifer)' : ''}, Mindestkapazität ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
+        `Raum: Höhe ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, Breite ${result.roomWidthM == null ? any : meters(result.roomWidthM)} gemessen als ${widthName}, Länge ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ` (bereits mit +${meters(quote.extraLengthM)} für den 2. Greifer)` : ''}, Mindestkapazität ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
         `${flex(space.count, 0)} von ${flex(space.total, 0)} Konfigurationen passen.${space.cheapest ? ` Günstigste: ${cfg(space.cheapest.config)}, ${eur(space.cheapest.orderEur)}.` : ''}${space.smallest ? ` Kleinste Fläche: ${cfg(space.smallest.config)}, ${formatFixed(space.smallest.footprintM2, 2, loc)} m².` : ''}${space.largest ? ` Höchste Kapazität: ${cfg(space.largest.config)}, ${packs(space.largest.capacityPacks)}.` : ''}`,
         ...room.checks.map((item) =>
           item.limit == null
@@ -1558,7 +1577,7 @@ function explainDe(result) {
         changedText,
         `Klasse ${meters(quote.widthSam)}: Kompaktoren im Raster ${meters(quote.widthCompact)}. GO.compact ${meters(quote.widthCompact)} ohne SAM, ${meters(quote.widthSam)} mit SAM (+${meters(SAM_PROTRUSION_M)}); GO.direct ${meters(quote.widthDirect)} mit oder ohne SAM (begehbarer Bereich).`,
         `Gewählte Linie: ${line} ${result.samOn ? 'mit SAM' : 'ohne SAM'}, finale Breite ${meters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. Der Preis bleibt bei der Klasse ${meters(quote.widthSam)}: Typ und SAM ändern nur die Breite (Gollmann, 05.11.2026). Angezeigte Fläche und Volumen nutzen die finale Breite.`,
-        `Tabellenlänge ${meters(quote.tableLengthM)} = Lagerkern ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} Handbeladung + ${meters(LENGTH_INCLUDED.speedOptionM)} Speed-Option.${quote.secondGripper ? ` Mit dem 2. Greifer: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
+        `Tabellenlänge ${meters(quote.tableLengthM)} = Lagerkern ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} Handbeladung + ${meters(LENGTH_INCLUDED.speedOptionM)} Speed-Option.${quote.secondGripper ? ` Mit dem 2. Greifer: die Speed-Option wird ${meters(quote.speedOptionLengthM)} und das 2.-Greifer-Modul addiert ${meters(quote.secondGripperLengthM)}, insgesamt + ${meters(quote.extraLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Fläche = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volumen = Fläche × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Garantierte Kapazität: ${packs(quote.capacityPacks)} (Klasse ${cls.id}, ca. ${packs(cls.approxPacks)}).`,
       ],
     },
@@ -1634,7 +1653,7 @@ function explainEs(result) {
     : `La combinación ${cfg(selection.config)} existe en la tabla de ${meters(quote.heightM)}.`;
   const roomLines = result.roomFilterOn
     ? [
-        `Sala: altura libre ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, anchura ${result.roomWidthM == null ? any : meters(result.roomWidthM)} medida como ${widthName}, longitud ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ' (ya con +0,68 m del 2.º brazo)' : ''}, capacidad mínima ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
+        `Sala: altura libre ${result.roomHeightM == null ? any : meters(result.roomHeightM)}, anchura ${result.roomWidthM == null ? any : meters(result.roomWidthM)} medida como ${widthName}, longitud ${result.roomLengthM == null ? any : meters(result.roomLengthM)}${quote.secondGripper ? ` (ya con +${meters(quote.extraLengthM)} del 2.º brazo)` : ''}, capacidad mínima ${result.minCapacity == null ? any : packs(result.minCapacity)}.`,
         `${flex(space.count, 0)} de ${flex(space.total, 0)} configuraciones caben.${space.cheapest ? ` Más barata: ${cfg(space.cheapest.config)}, ${eur(space.cheapest.orderEur)}.` : ''}${space.smallest ? ` Menor superficie: ${cfg(space.smallest.config)}, ${formatFixed(space.smallest.footprintM2, 2, loc)} m².` : ''}${space.largest ? ` Mayor capacidad: ${cfg(space.largest.config)}, ${packs(space.largest.capacityPacks)}.` : ''}`,
         ...room.checks.map((item) =>
           item.limit == null
@@ -1661,7 +1680,7 @@ function explainEs(result) {
         changedText,
         `Clase ${meters(quote.widthSam)}: compactadores en el ráster de ${meters(quote.widthCompact)}. GO.compact ${meters(quote.widthCompact)} sin SAM, ${meters(quote.widthSam)} con SAM (+${meters(SAM_PROTRUSION_M)}); GO.direct ${meters(quote.widthDirect)} con o sin SAM (zona transitable).`,
         `Línea elegida: ${line} ${result.samOn ? 'con SAM' : 'sin SAM'}, anchura final ${meters(physicalWidthM(quote.widthSam, result.modelLine, result.samOn))}. El precio se queda en la clase ${meters(quote.widthSam)}: tipo y SAM solo cambian la anchura (Gollmann, 05/11/2026). La superficie y el volumen mostrados usan la anchura final.`,
-        `Longitud de tabla ${meters(quote.tableLengthM)} = núcleo de almacén ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} de carga manual + ${meters(LENGTH_INCLUDED.speedOptionM)} de la opción speed.${quote.secondGripper ? ` Con el 2.º brazo: + ${meters(OPTIONS.secondGripperLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
+        `Longitud de tabla ${meters(quote.tableLengthM)} = núcleo de almacén ${meters(quote.coreLengthM)} + ${meters(LENGTH_INCLUDED.manualLoadingM)} de carga manual + ${meters(LENGTH_INCLUDED.speedOptionM)} de la opción speed.${quote.secondGripper ? ` Con el 2.º brazo: la opción speed pasa a ${meters(quote.speedOptionLengthM)} y el módulo del 2.º brazo suma ${meters(quote.secondGripperLengthM)}, en total + ${meters(quote.extraLengthM)} = ${meters(quote.totalLengthM)}.` : ''}`,
         `Superficie = ${meters(quote.widthSam)} × ${meters(quote.totalLengthM)} = ${formatFixed(quote.footprintM2, 2, loc)} m². Volumen = superficie × ${meters(quote.heightM)} = ${formatFixed(quote.volumeM3, 2, loc)} m³. Capacidad garantizada: ${packs(quote.capacityPacks)} (clase ${cls.id}, aprox. ${packs(cls.approxPacks)}).`,
       ],
     },

@@ -32,6 +32,8 @@ import {
   formatPacks,
   fitsRoom,
   getConfig,
+  secondGripperExtraLengthM,
+  speedLengthM,
   recommendClass,
   classRank,
   maxHeightOf,
@@ -231,13 +233,21 @@ describe('composição do preço e exemplos dos slides 6 e 7', () => {
 describe('opcionais e serviços (slide 5)', () => {
   const config = cell(2.95, 3.2, 'L');
 
-  it('soma 14.000 e 0,68 m com o 2º braço, e a área cresce junto', () => {
+  it('soma 14.000 e 0,68 m no total com o 2º braço (speed +0,27 e módulo +0,58), e a área cresce junto', () => {
     const plain = quoteRobot(config, {});
     const grip = quoteRobot(config, { secondGripper: true });
     assert.equal(OPTIONS.secondGripperEur, 14000);
-    assert.equal(OPTIONS.secondGripperLengthM, 0.68);
+    assert.equal(OPTIONS.secondGripperLengthM, 0.58);
+    assert.equal(LENGTH_INCLUDED.speedOptionM, 0.17);
+    assert.equal(LENGTH_INCLUDED.speedOptionWithSecondGripperM, 0.27);
+    assert.equal(speedLengthM(false), 0.17);
+    assert.equal(speedLengthM(true), 0.27);
+    assert.equal(secondGripperExtraLengthM(), 0.68);
     assert.equal(grip.secondGripperEur, 14000);
     assert.equal(grip.orderEur - plain.orderEur, 14000);
+    assert.equal(grip.speedOptionLengthM, 0.27);
+    assert.equal(grip.secondGripperLengthM, 0.58);
+    assert.equal(plain.speedOptionLengthM, 0.17);
     assert.equal(grip.totalLengthM, 4.68);
     assert.equal(grip.tableLengthM, 4.0);
     assert.equal(grip.extraLengthM, 0.68);
@@ -246,6 +256,10 @@ describe('opcionais e serviços (slide 5)', () => {
     close(grip.volumeM3, 14.976 * 2.95, 4);
     const ex1 = quoteRobot(cell(2.95, 2.8, 'S'), { secondGripper: true });
     assert.equal(ex1.totalLengthM, 3.76);
+    // XXL 2,95 m × 2,80 m: tabela 5,92 m; com 2º braço continua 6,60 m.
+    const xxl = quoteRobot(cell(2.95, 2.8, 'XXL'), { secondGripper: true });
+    assert.equal(xxl.tableLengthM, 5.92);
+    assert.equal(xxl.totalLengthM, 6.6);
   });
 
   it('soma 8.000 da refrigeração e o valor digitado das esteiras', () => {
@@ -1265,5 +1279,29 @@ describe('esteira ≠ SAM (textos e legenda)', () => {
     assert.match(loc, /'legend\.belt': 'Oberes Förderband \(externe Ladenausgabe\)'/);
     assert.match(loc, /'legend\.belt': 'Cinta superior \(salida externa de la tienda\)'/);
     assert.match(page, /data-i18n="legend\.belt"/);
+  });
+});
+
+describe('card Classe e cotas do 2º braço', () => {
+  it('não mostra o card Classe na faixa de resultados; o seletor da barra lateral permanece', () => {
+    const app = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+    const page = readFileSync(new URL('../../public/interno/modelos/index.html', import.meta.url), 'utf8');
+    assert.doesNotMatch(app, /\[t\('pill\.class', 'Classe'\), formatMeters\(quote\.widthSam\)/);
+    assert.match(app, /t\('pill\.width', 'Largura final'\)/);
+    assert.match(app, /key: 'widthSam'/);
+    assert.match(app, /label: 'Classe \(largura final\)'/);
+  });
+  it('textos e 3D usam +0,27 m de speed e +0,58 m do 2º braço, com acréscimo total de 0,68 m', () => {
+    const app = readFileSync(new URL('../../public/interno/modelos/app.js', import.meta.url), 'utf8');
+    const en = readFileSync(new URL('../../public/interno/modelos/i18n.js', import.meta.url), 'utf8');
+    const loc = readFileSync(new URL('../../public/interno/modelos/i18n.locales.js', import.meta.url), 'utf8');
+    const page = readFileSync(new URL('../../public/interno/modelos/index.html', import.meta.url), 'utf8');
+    assert.match(app, /speedLengthM\(model\.gripper2\)/);
+    assert.match(app, /secondGripperExtraLengthM\(\)/);
+    assert.match(en, /speed goes from \+0\.17 m to \+0\.27 m and the 2nd-arm module is \+0\.58 m/);
+    assert.match(loc, /Speed von \+0,17 m auf \+0,27 m erhöht und das 2\.-Greifer-Modul misst \+0,58 m/);
+    assert.match(loc, /el speed pasa de \+0,17 m a \+0,27 m y el módulo del 2\.º brazo es \+0,58 m/);
+    assert.match(page, /a speed passa de \+0,17 m para \+0,27 m e o módulo do 2º braço fica \+0,58 m/);
+    assert.match(en, /'field\.secondGripper\.check': '2nd arm \/ gripper with 2nd SAM \(\+€14,000 and \+\{m\}\)'/);
   });
 });
