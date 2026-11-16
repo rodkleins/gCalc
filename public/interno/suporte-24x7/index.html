@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="description"
+      content="Calculadora interna de custo e preço do Suporte 24x7 (sobreaviso). Uso interno, fora de índice."
+    />
+    <meta name="theme-color" content="#09070D" />
+    <title>Suporte 24x7 (interno)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237C1BD8'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-size='11' fill='%23F5F2FA' font-family='sans-serif' font-weight='700'%3E24%3C/text%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;700&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#resultados">Ir para o resultado</a>
+    <header class="site-header wrap">
+      <div class="brand">
+        <img src="./t2-logo.png" alt="T2 Software" class="logo-t2" width="720" height="115" />
+      </div>
+      <div class="header-copy">
+        <p class="kicker">Uso interno · não indexar</p>
+        <h1>Custo e preço do Suporte 24x7</h1>
+        <p class="lede">
+          Sobreaviso e acionamentos de quem fica de plantão, com encargos, e o preço sugerido a partir da margem.
+          O cálculo assume que essa pessoa já está na folha da T2: uma contratação dedicada somaria o salário inteiro.
+        </p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="toggle-params" class="ghost" aria-expanded="true" aria-controls="params">Dados</button>
+        <button type="button" id="print">Imprimir</button>
+        <button type="button" id="reset" class="ghost">Restaurar padrões</button>
+      </div>
+    </header>
+
+    <div class="workspace wrap" id="workspace">
+      <div class="backdrop" id="backdrop" hidden></div>
+      <aside class="params" id="params">
+        <form id="form" autocomplete="off">
+          <section class="card">
+            <h2>1 · Plano</h2>
+            <p class="hint">O plano aparece no resumo da proposta. Não muda a conta: valem as horas de acionamento que você digitar.</p>
+            <div class="choice" role="radiogroup" aria-label="Plano">
+              <label><input type="radio" name="plan" value="p1" /> Só P1</label>
+              <label><input type="radio" name="plan" value="p1p2" checked /> P1+P2</label>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>2 · Remuneração</h2>
+            <label class="field">
+              <span>Salário de quem fica de plantão (R$/mês)</span>
+              <input id="salary" inputmode="decimal" value="10.000" />
+            </label>
+            <p class="hint">Use o recurso mais caro.</p>
+            <label class="field">
+              <span>Fator de encargos</span>
+              <input id="charges" inputmode="decimal" value="2" />
+            </label>
+            <label class="field">
+              <span>Divisor de horas mensais CLT</span>
+              <input id="hourDivisor" inputmode="decimal" value="220" />
+            </label>
+          </section>
+
+          <section class="card">
+            <h2>3 · Expediente</h2>
+            <label class="field">
+              <span>Horas no mês (24 h × dias)</span>
+              <input id="monthHours" inputmode="decimal" value="720" />
+            </label>
+            <label class="field">
+              <span>Dias úteis por mês</span>
+              <input id="workdays" inputmode="decimal" value="22" />
+            </label>
+            <label class="field">
+              <span>Horas por dia no expediente</span>
+              <input id="hoursPerDay" inputmode="decimal" value="8,5" />
+            </label>
+            <p class="formula" id="hours-formula"></p>
+            <label class="field">
+              <span>Fração do sobreaviso (da hora normal)</span>
+              <input id="standbyFraction" inputmode="decimal" value="1/3" />
+            </label>
+          </section>
+
+          <section class="card">
+            <h2>4 · Acionamentos por mês</h2>
+            <p class="warn" role="status">10 h é suposição, ainda sem dados do Jira</p>
+            <label class="field">
+              <span>Horas em dia útil</span>
+              <input id="weekdayHours" inputmode="decimal" value="10" />
+            </label>
+            <label class="field">
+              <span>Horas em domingo ou feriado</span>
+              <input id="sundayHours" inputmode="decimal" value="0" />
+            </label>
+            <label class="field">
+              <span>Horas noturnas (22h–5h)</span>
+              <input id="nightHours" inputmode="decimal" value="0" />
+            </label>
+            <p class="hint">O adicional noturno é +20% sobre a hora do acionamento.</p>
+            <p class="hint">Base do noturno</p>
+            <div class="choice" role="radiogroup" aria-label="Base do adicional noturno">
+              <label><input type="radio" name="nightBase" value="weekday" checked /> Dia útil</label>
+              <label><input type="radio" name="nightBase" value="sunday" /> Domingo ou feriado</label>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>5 · Escala</h2>
+            <label class="field">
+              <span>Pessoas na escala</span>
+              <select id="people">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+            <p class="hint">O custo de RH não muda. A escala só reparte horas e custo por pessoa.</p>
+          </section>
+
+          <section class="card">
+            <h2>6 · Preço e outros custos</h2>
+            <label class="field">
+              <span>Margem (%)</span>
+              <input id="marginPct" inputmode="decimal" placeholder="sem padrão — informe para obter o preço" />
+            </label>
+            <label class="field">
+              <span>Horas incluídas na mensalidade</span>
+              <input id="includedHours" inputmode="decimal" placeholder="sem padrão" />
+            </label>
+            <label class="field">
+              <span>Preço da hora excedente (R$)</span>
+              <input id="extraHourPrice" inputmode="decimal" placeholder="sem padrão" />
+            </label>
+            <p class="hint" id="extra-hint"></p>
+            <label class="field">
+              <span>Ferramentas e outros custos (R$/mês)</span>
+              <input id="toolsCost" inputmode="decimal" value="0" />
+            </label>
+            <p class="hint">Opcional, padrão zero. Entra no custo total antes da margem, fora do RH.</p>
+          </section>
+        </form>
+      </aside>
+
+      <main class="stage" id="resultados" aria-label="Resultado">
+        <section class="card" aria-labelledby="prio-title">
+          <h2 id="prio-title">Prioridades</h2>
+          <ul class="prio-legend" id="prio-legend">
+            <li><strong>P1 crítico</strong> — produção parada ou liberação de lote bloqueada, sem contorno.</li>
+            <li><strong>P2 alto</strong> — impacto sério, com contorno.</li>
+            <li><strong>P3 médio</strong> e <strong>P4 baixo</strong> — esperam o próximo dia útil.</li>
+          </ul>
+        </section>
+
+        <section class="card hero-card">
+          <div class="hero-top">
+            <p class="kicker" id="plan-kicker">Proposta · P1+P2</p>
+            <h2>Resultado mensal</h2>
+          </div>
+          <div class="kpis" id="kpis" aria-live="polite"></div>
+        </section>
+
+        <section class="card">
+          <h2>Horas e taxas</h2>
+          <p class="formula" id="rates-formula"></p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th class="num">Horas</th>
+                  <th class="num">Sem encargos</th>
+                  <th class="num">Com encargos</th>
+                </tr>
+              </thead>
+              <tbody id="breakdown"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card" id="people-card">
+          <h2>Distribuição por pessoa</h2>
+          <p class="hint" id="people-note"></p>
+          <div class="people" id="people-grid"></div>
+        </section>
+
+        <section class="card" id="proposal-card">
+          <h2>Proposta</h2>
+          <div id="proposal"></div>
+        </section>
+
+        <section class="card" id="memory-card">
+          <div class="results-head">
+            <h2>Memória de cálculo</h2>
+          </div>
+          <div id="memory" class="memory"></div>
+        </section>
+
+        <section class="card">
+          <h2>Observações</h2>
+          <ul id="assumptions">
+            <li>O cálculo assume que quem fica de plantão já está na folha da T2. Uma contratação dedicada somaria o salário inteiro.</li>
+            <li>Ferramentas e outros custos ficam fora do RH, no campo opcional, e entram no total antes da margem.</li>
+            <li>P3 e P4 esperam o próximo dia útil; o sobreaviso cobre P1 e, no plano P1+P2, também P2.</li>
+            <li>Não inventamos outros números. As 10 h de acionamento são uma suposição, ainda sem dados do Jira.</li>
+          </ul>
+          <p class="disclaimer" id="disclaimer"></p>
+          <p class="print-only" id="print-date"></p>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
